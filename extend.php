@@ -1,7 +1,14 @@
 <?php
 
+use Ernestdefoe\SocialGroups\Api\Controller\Discussion\CreateGroupDiscussionController;
+use Ernestdefoe\SocialGroups\Api\Controller\Discussion\DeleteGroupDiscussionController;
+use Ernestdefoe\SocialGroups\Api\Controller\Discussion\ListGroupDiscussionsController;
 use Ernestdefoe\SocialGroups\Api\Controller\JoinGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\LeaveGroupController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\CreateGroupPostController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\DeleteGroupPostController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\ListGroupPostsController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\UpdateGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\SetPrimaryGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\UploadGroupImageController;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupResource;
@@ -19,6 +26,7 @@ return [
         ->css(__DIR__ . '/less/forum.less')
         ->route('/groups', 'ernestdefoe-social-groups.index')
         ->route('/groups/:slug', 'ernestdefoe-social-groups.show')
+        ->route('/groups/:slug/d/:discussionId', 'ernestdefoe-social-groups.discussion')
         ->content(function (Document $document) {
             /** @var \Flarum\User\User $actor */
             $actor = resolve('flarum.actor');
@@ -32,11 +40,21 @@ return [
     new Extend\Locales(__DIR__ . '/locale'),
 
     (new Extend\Routes('api'))
+        // Groups
         ->post('/social-groups/{id}/join',    'social-groups.join',          JoinGroupController::class)
         ->delete('/social-groups/{id}/join',  'social-groups.leave',         LeaveGroupController::class)
         ->post('/social-groups/{id}/image',   'social-groups.upload-image',  UploadGroupImageController::class)
         ->post('/social-groups/{id}/banner',  'social-groups.upload-banner', UploadGroupImageController::class)
-        ->post('/social-groups/primary',      'social-groups.set-primary',   SetPrimaryGroupController::class),
+        ->post('/social-groups/primary',      'social-groups.set-primary',   SetPrimaryGroupController::class)
+        // Discussions
+        ->get('/sg-discussions/{groupId}',           'sg-discussions.list',   ListGroupDiscussionsController::class)
+        ->post('/sg-discussions',                    'sg-discussions.create', CreateGroupDiscussionController::class)
+        ->delete('/sg-discussions/{discussionId}',   'sg-discussions.delete', DeleteGroupDiscussionController::class)
+        // Posts
+        ->get('/sg-posts/{discussionId}',    'sg-posts.list',   ListGroupPostsController::class)
+        ->post('/sg-posts',                  'sg-posts.create', CreateGroupPostController::class)
+        ->patch('/sg-posts/{postId}',        'sg-posts.update', UpdateGroupPostController::class)
+        ->delete('/sg-posts/{postId}',       'sg-posts.delete', DeleteGroupPostController::class),
 
     (new Extend\ApiResource(SocialGroupResource::class)),
 

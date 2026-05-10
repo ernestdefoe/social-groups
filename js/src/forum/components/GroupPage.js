@@ -1,15 +1,17 @@
+import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import GroupHero from './GroupHero';
+import GroupDiscussionList from './GroupDiscussionList';
 import MemberList from './MemberList';
 import EditGroupModal from './EditGroupModal';
 
 export default class GroupPage extends Page {
   oninit(vnode) {
     super.oninit(vnode);
-    this.group = null;
+    this.group   = null;
     this.loading = true;
-    this.error = null;
+    this.error   = null;
   }
 
   oncreate(vnode) {
@@ -18,98 +20,113 @@ export default class GroupPage extends Page {
   }
 
   onupdate(vnode) {
-    // Re-load if slug changes (navigation between groups)
-    if (vnode.attrs.slug !== this.currentSlug) {
-      this.group = null;
+    if (vnode.attrs.slug !== this.attrs.slug) {
+      this.group   = null;
       this.loading = true;
+      this.error   = null;
       this.loadGroup(vnode.attrs.slug);
     }
   }
 
   loadGroup(slug) {
-    this.currentSlug = slug;
-
     app.store
-      .find('social-groups', { filter: { slug }, include: 'user', 'page[limit]': 1 })
-      .then((results) => {
-        const groups = Array.isArray(results) ? results : [results];
-        const group = groups.find((g) => g.slug() === slug) || groups[0];
-
-        if (!group) {
-          this.error = 'Group not found.';
-          this.loading = false;
-          m.redraw();
-          return;
-        }
-
-        document.title = `${group.name()} — ${app.forum.attribute('title')}`;
-        this.group = group;
+      .find('social-groups', {
+        filter: { slug },
+        include: 'user',
+        'page[limit]': 1,
+      })
+      .then((groups) => {
+        const group  = groups[0] || null;
+        this.group   = group;
         this.loading = false;
+        if (group) {
+          document.title = `${group.name()} — ${app.forum.attribute('title')}`;
+        }
         m.redraw();
       })
-      .catch((err) => {
-        this.error = err?.message || 'Failed to load group.';
+      .catch(() => {
+        this.error   = 'Failed to load group.';
         this.loading = false;
+        m.redraw();
+      });
+  }
+
+  join() {
+    if (!this.group) return;
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${this.group.id()}/join`, {
+      method:  'POST',
+      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        this.group.pushData({ attributes: { isMember: true, memberCount: data.memberCount } });
+        m.redraw();
+      });
+  }
+
+  leave() {
+    if (!this.group) return;
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${this.group.id()}/join`, {
+      method:  'DELETE',
+      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        this.group.pushData({ attributes: { isMember: false, memberCount: data.memberCount } });
         m.redraw();
       });
   }
 
   view() {
     if (this.loading) {
-      return m('div.GroupPage', [
-        m('div.GroupPage-loading', [m(LoadingIndicator, { display: 'block' })]),
-      ]);
+      return m('.GroupPage', m('.GroupPage-loading', m(LoadingIndicator, { display: 'block' })));
     }
 
     if (this.error || !this.group) {
-      return m('div.GroupPage', [
-        m('div.container', [
-          m('div.GroupPage-error', [
-            m('i.fas.fa-exclamation-triangle'),
-            m('p', this.error || 'Group not found.'),
-            m(
-              'a',
-              { href: app.route('ernestdefoe-social-groups.index'), onclick: (e) => { e.preventDefault(); m.route.set(app.route('ernestdefoe-social-groups.index')); } },
-              '← Back to groups'
-            ),
-          ]),
-        ]),
-      ]);
+      return m('.GroupPage', m('.container', m('p.GroupPage-error', this.error || 'Group not found.')));
     }
 
-    const { group } = this;
-    const description = group.description();
+    const group    = this.group;
+    const isMember = group.isMember();
 
-    return m('div.GroupPage', [
-      // Hero section with banner, avatar, name, join/edit buttons
+    return m('.GroupPage', [
+      // Hero: banner + avatar + name + join/edit buttons
       m(GroupHero, {
         group,
-        onEdit: () =>
-          app.modal.show(EditGroupModal, {
-            group,
-            onSaved: () => m.redraw(),
-            onDeleted: () => {
-              m.route.set(app.route('ernestdefoe-social-groups.index'));
-            },
-          }),
-        onJoin: () => m.redraw(),
-        onLeave: () => m.redraw(),
+        onJoin:  () => this.join(),
+        onLeave: () => this.leave(),
+        onEdit:  () => app.modal.show(EditGroupModal, {
+          group,
+          onSaved: (updated) => { group.pushData({ attributes: updated }); m.redraw(); },
+        }),
       }),
 
-      // Body: description + sidebar
-      m('div.GroupPage-body', [
-        // Main content
-        m('div.GroupPage-content', [
-          m(
-            'div.GroupPage-description',
-            description
-              ? description
-              : m('em.GroupPage-noDescription', app.translator.trans('ernestdefoe-social-groups.forum.group.description_placeholder'))
-          ),
+      // Two-column body
+      m('.GroupPage-body', [
+        // Main column — discussion feed
+        m('.GroupPage-main', [
+          m(GroupDiscussionList, {
+            groupId:   group.id(),
+            groupSlug: group.slug(),
+            isMember,
+          }),
         ]),
 
-        // Sidebar with members
-        m('div.GroupPage-sidebar', [
+        // Sidebar — about + members
+        m('.GroupPage-sidebar', [
+          m('.GroupPage-aboutCard', [
+            m('.GroupPage-aboutCard-title',
+              app.translator.trans('ernestdefoe-social-groups.forum.group.about_title')),
+            group.description()
+              ? m('p.GroupPage-aboutCard-text', group.description())
+              : m('p.GroupPage-aboutCard-empty',
+                  app.translator.trans('ernestdefoe-social-groups.forum.group.description_placeholder')),
+            group.isPrivate()
+              ? m('.GroupPage-privateTag', [m('i.fas.fa-lock'), ' ',
+                  app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
+              : null,
+          ]),
+
           m(MemberList, { groupId: group.id() }),
         ]),
       ]),

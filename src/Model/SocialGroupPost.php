@@ -1,0 +1,35 @@
+<?php
+
+namespace Ernestdefoe\SocialGroups\Model;
+
+use Flarum\Database\AbstractModel;
+use Flarum\User\User;
+
+/**
+ * @property int    $id
+ * @property int    $discussion_id
+ * @property int    $group_id
+ * @property int    $user_id
+ * @property string $content
+ * @property \Carbon\Carbon $created_at
+ * @property \Carbon\Carbon $updated_at
+ */
+class SocialGroupPost extends AbstractModel
+{
+    protected $table = 'social_group_posts';
+
+    public function discussion()
+    {
+        return $this->belongsTo(SocialGroupDiscussion::class, 'discussion_id');
+    }
+
+    public function group()
+    {
+        return $this->belongsTo(SocialGroup::class, 'group_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+}
