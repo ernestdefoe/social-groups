@@ -1,6 +1,7 @@
 {
     "name": "ernestdefoe/social-groups",
     "description": "Social groups for Flarum 2 — members can create, join, and manage groups.",
+    "type": "flarum-extension",
     "keywords": ["flarum", "social", "groups", "community"],
     "homepage": "https://github.com/ernestdefoe/social-groups",
     "license": "MIT",
