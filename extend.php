@@ -24,7 +24,9 @@ use Flarum\Api\Resource\UserResource;
 use Flarum\Api\Schema;
 use Flarum\Extend;
 use Flarum\Frontend\Document;
+use Flarum\Http\RequestUtil;
 use Flarum\User\User;
+use Psr\Http\Message\ServerRequestInterface;
 
 return [
     (new Extend\Frontend('forum'))
@@ -33,10 +35,9 @@ return [
         ->route('/groups', 'ernestdefoe-social-groups.index')
         ->route('/groups/:slug', 'ernestdefoe-social-groups.show')
         ->route('/groups/:slug/d/:discussionId', 'ernestdefoe-social-groups.discussion')
-        ->content(function (Document $document) {
-            /** @var \Flarum\User\User $actor */
-            $actor = resolve('flarum.actor');
-            $document->payload['canCreateSocialGroup'] = $actor && $actor->can('ernestdefoe-social-groups.create');
+        ->content(function (Document $document, ServerRequestInterface $request) {
+            $actor = RequestUtil::getActor($request);
+            $document->payload['canCreateSocialGroup'] = $actor->can('ernestdefoe-social-groups.create');
         }),
 
     (new Extend\Frontend('admin'))
