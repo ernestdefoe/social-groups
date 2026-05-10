@@ -20,7 +20,12 @@ class DeleteGroupDiscussionController implements RequestHandlerInterface
         $discussionId = $request->getAttribute('discussionId');
         $discussion   = SocialGroupDiscussion::findOrFail($discussionId);
 
-        if ($actor->id !== $discussion->user_id && ! $actor->isAdmin()) {
+        $isModerator = $discussion->group->members()
+            ->where('user_id', $actor->id)
+            ->whereIn('role', ['creator', 'admin'])
+            ->exists();
+
+        if ($actor->id !== $discussion->user_id && ! $actor->isAdmin() && ! $isModerator) {
             return new JsonResponse(['error' => 'You cannot delete this discussion.'], 403);
         }
 

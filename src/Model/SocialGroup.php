@@ -27,6 +27,11 @@ class SocialGroup extends AbstractModel
         'is_private' => 'boolean',
     ];
 
+    public function joinRequests()
+    {
+        return $this->hasMany(SocialGroupJoinRequest::class, 'group_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'user_id');

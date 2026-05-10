@@ -21,7 +21,12 @@ class DeleteGroupPostController implements RequestHandlerInterface
         $postId = $request->getAttribute('postId');
         $post   = SocialGroupPost::findOrFail($postId);
 
-        if ($actor->id !== $post->user_id && ! $actor->isAdmin()) {
+        $isModerator = $post->group->members()
+            ->where('user_id', $actor->id)
+            ->whereIn('role', ['creator', 'admin'])
+            ->exists();
+
+        if ($actor->id !== $post->user_id && ! $actor->isAdmin() && ! $isModerator) {
             return new JsonResponse(['error' => 'You cannot delete this post.'], 403);
         }
 

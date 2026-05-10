@@ -7,8 +7,9 @@ const COLORS = ['#4A90E2', '#7b5ea7', '#e2574a', '#e2a24a', '#4ae28a', '#4ae2d4'
 export default class GroupCard extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.joining = false;
-    this.isMember = this.attrs.group.isMember();
+    this.joining   = false;
+    this.isMember  = this.attrs.group.isMember();
+    this.isPending = this.attrs.group.isPending();
     this.memberCount = this.attrs.group.memberCount();
   }
 
@@ -22,6 +23,7 @@ export default class GroupCard extends Component {
     const bannerUrl = group.bannerUrl();
     const initial = name.charAt(0).toUpperCase();
     const href = app.route('ernestdefoe-social-groups.show', { slug });
+    const isApproval = group.membershipType() === 'approval';
 
     return m(
       'div.GroupCard',
@@ -41,7 +43,6 @@ export default class GroupCard extends Component {
               : `background: linear-gradient(135deg, ${color}, ${this.darken(color)})`,
           },
           [
-            // Avatar
             m(
               'div.GroupCard-avatar',
               { style: imageUrl ? '' : `background: ${color}` },
@@ -57,6 +58,7 @@ export default class GroupCard extends Component {
             m('i.fas.fa-users'),
             m('span', ` ${this.memberCount} ${this.memberCount === 1 ? 'member' : 'members'}`),
             group.isPrivate() ? m('span.GroupCard-private', [m('i.fas.fa-lock'), ' Private']) : null,
+            isApproval ? m('span.GroupCard-approval', [m('i.fas.fa-user-check'), ' Approval']) : null,
           ]),
           description
             ? m('div.GroupCard-description', description)
@@ -68,20 +70,7 @@ export default class GroupCard extends Component {
               app.translator.trans('ernestdefoe-social-groups.forum.groups.view')
             ),
             app.session.user && !group.isCreator()
-              ? m(
-                  Button,
-                  {
-                    class: `GroupCard-joinBtn Button Button--${this.isMember ? 'default' : 'primary'}`,
-                    loading: this.joining,
-                    onclick: (e) => {
-                      e.stopPropagation();
-                      this.toggleMembership(group);
-                    },
-                  },
-                  this.isMember
-                    ? app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')
-                    : app.translator.trans('ernestdefoe-social-groups.forum.groups.join')
-                )
+              ? this.renderJoinButton(group, isApproval)
               : null,
           ]),
         ]),
@@ -89,7 +78,45 @@ export default class GroupCard extends Component {
     );
   }
 
-  toggleMembership(group) {
+  renderJoinButton(group, isApproval) {
+    if (this.isMember) {
+      return m(
+        Button,
+        {
+          class: 'GroupCard-joinBtn Button Button--default',
+          loading: this.joining,
+          onclick: (e) => { e.stopPropagation(); this.toggleMembership(group, isApproval); },
+        },
+        app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')
+      );
+    }
+
+    if (isApproval && this.isPending) {
+      return m(
+        Button,
+        {
+          class: 'GroupCard-joinBtn Button Button--default GroupCard-joinBtn--pending',
+          loading: this.joining,
+          onclick: (e) => { e.stopPropagation(); this.cancelRequest(group); },
+        },
+        [m('i.fas.fa-clock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.pending')]
+      );
+    }
+
+    return m(
+      Button,
+      {
+        class: 'GroupCard-joinBtn Button Button--primary',
+        loading: this.joining,
+        onclick: (e) => { e.stopPropagation(); this.toggleMembership(group, isApproval); },
+      },
+      isApproval
+        ? [m('i.fas.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]
+        : app.translator.trans('ernestdefoe-social-groups.forum.groups.join')
+    );
+  }
+
+  toggleMembership(group, isApproval) {
     if (this.joining) return;
     this.joining = true;
 
@@ -101,15 +128,39 @@ export default class GroupCard extends Component {
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken,
-        Authorization: `Token ${app.session.token}`,
       },
     })
       .then((res) => res.json())
       .then((data) => {
-        this.isMember = data.isMember;
-        this.memberCount = data.memberCount;
-        // Update the model's data so parent re-renders correctly
-        group.pushData({ attributes: { isMember: data.isMember, memberCount: data.memberCount } });
+        if (data.status === 'pending') {
+          this.isPending = true;
+          group.pushData({ attributes: { isPending: true } });
+        } else {
+          this.isMember  = data.isMember ?? !this.isMember;
+          this.isPending = false;
+          this.memberCount = data.memberCount ?? this.memberCount;
+          group.pushData({ attributes: { isMember: this.isMember, memberCount: this.memberCount, isPending: false } });
+        }
+        this.joining = false;
+        m.redraw();
+      })
+      .catch(() => {
+        this.joining = false;
+        m.redraw();
+      });
+  }
+
+  cancelRequest(group) {
+    if (this.joining) return;
+    this.joining = true;
+
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    })
+      .then(() => {
+        this.isPending = false;
+        group.pushData({ attributes: { isPending: false } });
         this.joining = false;
         m.redraw();
       })
@@ -120,7 +171,6 @@ export default class GroupCard extends Component {
   }
 
   darken(hex) {
-    // Simple darken by shifting to a complementary hue
     const map = {
       '#4A90E2': '#2c5f9e',
       '#7b5ea7': '#543d74',

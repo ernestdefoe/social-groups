@@ -49,6 +49,18 @@ export default class SocialGroup extends Model {
     return Model.attribute('isCreator')(this);
   }
 
+  membershipType() {
+    return Model.attribute('membershipType')(this) || 'open';
+  }
+
+  isPending() {
+    return Model.attribute('isPending')(this) || false;
+  }
+
+  pendingRequestCount() {
+    return Model.attribute('pendingRequestCount')(this) || 0;
+  }
+
   user() {
     return Model.hasOne('user')(this);
   }

@@ -8,6 +8,7 @@ use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
+use Illuminate\Database\Eloquent\Builder;
 
 class SocialGroupResource extends AbstractDatabaseResource
 {
@@ -25,7 +26,17 @@ class SocialGroupResource extends AbstractDatabaseResource
     {
         return [
             Endpoint\Index::make()
-                ->paginate(),
+                ->paginate()
+                ->scope(function (Builder $query, \Flarum\Api\Context $context) {
+                    $q = $context->getRequest()->getQueryParams()['filter']['q'] ?? null;
+                    if ($q) {
+                        $query->where(function ($sub) use ($q) {
+                            $sub->where('name', 'like', "%{$q}%")
+                                ->orWhere('description', 'like', "%{$q}%");
+                        });
+                    }
+                    $query->orderByDesc('member_count');
+                }),
 
             Endpoint\Show::make(),
 
@@ -103,6 +114,29 @@ class SocialGroupResource extends AbstractDatabaseResource
                     return $actor->id === $group->user_id;
                 }),
 
+            Schema\Str::make('membershipType')
+                ->get(fn ($g) => $g->membership_type ?? 'open')
+                ->writable()
+                ->nullable(),
+
+            Schema\Boolean::make('isPending')
+                ->get(function ($g, $req) {
+                    $actor = RequestUtil::getActor($req);
+                    if (! $actor->exists) {
+                        return false;
+                    }
+                    return $g->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->exists();
+                }),
+
+            Schema\Integer::make('pendingRequestCount')
+                ->get(function ($g, $req) {
+                    $actor = RequestUtil::getActor($req);
+                    if ($actor->id !== $g->user_id && ! $actor->isAdmin()) {
+                        return 0;
+                    }
+                    return $g->joinRequests()->where('status', 'pending')->count();
+                }),
+
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
                 ->includable(),
@@ -139,6 +173,23 @@ class SocialGroupResource extends AbstractDatabaseResource
             }
         }
 
+        if (isset($data['attributes']['membershipType'])) {
+            $data['attributes']['membership_type'] = $data['attributes']['membershipType'];
+            unset($data['attributes']['membershipType']);
+        }
+
         return $data;
+    }
+
+    public function scope(Builder $query, \Flarum\Api\Context $context): void
+    {
+        $q = $context->getRequest()->getQueryParams()['filter']['q'] ?? null;
+        if ($q) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('name', 'like', "%{$q}%")
+                    ->orWhere('description', 'like', "%{$q}%");
+            });
+        }
+        $query->orderByDesc('member_count');
     }
 }

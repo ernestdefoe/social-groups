@@ -12,6 +12,9 @@ ernestdefoe-social-groups:
       leave: Leave
       view: View
       private: Private
+      request_to_join: Request to Join
+      "pending": "Pending…"
+      cancel_request: Cancel Request
 
     create_modal:
       title: Create a Group
@@ -22,6 +25,9 @@ ernestdefoe-social-groups:
       color_label: Accent Color
       private_label: Private Group
       private_help: Private groups are only visible to members.
+      membership_type_label: Membership
+      membership_type_open: "Open — anyone can join instantly"
+      membership_type_approval: "Approval required — creator must approve each request"
       image_label: Group Image
       banner_label: Banner Image
       submit: Create Group
@@ -62,6 +68,16 @@ ernestdefoe-social-groups:
       delete_confirm: Are you sure you want to delete this group? This cannot be undone.
       members_section: Members
       description_placeholder: No description yet.
+      promote_member: Promote to Moderator
+      demote_member: Demote to Member
+      role_creator: Creator
+      role_admin: Moderator
+      remove_member: Remove
+
+    requests:
+      title: Join Requests
+      approve: Approve
+      reject: Reject
 
     settings:
       primary_group_label: Group Badge

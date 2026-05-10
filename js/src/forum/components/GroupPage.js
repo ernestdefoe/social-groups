@@ -4,6 +4,7 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import GroupHero from './GroupHero';
 import GroupDiscussionList from './GroupDiscussionList';
 import MemberList from './MemberList';
+import JoinRequestsPanel from './JoinRequestsPanel';
 import EditGroupModal from './EditGroupModal';
 
 export default class GroupPage extends Page {
@@ -51,32 +52,6 @@ export default class GroupPage extends Page {
       });
   }
 
-  join() {
-    if (!this.group) return;
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${this.group.id()}/join`, {
-      method:  'POST',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        this.group.pushData({ attributes: { isMember: true, memberCount: data.memberCount } });
-        m.redraw();
-      });
-  }
-
-  leave() {
-    if (!this.group) return;
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${this.group.id()}/join`, {
-      method:  'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        this.group.pushData({ attributes: { isMember: false, memberCount: data.memberCount } });
-        m.redraw();
-      });
-  }
-
   view() {
     if (this.loading) {
       return m('.GroupPage', m('.GroupPage-loading', m(LoadingIndicator, { display: 'block' })));
@@ -86,15 +61,18 @@ export default class GroupPage extends Page {
       return m('.GroupPage', m('.container', m('p.GroupPage-error', this.error || 'Group not found.')));
     }
 
-    const group    = this.group;
-    const isMember = group.isMember();
+    const group      = this.group;
+    const isMember   = group.isMember();
+    const isCreator  = group.isCreator();
+    const canEdit    = group.canEdit();
+    const isApproval = group.membershipType() === 'approval';
 
     return m('.GroupPage', [
       // Hero: banner + avatar + name + join/edit buttons
       m(GroupHero, {
         group,
-        onJoin:  () => this.join(),
-        onLeave: () => this.leave(),
+        onJoin:  () => m.redraw(),
+        onLeave: () => m.redraw(),
         onEdit:  () => app.modal.show(EditGroupModal, {
           group,
           onSaved: (updated) => { group.pushData({ attributes: updated }); m.redraw(); },
@@ -112,8 +90,19 @@ export default class GroupPage extends Page {
           }),
         ]),
 
-        // Sidebar — about + members
+        // Sidebar — join requests (approval) + about + members
         m('.GroupPage-sidebar', [
+          // Join requests panel — creator/admins only on approval groups
+          (isCreator || canEdit) && isApproval
+            ? m(JoinRequestsPanel, {
+                groupId:    group.id(),
+                onApproved: (memberCount) => {
+                  group.pushData({ attributes: { memberCount } });
+                  m.redraw();
+                },
+              })
+            : null,
+
           m('.GroupPage-aboutCard', [
             m('.GroupPage-aboutCard-title',
               app.translator.trans('ernestdefoe-social-groups.forum.group.about_title')),
@@ -125,9 +114,15 @@ export default class GroupPage extends Page {
               ? m('.GroupPage-privateTag', [m('i.fas.fa-lock'), ' ',
                   app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
               : null,
+            isApproval
+              ? m('.GroupPage-approvalTag', [m('i.fas.fa-user-check'), ' Approval required'])
+              : null,
           ]),
 
-          m(MemberList, { groupId: group.id() }),
+          m(MemberList, {
+            groupId:   group.id(),
+            isCreator,
+          }),
         ]),
       ]),
     ]);

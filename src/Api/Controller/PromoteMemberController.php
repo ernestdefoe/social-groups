@@ -1,0 +1,44 @@
+<?php
+
+namespace Ernestdefoe\SocialGroups\Api\Controller;
+
+use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Flarum\Http\RequestUtil;
+use Laminas\Diactoros\Response\JsonResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+class PromoteMemberController implements RequestHandlerInterface
+{
+    public function handle(ServerRequestInterface $request): ResponseInterface
+    {
+        $actor = RequestUtil::getActor($request);
+        $actor->assertRegistered();
+
+        $id     = $request->getAttribute('id');
+        $userId = $request->getAttribute('userId');
+
+        $group = SocialGroup::findOrFail($id);
+
+        // Only the group creator can promote members
+        $actorMembership = $group->members()->where('user_id', $actor->id)->first();
+        if (! $actorMembership || $actorMembership->role !== 'creator') {
+            return new JsonResponse(['error' => 'Only the group creator can promote members'], 403);
+        }
+
+        $targetMembership = $group->members()->where('user_id', $userId)->first();
+        if (! $targetMembership) {
+            return new JsonResponse(['error' => 'User is not a member of this group'], 404);
+        }
+
+        if ($targetMembership->role === 'creator') {
+            return new JsonResponse(['error' => 'Cannot promote another creator'], 422);
+        }
+
+        $targetMembership->role = 'admin';
+        $targetMembership->save();
+
+        return new JsonResponse(['role' => 'admin']);
+    }
+}

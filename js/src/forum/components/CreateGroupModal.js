@@ -12,8 +12,9 @@ export default class CreateGroupModal extends Modal {
     this.name = Stream('');
     this.description = Stream('');
     this.color = Stream(PRESET_COLORS[0]);
-    this.isPrivate = Stream(false);
-    this.submitting = false;
+    this.isPrivate      = Stream(false);
+    this.membershipType = Stream('open');
+    this.submitting     = false;
     this.errors = {};
 
     // Refs to image upload buttons for deferred upload
@@ -88,6 +89,29 @@ export default class CreateGroupModal extends Modal {
         m('p.helpText', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_help')),
       ]),
 
+      // Membership type
+      m('div.Form-group', [
+        m('label', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_label')),
+        m('div.GroupModal-membershipType', [
+          m('label.GroupModal-membershipOption', [
+            m('input', {
+              type: 'radio', name: 'membership_type', value: 'open',
+              checked: this.membershipType() === 'open',
+              onchange: () => this.membershipType('open'),
+            }),
+            m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_open')),
+          ]),
+          m('label.GroupModal-membershipOption', [
+            m('input', {
+              type: 'radio', name: 'membership_type', value: 'approval',
+              checked: this.membershipType() === 'approval',
+              onchange: () => this.membershipType('approval'),
+            }),
+            m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_approval')),
+          ]),
+        ]),
+      ]),
+
       // Image uploads
       m('div.Form-group', [
         m('label', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.image_label')),
@@ -158,9 +182,10 @@ export default class CreateGroupModal extends Modal {
       .createRecord('social-groups')
       .save({
         name,
-        description: this.description().trim() || null,
-        color: this.color(),
-        isPrivate: this.isPrivate(),
+        description:    this.description().trim() || null,
+        color:          this.color(),
+        isPrivate:      this.isPrivate(),
+        membershipType: this.membershipType(),
       })
       .then((group) => {
         // Upload pending images after the group is created

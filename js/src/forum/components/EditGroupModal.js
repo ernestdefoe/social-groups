@@ -11,11 +11,12 @@ export default class EditGroupModal extends Modal {
     super.oninit(vnode);
     const { group } = this.attrs;
 
-    this.name = Stream(group.name() || '');
-    this.description = Stream(group.description() || '');
-    this.color = Stream(group.color() || PRESET_COLORS[0]);
-    this.isPrivate = Stream(group.isPrivate() || false);
-    this.submitting = false;
+    this.name           = Stream(group.name() || '');
+    this.description    = Stream(group.description() || '');
+    this.color          = Stream(group.color() || PRESET_COLORS[0]);
+    this.isPrivate      = Stream(group.isPrivate() || false);
+    this.membershipType = Stream(group.membershipType() || 'open');
+    this.submitting     = false;
     this.errors = {};
     this.deleting = false;
 
@@ -84,6 +85,29 @@ export default class EditGroupModal extends Modal {
           onchange: (val) => this.isPrivate(val),
         }, app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_label')),
         m('p.helpText', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_help')),
+      ]),
+
+      // Membership type
+      m('div.Form-group', [
+        m('label', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_label')),
+        m('div.GroupModal-membershipType', [
+          m('label.GroupModal-membershipOption', [
+            m('input', {
+              type: 'radio', name: 'edit_membership_type', value: 'open',
+              checked: this.membershipType() === 'open',
+              onchange: () => this.membershipType('open'),
+            }),
+            m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_open')),
+          ]),
+          m('label.GroupModal-membershipOption', [
+            m('input', {
+              type: 'radio', name: 'edit_membership_type', value: 'approval',
+              checked: this.membershipType() === 'approval',
+              onchange: () => this.membershipType('approval'),
+            }),
+            m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_approval')),
+          ]),
+        ]),
       ]),
 
       // Image uploads
@@ -159,9 +183,10 @@ export default class EditGroupModal extends Modal {
     group
       .save({
         name,
-        description: this.description().trim() || null,
-        color: this.color(),
-        isPrivate: this.isPrivate(),
+        description:    this.description().trim() || null,
+        color:          this.color(),
+        isPrivate:      this.isPrivate(),
+        membershipType: this.membershipType(),
       })
       .then(() => {
         this.submitting = false;

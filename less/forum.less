@@ -1,16 +1,20 @@
 // ============================================================
 // Social Groups — Forum Styles
-// Flarum 2 design system compatible
+// Flarum 2 · Avocado-theme compatible
+// Uses CSS custom properties throughout so the accent colour
+// always follows the active theme's --primary-color.
 // ============================================================
 
-// Variables
-@sg-primary:      #4A90E2;
-@sg-secondary:    #7b5ea7;
+// LESS-only constants (geometry, shadows, transitions)
 @sg-radius:       12px;
 @sg-radius-sm:    8px;
 @sg-shadow:       0 2px 12px rgba(0, 0, 0, 0.08);
 @sg-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
 @sg-transition:   0.15s ease;
+
+// Hardcoded fallback for gradient / LESS fade() — matches default blue
+@sg-primary-hex:   #4A90E2;
+@sg-secondary-hex: #7b5ea7;
 
 // ============================================================
 // Group Badge (shown on posts)
@@ -23,7 +27,7 @@
   margin-top: 5px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--sg-badge-color, @sg-primary);
+  background: var(--sg-badge-color, var(--primary-color, @sg-primary-hex));
   color: #fff !important;
   font-size: 11px;
   font-weight: 600;
@@ -91,13 +95,13 @@
     }
 
     &.active {
-      border-color: @sg-primary;
-      background: fade(@sg-primary, 8%);
+      border-color: var(--primary-color, @sg-primary-hex);
+      background: rgba(74, 144, 226, 0.08);
     }
 
     input[type=radio] {
       cursor: pointer;
-      accent-color: @sg-primary;
+      accent-color: var(--primary-color, @sg-primary-hex);
     }
   }
 
@@ -181,8 +185,8 @@
     transition: border-color @sg-transition, box-shadow @sg-transition;
 
     &:focus {
-      border-color: @sg-primary;
-      box-shadow: 0 0 0 3px fade(@sg-primary, 15%);
+      border-color: var(--primary-color, @sg-primary-hex);
+      box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
     }
 
     &::placeholder {
@@ -257,7 +261,7 @@
 
   &-banner {
     height: 120px;
-    background: linear-gradient(135deg, @sg-primary, @sg-secondary);
+    background: linear-gradient(135deg, @sg-primary-hex, @sg-secondary-hex);
     background-size: cover;
     background-position: center;
     position: relative;
@@ -272,7 +276,7 @@
     height: 56px;
     border-radius: @sg-radius-sm + 2px;
     border: 3px solid var(--body-bg);
-    background: @sg-primary;
+    background: var(--primary-color, @sg-primary-hex);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -320,7 +324,8 @@
     }
   }
 
-  &-private {
+  &-private,
+  &-approval {
     background: var(--control-bg);
     padding: 1px 6px;
     border-radius: 4px;
@@ -359,7 +364,7 @@
   &-viewLink {
     font-size: 0.8rem;
     font-weight: 600;
-    color: @sg-primary;
+    color: var(--primary-color, @sg-primary-hex);
     text-decoration: none;
 
     &:hover { text-decoration: underline; }
@@ -372,6 +377,10 @@
     font-weight: 600 !important;
     transition: all @sg-transition !important;
     line-height: 1.4 !important;
+
+    &--pending {
+      opacity: 0.75;
+    }
   }
 }
 
@@ -384,7 +393,7 @@
 
   &-banner {
     height: 240px;
-    background: linear-gradient(135deg, @sg-primary, @sg-secondary);
+    background: linear-gradient(135deg, @sg-primary-hex, @sg-secondary-hex);
     background-size: cover;
     background-position: center;
     position: relative;
@@ -417,7 +426,7 @@
     height: 88px;
     border-radius: 18px;
     border: 4px solid var(--body-bg);
-    background: @sg-primary;
+    background: var(--primary-color, @sg-primary-hex);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -481,6 +490,10 @@
       white-space: nowrap;
     }
   }
+
+  &-pendingBtn {
+    opacity: 0.8;
+  }
 }
 
 // ============================================================
@@ -507,48 +520,74 @@
     }
 
     a {
-      color: @sg-primary;
+      color: var(--primary-color, @sg-primary-hex);
     }
   }
 
   &-body {
     display: grid;
     grid-template-columns: 1fr 280px;
-    gap: 2rem;
+    gap: 1.5rem;
     max-width: 1100px;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding: 1.5rem 2rem;
+    align-items: start;
   }
 
-  &-content {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  &-description {
-    background: var(--body-bg);
-    border-radius: @sg-radius;
-    padding: 1.5rem;
-    box-shadow: @sg-shadow;
-    font-size: 0.95rem;
-    line-height: 1.7;
-    min-height: 100px;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: var(--text-color);
-  }
-
-  &-noDescription {
-    color: var(--muted-color);
-    font-style: italic;
-  }
+  &-main { min-width: 0; }
 
   &-sidebar {
     display: flex;
     flex-direction: column;
     gap: 1rem;
   }
+
+  &-aboutCard {
+    background: var(--body-bg);
+    border-radius: @sg-radius;
+    padding: 1.25rem;
+    box-shadow: @sg-shadow;
+
+    &-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-color);
+      margin-bottom: 0.75rem;
+    }
+
+    &-text {
+      font-size: 0.9rem;
+      line-height: 1.65;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+
+    &-empty {
+      font-size: 0.85rem;
+      color: var(--muted-color);
+      font-style: italic;
+      margin: 0;
+    }
+  }
+
+  &-privateTag,
+  &-approvalTag {
+    margin-top: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: var(--muted-color);
+    background: var(--control-bg);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 4px;
+  }
+
+  &-loading { padding: 4rem; text-align: center; }
+  &-error   { padding: 2rem; color: var(--error-color, #e2574a); }
 }
 
 // ============================================================
@@ -583,35 +622,233 @@
     padding: 0.5rem 0;
   }
 
+  &-count {
+    font-size: 0.75rem;
+    color: var(--muted-color);
+    margin-top: 0.75rem;
+    text-align: right;
+  }
+
+  &-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  &-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 4px 2px;
+    border-radius: 6px;
+    transition: background @sg-transition;
+
+    &:hover { background: var(--control-bg); }
+  }
+
+  &-userLink {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+    color: inherit;
+
+    &:hover { color: var(--primary-color, @sg-primary-hex); text-decoration: none; }
+  }
+
+  &-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--control-bg);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  &-avatarInitial {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary-color, @sg-primary-hex);
+  }
+
+  &-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &-role {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0 5px;
+    border-radius: 3px;
+    line-height: 1.5;
+    margin-top: 1px;
+
+    &--creator {
+      background: rgba(74, 144, 226, 0.15);
+      color: var(--primary-color, @sg-primary-hex);
+    }
+
+    &--admin {
+      background: rgba(123, 94, 167, 0.15);
+      color: #7b5ea7;
+    }
+  }
+
+  &-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &-promoteBtn,
+  &-demoteBtn {
+    padding: 2px 6px !important;
+    font-size: 0.75rem !important;
+    min-height: unset !important;
+    line-height: 1 !important;
+  }
+
+  &-promoteBtn {
+    color: var(--primary-color, @sg-primary-hex) !important;
+  }
+
+  &-demoteBtn {
+    color: var(--muted-color) !important;
+  }
+
+  // Legacy grid layout (fallback for old renders)
   &-grid {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+}
 
-  &-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    overflow: hidden;
-    display: block;
-    flex-shrink: 0;
-    transition: transform @sg-transition;
+// ============================================================
+// Join Requests Panel
+// ============================================================
 
-    &:hover { transform: scale(1.1); }
+.SGJoinRequests {
+  background: var(--body-bg);
+  border-radius: @sg-radius;
+  padding: 1.25rem;
+  box-shadow: @sg-shadow;
+  border-left: 3px solid var(--primary-color, @sg-primary-hex);
 
-    .Avatar,
-    &Img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
   }
 
-  &-more {
+  &-title {
     font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--muted-color);
-    margin-top: 0.5rem;
+  }
+
+  &-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--primary-color, @sg-primary-hex);
+    color: #fff;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  &-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  &-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  &-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  &-avatarInitial {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--control-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--primary-color, @sg-primary-hex);
+    flex-shrink: 0;
+  }
+
+  &-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  &-approveBtn {
+    padding: 2px 8px !important;
+    font-size: 0.75rem !important;
+    min-height: unset !important;
+  }
+
+  &-rejectBtn {
+    padding: 2px 8px !important;
+    font-size: 0.75rem !important;
+    min-height: unset !important;
   }
 }
 
@@ -678,7 +915,7 @@
     &:hover { transform: scale(1.1); }
     &.active {
       border-color: var(--body-bg);
-      box-shadow: 0 0 0 2px var(--primary-color, @sg-primary), 0 1px 4px rgba(0,0,0,0.2);
+      box-shadow: 0 0 0 2px var(--primary-color, @sg-primary-hex), 0 1px 4px rgba(0,0,0,0.2);
     }
   }
 
@@ -687,6 +924,42 @@
     gap: 1rem;
     margin-top: 0.25rem;
     align-items: flex-start;
+  }
+
+  .GroupModal-membershipType {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
+
+  .GroupModal-membershipOption {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 400;
+    color: var(--text-color);
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: background @sg-transition, border-color @sg-transition;
+
+    &:has(input:checked) {
+      background: rgba(74, 144, 226, 0.06);
+      border-color: var(--primary-color, @sg-primary-hex);
+    }
+
+    input[type=radio] {
+      flex-shrink: 0;
+      margin-top: 2px;
+      accent-color: var(--primary-color, @sg-primary-hex);
+    }
+
+    span { line-height: 1.4; }
   }
 }
 
@@ -718,11 +991,10 @@
   background: var(--control-bg, #f5f5f5);
 
   &:hover {
-    border-color: @sg-primary;
-    box-shadow: 0 0 0 3px fade(@sg-primary, 12%);
+    border-color: var(--primary-color, @sg-primary-hex);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.12);
   }
 
-  // Variants
   &--avatar {
     width: 80px;
     height: 80px;
@@ -805,149 +1077,7 @@
 
   &:hover &-overlay {
     background: rgba(0, 0, 0, 0.32);
-
     span { opacity: 1; }
-  }
-}
-
-// ============================================================
-// Responsive
-// ============================================================
-
-@media (max-width: 900px) {
-  .GroupPage-body {
-    grid-template-columns: 1fr;
-  }
-
-  .GroupPage-sidebar {
-    order: -1;
-  }
-}
-
-@media (max-width: 640px) {
-  .GroupsPage {
-    padding: 1rem 0;
-
-    &-header {
-      flex-direction: column;
-      align-items: flex-start;
-      margin-bottom: 1.25rem;
-    }
-
-    &-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  .GroupHero {
-    &-banner {
-      height: 160px;
-    }
-
-    &-info-inner {
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    &-avatar {
-      width: 72px;
-      height: 72px;
-      margin-top: -36px;
-    }
-
-    &-name {
-      font-size: 1.25rem;
-    }
-
-    &-actions {
-      width: 100%;
-      justify-content: flex-end;
-    }
-  }
-
-  .GroupPage-body {
-    padding: 1rem;
-  }
-
-  .CreateGroupModal .Modal-content,
-  .EditGroupModal .Modal-content {
-    max-width: 100%;
-  }
-}
-
-// ============================================================
-// GroupPage — about card & restructured body
-// ============================================================
-
-.GroupPage {
-  &-body {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    gap: 1.5rem;
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 1.5rem 2rem;
-    align-items: start;
-  }
-
-  &-main { min-width: 0; }
-
-  &-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  &-aboutCard {
-    background: var(--body-bg);
-    border-radius: @sg-radius;
-    padding: 1.25rem;
-    box-shadow: @sg-shadow;
-
-    &-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted-color);
-      margin-bottom: 0.75rem;
-    }
-
-    &-text {
-      font-size: 0.9rem;
-      line-height: 1.65;
-      margin: 0;
-      white-space: pre-wrap;
-    }
-
-    &-empty {
-      font-size: 0.85rem;
-      color: var(--muted-color);
-      font-style: italic;
-      margin: 0;
-    }
-  }
-
-  &-privateTag {
-    margin-top: 0.75rem;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.78rem;
-    color: var(--muted-color);
-    background: var(--control-bg);
-    padding: 2px 8px;
-    border-radius: 999px;
-  }
-
-  &-loading { padding: 4rem; text-align: center; }
-  &-error   { padding: 2rem; color: var(--error-color, #e2574a); }
-}
-
-@media (max-width: 860px) {
-  .GroupPage-body {
-    grid-template-columns: 1fr;
-    padding: 1rem;
   }
 }
 
@@ -1029,7 +1159,7 @@
   &-avatarInitial {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--primary-color, @sg-primary-hex);
   }
 
   &-content { flex: 1; min-width: 0; }
@@ -1084,7 +1214,7 @@
     flex-shrink: 0;
 
     .SGDiscussionList-item:hover & { opacity: 1; }
-    &:hover { color: var(--error-color, #e2574a); background: fade(#e2574a, 10%); }
+    &:hover { color: var(--error-color, #e2574a); background: rgba(226, 87, 74, 0.1); }
   }
 
   &-pagination {
@@ -1138,7 +1268,7 @@
     text-decoration: none;
     transition: color @sg-transition;
 
-    &:hover { color: var(--primary); text-decoration: none; }
+    &:hover { color: var(--primary-color, @sg-primary-hex); text-decoration: none; }
   }
 
   &-loading,
@@ -1217,7 +1347,7 @@
   &-postInitial {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--primary-color, @sg-primary-hex);
   }
 
   &-postMain {
@@ -1302,9 +1432,9 @@
     border-radius: 4px;
     transition: color @sg-transition, background @sg-transition;
 
-    &:hover { color: var(--primary); background: var(--control-bg); }
+    &:hover { color: var(--primary-color, @sg-primary-hex); background: var(--control-bg); }
 
-    &--danger:hover { color: var(--error-color, #e2574a); background: fade(#e2574a, 10%); }
+    &--danger:hover { color: var(--error-color, #e2574a); background: rgba(226, 87, 74, 0.1); }
   }
 
   // Reply composer
@@ -1332,7 +1462,7 @@
   &-composerInitial {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--primary-color, @sg-primary-hex);
   }
 
   &-composerInput {
@@ -1348,9 +1478,88 @@
   }
 
   &-composerActions { display: flex; justify-content: flex-end; }
+}
 
-  @media (max-width: 640px) {
-    &-body  { padding: 0 1rem; }
-    &-back  { padding: 1rem 1rem 0; }
+// ============================================================
+// Responsive
+// ============================================================
+
+@media (max-width: 900px) {
+  .GroupPage-body {
+    grid-template-columns: 1fr;
   }
+
+  .GroupPage-sidebar {
+    order: -1;
+  }
+}
+
+@media (max-width: 860px) {
+  .GroupPage-body {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .GroupsPage {
+    padding: 1rem 0;
+
+    &-header {
+      flex-direction: column;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+
+    &-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .GroupHero {
+    &-banner     { height: 160px; }
+    &-info-inner { flex-wrap: wrap; gap: 0.75rem; }
+
+    &-avatar {
+      width: 72px;
+      height: 72px;
+      margin-top: -36px;
+    }
+
+    &-name    { font-size: 1.25rem; }
+    &-actions { width: 100%; justify-content: flex-end; }
+  }
+
+  .GroupPage-body { padding: 1rem; }
+
+  .CreateGroupModal .Modal-content,
+  .EditGroupModal .Modal-content {
+    max-width: 100%;
+  }
+
+  .SGThread {
+    &-body { padding: 0 1rem; }
+    &-back { padding: 1rem 1rem 0; }
+  }
+}
+
+// ============================================================
+// Avocado theme overrides
+// Avocado uses a sidebar nav; these rules ensure our components
+// don't rely on header-nav assumptions and look correct when
+// the primary nav is on the left.
+// ============================================================
+
+// Avocado wraps page content in a .Avocado class on <body>
+// (or similar). We defensively target generic Flarum wrappers.
+.App-content .GroupsPage,
+.App-content .GroupPage {
+  // Ensure full width under Avocado's content column
+  width: 100%;
+  box-sizing: border-box;
+}
+
+// GroupHero banner should never overflow horizontally
+.GroupHero-banner {
+  max-width: 100%;
 }

@@ -4,22 +4,25 @@ import Button from 'flarum/common/components/Button';
 export default class GroupHero extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.joining = false;
+    this.joining   = false;
+    this.isPending = false; // local override after request
   }
 
   view() {
     const { group, onEdit, onJoin, onLeave } = this.attrs;
     if (!group) return null;
 
-    const name = group.name() || '';
-    const color = group.color() || '#4A90E2';
-    const imageUrl = group.imageUrl();
-    const bannerUrl = group.bannerUrl();
+    const name        = group.name() || '';
+    const color       = group.color() || '#4A90E2';
+    const imageUrl    = group.imageUrl();
+    const bannerUrl   = group.bannerUrl();
     const memberCount = group.memberCount() || 0;
-    const initial = name.charAt(0).toUpperCase();
-    const isMember = group.isMember();
-    const isCreator = group.isCreator();
-    const canEdit = group.canEdit();
+    const initial     = name.charAt(0).toUpperCase();
+    const isMember    = group.isMember();
+    const isCreator   = group.isCreator();
+    const canEdit     = group.canEdit();
+    const isApproval  = group.membershipType() === 'approval';
+    const isPending   = this.isPending || group.isPending();
 
     return m('div.GroupHero', [
       // Full-width banner
@@ -50,35 +53,24 @@ export default class GroupHero extends Component {
               group.isPrivate()
                 ? m('span', [m('i.fas.fa-lock'), ' Private'])
                 : m('span', [m('i.fas.fa-globe'), ' Public']),
+              isApproval
+                ? m('span', [m('i.fas.fa-user-check'), ' Approval required'])
+                : null,
             ]),
           ]),
 
           // Action buttons
           m('div.GroupHero-actions', [
             canEdit
-              ? m(
-                  Button,
-                  {
-                    class: 'Button Button--default',
-                    icon: 'fas fa-edit',
-                    onclick: onEdit,
-                  },
-                  app.translator.trans('ernestdefoe-social-groups.forum.group.edit')
-                )
+              ? m(Button, {
+                  class: 'Button Button--default',
+                  icon: 'fas fa-edit',
+                  onclick: onEdit,
+                }, app.translator.trans('ernestdefoe-social-groups.forum.group.edit'))
               : null,
 
             app.session.user && !isCreator
-              ? m(
-                  Button,
-                  {
-                    class: `Button ${isMember ? 'Button--default' : 'Button--primary'}`,
-                    loading: this.joining,
-                    onclick: () => this.toggleMembership(group, onJoin, onLeave),
-                  },
-                  isMember
-                    ? [m('i.fas.fa-sign-out-alt'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')]
-                    : [m('i.fas.fa-sign-in-alt'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]
-                )
+              ? this.renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave)
               : null,
           ]),
         ]),
@@ -86,39 +78,94 @@ export default class GroupHero extends Component {
     ]);
   }
 
-  toggleMembership(group, onJoin, onLeave) {
+  renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave) {
+    if (isMember) {
+      return m(Button, {
+        class: 'Button Button--default',
+        loading: this.joining,
+        onclick: () => this.doLeave(group, onLeave),
+      }, [m('i.fas.fa-sign-out-alt'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')]);
+    }
+
+    if (isApproval && isPending) {
+      return m(Button, {
+        class: 'Button Button--default GroupHero-pendingBtn',
+        loading: this.joining,
+        onclick: () => this.cancelRequest(group),
+      }, [m('i.fas.fa-clock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.pending')]);
+    }
+
+    if (isApproval) {
+      return m(Button, {
+        class: 'Button Button--primary',
+        loading: this.joining,
+        onclick: () => this.doJoin(group, onJoin),
+      }, [m('i.fas.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]);
+    }
+
+    return m(Button, {
+      class: 'Button Button--primary',
+      loading: this.joining,
+      onclick: () => this.doJoin(group, onJoin),
+    }, [m('i.fas.fa-sign-in-alt'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]);
+  }
+
+  doJoin(group, onJoin) {
     if (this.joining) return;
     this.joining = true;
 
-    const isMember = group.isMember();
-    const method = isMember ? 'DELETE' : 'POST';
-    const url = `${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`;
-
-    fetch(url, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': app.session.csrfToken,
-        Authorization: `Token ${app.session.token}`,
-      },
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': app.session.csrfToken },
     })
       .then((res) => res.json())
       .then((data) => {
-        group.pushData({
-          attributes: {
-            isMember: data.isMember,
-            memberCount: data.memberCount,
-          },
-        });
         this.joining = false;
-        if (data.isMember && onJoin) onJoin(data);
-        if (!data.isMember && onLeave) onLeave(data);
+        if (data.status === 'pending') {
+          this.isPending = true;
+          group.pushData({ attributes: { isPending: true } });
+        } else {
+          group.pushData({ attributes: { isMember: true, memberCount: data.memberCount, isPending: false } });
+          if (onJoin) onJoin(data);
+        }
         m.redraw();
       })
-      .catch(() => {
+      .catch(() => { this.joining = false; m.redraw(); });
+  }
+
+  doLeave(group, onLeave) {
+    if (this.joining) return;
+    this.joining = true;
+
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    })
+      .then((res) => res.json())
+      .then((data) => {
         this.joining = false;
+        group.pushData({ attributes: { isMember: false, memberCount: data.memberCount } });
+        if (onLeave) onLeave(data);
         m.redraw();
-      });
+      })
+      .catch(() => { this.joining = false; m.redraw(); });
+  }
+
+  cancelRequest(group) {
+    if (this.joining) return;
+    this.joining = true;
+
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
+      method: 'DELETE',
+      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    })
+      .then(() => {
+        this.joining = false;
+        this.isPending = false;
+        group.pushData({ attributes: { isPending: false } });
+        m.redraw();
+      })
+      .catch(() => { this.joining = false; m.redraw(); });
   }
 
   complementaryColor(hex) {
