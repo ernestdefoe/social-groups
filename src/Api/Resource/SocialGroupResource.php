@@ -25,7 +25,7 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
-        $q = resolve(\Psr\Http\Message\ServerRequestInterface::class)->getQueryParams()['filter']['q'] ?? null;
+        $q = $context->request->getQueryParams()['filter']['q'] ?? null;
         if ($q) {
             $query->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")

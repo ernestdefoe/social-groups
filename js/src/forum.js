@@ -30,7 +30,7 @@ app.initializers.add('ernestdefoe-social-groups', () => {
   };
 
   // ── Sidebar navigation link (alongside All Discussions, Tags, etc.) ────────
-  extend(IndexSidebar.prototype, 'items', function (items) {
+  extend(IndexSidebar.prototype, 'navItems', function (items) {
     items.add(
       'social-groups',
       m(
@@ -41,7 +41,7 @@ app.initializers.add('ernestdefoe-social-groups', () => {
         },
         app.translator.trans('ernestdefoe-social-groups.forum.groups.title')
       ),
-      75
+      90
     );
   });
 
