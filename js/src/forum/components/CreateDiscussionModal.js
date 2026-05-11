@@ -6,8 +6,8 @@ import Stream from 'flarum/common/utils/Stream';
 export default class CreateDiscussionModal extends Modal {
   oninit(vnode) {
     super.oninit(vnode);
-    this.title   = Stream('');
-    this.content = Stream('');
+    this.titleValue   = Stream('');
+    this.contentValue = Stream('');
     this.loading = false;
     this.error   = null;
   }
@@ -31,8 +31,8 @@ export default class CreateDiscussionModal extends Modal {
         m('input.FormControl', {
           type:        'text',
           placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.title_placeholder'),
-          value:       this.title(),
-          oninput:     (e) => this.title(e.target.value),
+          value:       this.titleValue(),
+          oninput:     (e) => this.titleValue(e.target.value),
           maxlength:   255,
           autofocus:   true,
         }),
@@ -42,8 +42,8 @@ export default class CreateDiscussionModal extends Modal {
         m('label', app.translator.trans('ernestdefoe-social-groups.forum.discussions.content_label')),
         m('textarea.FormControl.CreateDiscussionModal-textarea', {
           placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.content_placeholder'),
-          value:       this.content(),
-          oninput:     (e) => this.content(e.target.value),
+          value:       this.contentValue(),
+          oninput:     (e) => this.contentValue(e.target.value),
           rows:        6,
         }),
       ]),
@@ -52,7 +52,7 @@ export default class CreateDiscussionModal extends Modal {
         m(Button, {
           class:    'Button Button--primary',
           loading:  this.loading,
-          disabled: this.loading || !this.title().trim() || !this.content().trim(),
+          disabled: this.loading || !this.titleValue().trim() || !this.contentValue().trim(),
           onclick:  () => this.submit(),
         }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.submit')),
       ]),
@@ -60,8 +60,8 @@ export default class CreateDiscussionModal extends Modal {
   }
 
   submit() {
-    const title   = this.title().trim();
-    const content = this.content().trim();
+    const title   = this.titleValue().trim();
+    const content = this.contentValue().trim();
 
     if (!title || !content) return;
 
