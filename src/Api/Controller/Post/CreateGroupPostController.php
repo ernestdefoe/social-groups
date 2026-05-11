@@ -17,9 +17,9 @@ class CreateGroupPostController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $body         = $request->getParsedBody() ?? [];
+        $body         = (array) ($request->getParsedBody() ?? []);
         $discussionId = (int) ($body['discussionId'] ?? 0);
-        $content      = trim($body['content'] ?? '');
+        $content      = trim((string) ($body['content'] ?? ''));
 
         if (! $discussionId || ! $content) {
             return new JsonResponse(['error' => 'discussionId and content are required.'], 422);

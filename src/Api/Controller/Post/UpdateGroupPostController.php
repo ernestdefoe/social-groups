@@ -24,8 +24,8 @@ class UpdateGroupPostController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'You cannot edit this post.'], 403);
         }
 
-        $body    = $request->getParsedBody() ?? [];
-        $content = trim($body['content'] ?? '');
+        $body    = (array) ($request->getParsedBody() ?? []);
+        $content = trim((string) ($body['content'] ?? ''));
 
         if (! $content) {
             return new JsonResponse(['error' => 'Content cannot be empty.'], 422);

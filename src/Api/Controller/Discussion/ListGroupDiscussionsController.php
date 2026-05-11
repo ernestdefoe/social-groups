@@ -14,60 +14,72 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
 {
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
-        $actor   = RequestUtil::getActor($request);
-        $params  = $request->getQueryParams();
-        $groupId = $params['groupId'] ?? null;
-        $page    = max(1, (int) ($params['page'] ?? 1));
-        $limit   = 20;
-        $offset  = ($page - 1) * $limit;
+        try {
+            $actor   = RequestUtil::getActor($request);
+            $params  = $request->getQueryParams();
+            $groupId = $params['groupId'] ?? null;
+            $page    = max(1, (int) ($params['page'] ?? 1));
+            $limit   = 20;
+            $offset  = ($page - 1) * $limit;
 
-        $group = SocialGroup::findOrFail($groupId);
-
-        // Private groups: only members can view discussions
-        if ($group->is_private) {
-            $actor->assertRegistered();
-            $isMember = $group->members()->where('user_id', $actor->id)->exists();
-            if (! $isMember && ! $actor->isAdmin()) {
-                return new JsonResponse(['error' => 'This group is private.'], 403);
+            if (! $groupId) {
+                return new JsonResponse(['error' => 'groupId is required.'], 422);
             }
+
+            $group = SocialGroup::findOrFail($groupId);
+
+            // Private groups: only members can view discussions
+            if ($group->is_private) {
+                $actor->assertRegistered();
+                $isMember = $group->members()->where('user_id', $actor->id)->exists();
+                if (! $isMember && ! $actor->isAdmin()) {
+                    return new JsonResponse(['error' => 'This group is private.'], 403);
+                }
+            }
+
+            $total = SocialGroupDiscussion::where('group_id', $groupId)->count();
+
+            $discussions = SocialGroupDiscussion::where('group_id', $groupId)
+                ->with(['user', 'lastPostedUser'])
+                ->orderByDesc('last_posted_at')
+                ->skip($offset)
+                ->take($limit)
+                ->get();
+
+            $actorId = $actor->exists ? $actor->id : null;
+
+            return new JsonResponse([
+                'data'  => $discussions->map(fn ($d) => $this->serialize($d, $actorId))->values(),
+                'total' => $total,
+                'page'  => $page,
+                'pages' => (int) ceil($total / $limit),
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return new JsonResponse(['error' => 'Group not found.'], 404);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['error' => $e->getMessage(), 'trace' => $e->getFile().':'.$e->getLine()], 500);
         }
-
-        $total = SocialGroupDiscussion::where('group_id', $groupId)->count();
-
-        $discussions = SocialGroupDiscussion::where('group_id', $groupId)
-            ->with(['user', 'lastPostedUser'])
-            ->orderByDesc('last_posted_at')
-            ->skip($offset)
-            ->take($limit)
-            ->get();
-
-        $actorId = $actor->exists ? $actor->id : null;
-
-        return new JsonResponse([
-            'data'  => $discussions->map(fn ($d) => $this->serialize($d, $actorId))->values(),
-            'total' => $total,
-            'page'  => $page,
-            'pages' => (int) ceil($total / $limit),
-        ]);
     }
 
     private function serialize(SocialGroupDiscussion $d, ?int $actorId): array
     {
+        $now = \Carbon\Carbon::now()->toIso8601String();
+
         return [
-            'id'               => $d->id,
-            'groupId'          => $d->group_id,
-            'title'            => $d->title,
-            'commentCount'     => $d->comment_count,
-            'isLocked'         => $d->is_locked,
-            'lastPostedAt'     => $d->last_posted_at?->toIso8601String(),
-            'createdAt'        => $d->created_at->toIso8601String(),
-            'canDelete'        => $actorId && ($actorId === $d->user_id),
-            'user'             => $d->user ? [
+            'id'             => $d->id,
+            'groupId'        => $d->group_id,
+            'title'          => $d->title,
+            'commentCount'   => $d->comment_count,
+            'isLocked'       => (bool) $d->is_locked,
+            'lastPostedAt'   => $d->last_posted_at?->toIso8601String(),
+            'createdAt'      => ($d->created_at ?? $d->last_posted_at)?->toIso8601String() ?? $now,
+            'canDelete'      => $actorId && ($actorId === $d->user_id),
+            'user'           => $d->user ? [
                 'id'          => $d->user->id,
                 'displayName' => $d->user->display_name,
                 'avatarUrl'   => $d->user->avatar_url,
             ] : null,
-            'lastPostedUser'   => $d->lastPostedUser ? [
+            'lastPostedUser' => $d->lastPostedUser ? [
                 'id'          => $d->lastPostedUser->id,
                 'displayName' => $d->lastPostedUser->display_name,
                 'avatarUrl'   => $d->lastPostedUser->avatar_url,
