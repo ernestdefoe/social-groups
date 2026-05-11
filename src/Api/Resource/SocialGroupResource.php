@@ -152,7 +152,9 @@ class SocialGroupResource extends AbstractDatabaseResource
         /** @var Context $context */
         $actor = $context->getActor();
         $model->user_id = $actor->id;
-        $model->slug = SocialGroup::createSlug($context->body()->attribute('name'));
+        $body = $context->body();
+        $name = $body['data']['attributes']['name'] ?? '';
+        $model->slug = SocialGroup::createSlug($name);
         $model->member_count = 1;
         return null;
     }
@@ -172,7 +174,8 @@ class SocialGroupResource extends AbstractDatabaseResource
     public function updating(object $model, BaseContext $context): ?object
     {
         /** @var Context $context */
-        $name = $context->body()->attribute('name');
+        $body = $context->body();
+        $name = $body['data']['attributes']['name'] ?? null;
         if ($name !== null && $model->name !== $name) {
             $model->slug = SocialGroup::createSlug($name);
         }
