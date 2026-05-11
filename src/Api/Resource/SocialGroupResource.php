@@ -165,9 +165,16 @@ class SocialGroupResource extends AbstractDatabaseResource
         $model->members()->create([
             'user_id' => $context->getActor()->id,
             'role'    => 'creator',
-            'joined_at' => now(),
+            'joined_at' => \Carbon\Carbon::now(),
         ]);
         return null;
+    }
+
+    public function filters(): array
+    {
+        // Return empty array so Flarum 2 doesn't throw when filter params are
+        // present. Actual search filtering is handled in scope() above.
+        return [];
     }
 
     public function updating(object $model, BaseContext $context): ?object
