@@ -7,7 +7,6 @@ use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
-use Flarum\Http\RequestUtil;
 use Illuminate\Database\Eloquent\Builder;
 use Tobyz\JsonApiServer\Context as BaseContext;
 
@@ -97,14 +96,14 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\DateTime::make('createdAt'),
 
             Schema\Boolean::make('canEdit')
-                ->get(function ($group, $request) {
-                    $actor = RequestUtil::getActor($request);
+                ->get(function ($group, Context $context) {
+                    $actor = $context->getActor();
                     return $actor->id === $group->user_id || $actor->isAdmin();
                 }),
 
             Schema\Boolean::make('isMember')
-                ->get(function ($group, $request) {
-                    $actor = RequestUtil::getActor($request);
+                ->get(function ($group, Context $context) {
+                    $actor = $context->getActor();
                     if (! $actor->exists) {
                         return false;
                     }
@@ -112,8 +111,8 @@ class SocialGroupResource extends AbstractDatabaseResource
                 }),
 
             Schema\Boolean::make('isCreator')
-                ->get(function ($group, $request) {
-                    $actor = RequestUtil::getActor($request);
+                ->get(function ($group, Context $context) {
+                    $actor = $context->getActor();
                     return $actor->id === $group->user_id;
                 }),
 
@@ -124,8 +123,8 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->nullable(),
 
             Schema\Boolean::make('isPending')
-                ->get(function ($g, $req) {
-                    $actor = RequestUtil::getActor($req);
+                ->get(function ($g, Context $context) {
+                    $actor = $context->getActor();
                     if (! $actor->exists) {
                         return false;
                     }
@@ -133,8 +132,8 @@ class SocialGroupResource extends AbstractDatabaseResource
                 }),
 
             Schema\Integer::make('pendingRequestCount')
-                ->get(function ($g, $req) {
-                    $actor = RequestUtil::getActor($req);
+                ->get(function ($g, Context $context) {
+                    $actor = $context->getActor();
                     if ($actor->id !== $g->user_id && ! $actor->isAdmin()) {
                         return 0;
                     }
