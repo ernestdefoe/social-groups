@@ -1,7 +1,6 @@
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
-import Dropdown from 'flarum/common/components/Dropdown';
 import EditGroupModal from './EditGroupModal';
 
 const COLORS = ['#4A90E2', '#7b5ea7', '#e2574a', '#e2a24a', '#4ae28a', '#4ae2d4'];
@@ -13,6 +12,22 @@ export default class GroupCard extends Component {
     this.isMember    = this.attrs.group.isMember();
     this.isPending   = this.attrs.group.isPending();
     this.memberCount = this.attrs.group.memberCount();
+    this.kebabOpen   = false;
+
+    this.closeKebab = () => {
+      if (this.kebabOpen) {
+        this.kebabOpen = false;
+        m.redraw();
+      }
+    };
+  }
+
+  oncreate(vnode) {
+    document.addEventListener('click', this.closeKebab);
+  }
+
+  onremove(vnode) {
+    document.removeEventListener('click', this.closeKebab);
   }
 
   view() {
@@ -85,54 +100,50 @@ export default class GroupCard extends Component {
   }
 
   renderKebabMenu(group) {
-    return m(
-      Dropdown,
-      {
-        className: 'GroupCard-kebab',
-        buttonClassName: 'Button Button--icon Button--flat GroupCard-kebabBtn',
-        label: '',
-        icon: 'fas fa-ellipsis-v',
-        accessibleToggleLabel: app.translator.trans('ernestdefoe-social-groups.forum.group.options'),
-      },
-      [
-        m(
-          Button,
-          {
-            className: 'Button Button--link',
-            icon: 'fas fa-pencil-alt',
-            onclick: (e) => {
-              e.stopPropagation();
-              app.modal.show(EditGroupModal, {
-                group,
-                onSaved: () => m.redraw(),
-                onDeleted: () => m.route.set(app.route('ernestdefoe-social-groups.index')),
-              });
-            },
-          },
-          app.translator.trans('ernestdefoe-social-groups.forum.group.edit')
-        ),
-        m(
-          Button,
-          {
-            className: 'Button Button--link GroupCard-kebabDelete',
-            icon: 'fas fa-trash',
-            onclick: (e) => {
-              e.stopPropagation();
-              if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.group.delete_confirm'))) return;
-              group.delete().then(() => {
-                if (this.attrs.onGroupDeleted) {
-                  this.attrs.onGroupDeleted(group);
-                } else {
-                  m.route.set(app.route('ernestdefoe-social-groups.index'));
-                }
-                m.redraw();
-              });
-            },
-          },
-          app.translator.trans('ernestdefoe-social-groups.forum.group.delete')
-        ),
-      ]
-    );
+    return m('div.GroupCard-kebab', [
+      m('button.GroupCard-kebabBtn', {
+        type: 'button',
+        title: app.translator.trans('ernestdefoe-social-groups.forum.group.options'),
+        onclick: (e) => {
+          e.stopPropagation();
+          this.kebabOpen = !this.kebabOpen;
+          m.redraw();
+        },
+      }, m('i.fas.fa-ellipsis-v')),
+
+      this.kebabOpen
+        ? m('div.GroupCard-kebabMenu', [
+            m('button.GroupCard-kebabItem', {
+              type: 'button',
+              onclick: (e) => {
+                e.stopPropagation();
+                this.kebabOpen = false;
+                app.modal.show(EditGroupModal, {
+                  group,
+                  onSaved: () => m.redraw(),
+                  onDeleted: () => m.route.set(app.route('ernestdefoe-social-groups.index')),
+                });
+              },
+            }, [m('i.fas.fa-pencil-alt'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.edit')]),
+
+            m('button.GroupCard-kebabItem.GroupCard-kebabItem--danger', {
+              type: 'button',
+              onclick: (e) => {
+                e.stopPropagation();
+                this.kebabOpen = false;
+                if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.group.delete_confirm'))) return;
+                group.delete().then(() => {
+                  if (this.attrs.onGroupDeleted) {
+                    this.attrs.onGroupDeleted(group);
+                  } else {
+                    m.route.set(app.route('ernestdefoe-social-groups.index'));
+                  }
+                });
+              },
+            }, [m('i.fas.fa-trash'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.delete')]),
+          ])
+        : null,
+    ]);
   }
 
   renderJoinButton(group, isApproval) {
@@ -193,8 +204,8 @@ export default class GroupCard extends Component {
           this.isPending = true;
           group.pushData({ attributes: { isPending: true } });
         } else {
-          this.isMember  = data.isMember ?? !this.isMember;
-          this.isPending = false;
+          this.isMember    = data.isMember ?? !this.isMember;
+          this.isPending   = false;
           this.memberCount = data.memberCount ?? this.memberCount;
           group.pushData({ attributes: { isMember: this.isMember, memberCount: this.memberCount, isPending: false } });
         }
