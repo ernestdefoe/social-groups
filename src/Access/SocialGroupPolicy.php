@@ -10,7 +10,7 @@ class SocialGroupPolicy extends AbstractPolicy
 {
     public function create(User $actor): bool
     {
-        return $actor->hasPermission('ernestdefoe-social-groups.create');
+        return $actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.create');
     }
 
     public function edit(User $actor, SocialGroup $group): bool
