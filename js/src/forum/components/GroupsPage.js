@@ -51,7 +51,7 @@ export default class GroupsPage extends Page {
   }
 
   view() {
-    const canCreate = app.session.user && app.forum.attribute('canCreateSocialGroup');
+    const canCreate = app.session.user && app.data.canCreateSocialGroup;
 
     return m('div.GroupsPage', [
       m('div.container', [
