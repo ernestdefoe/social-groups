@@ -16,7 +16,8 @@ class ListJoinRequestsController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id    = $request->getAttribute('id');
+        $params = $request->getQueryParams();
+        $id     = $params['id'] ?? null;
         $group = SocialGroup::findOrFail($id);
 
         if ($actor->id !== $group->user_id && ! $actor->isAdmin()) {

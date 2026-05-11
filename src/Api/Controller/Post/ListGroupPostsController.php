@@ -16,7 +16,8 @@ class ListGroupPostsController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor        = RequestUtil::getActor($request);
-        $discussionId = $request->getAttribute('discussionId');
+        $params       = $request->getQueryParams();
+        $discussionId = $params['discussionId'] ?? null;
 
         $discussion = SocialGroupDiscussion::with('group')->findOrFail($discussionId);
         $group      = $discussion->group;

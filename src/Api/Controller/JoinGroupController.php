@@ -16,7 +16,8 @@ class JoinGroupController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id    = $request->getAttribute('id');
+        $params = $request->getQueryParams();
+        $id     = $params['id'] ?? null;
         $group = SocialGroup::findOrFail($id);
 
         // Private groups require an invite — for now just block joining

@@ -16,7 +16,8 @@ class LeaveGroupController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id = $request->getAttribute('id');
+        $params = $request->getQueryParams();
+        $id     = $params['id'] ?? null;
         $group = SocialGroup::findOrFail($id);
 
         // Creators cannot leave their own group — they must delete it

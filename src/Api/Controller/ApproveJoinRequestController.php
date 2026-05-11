@@ -17,8 +17,9 @@ class ApproveJoinRequestController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id        = $request->getAttribute('id');
-        $requestId = $request->getAttribute('requestId');
+        $params    = $request->getQueryParams();
+        $id        = $params['id'] ?? null;
+        $requestId = $params['requestId'] ?? null;
 
         $group       = SocialGroup::findOrFail($id);
         $joinRequest = SocialGroupJoinRequest::findOrFail($requestId);

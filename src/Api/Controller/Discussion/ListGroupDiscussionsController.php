@@ -15,8 +15,8 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor   = RequestUtil::getActor($request);
-        $groupId = $request->getAttribute('groupId');
         $params  = $request->getQueryParams();
+        $groupId = $params['groupId'] ?? null;
         $page    = max(1, (int) ($params['page'] ?? 1));
         $limit   = 20;
         $offset  = ($page - 1) * $limit;

@@ -18,6 +18,8 @@ class SocialGroupPost extends AbstractModel
 {
     protected $table = 'social_group_posts';
 
+    protected $guarded = [];
+
     public function discussion()
     {
         return $this->belongsTo(SocialGroupDiscussion::class, 'discussion_id');

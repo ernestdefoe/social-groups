@@ -16,6 +16,8 @@ class SocialGroupMember extends AbstractModel
 {
     protected $table = 'social_group_members';
 
+    protected $guarded = [];
+
     public $timestamps = false;
 
     protected $casts = [

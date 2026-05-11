@@ -17,6 +17,8 @@ class SocialGroupJoinRequest extends AbstractModel
 {
     protected $table = 'social_group_join_requests';
 
+    protected $guarded = [];
+
     public function group()
     {
         return $this->belongsTo(SocialGroup::class, 'group_id');

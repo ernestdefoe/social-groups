@@ -23,16 +23,12 @@ class UploadGroupImageController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id = $request->getAttribute('id');
-
-        // Determine upload type from route name or query param
-        // Route 'social-groups.upload-banner' sets imageType to 'banner' via middleware attribute
-        // We check both route attribute and query param
-        $routeName = $request->getAttribute('routeName', '');
-        $type = str_contains($routeName, 'banner') ? 'banner' : 'image';
-
-        // Also allow explicit override via query param
         $queryParams = $request->getQueryParams();
+        $id = $queryParams['id'] ?? null;
+
+        // Determine upload type from URL path (route params are in query params in Flarum 2)
+        // or from an explicit 'type' query param override
+        $type = str_ends_with($request->getUri()->getPath(), '/banner') ? 'banner' : 'image';
         if (isset($queryParams['type']) && in_array($queryParams['type'], ['image', 'banner'])) {
             $type = $queryParams['type'];
         }

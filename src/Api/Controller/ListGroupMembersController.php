@@ -14,7 +14,8 @@ class ListGroupMembersController implements RequestHandlerInterface
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
-        $id    = $request->getAttribute('id');
+        $params = $request->getQueryParams();
+        $id     = $params['id'] ?? null;
         $group = SocialGroup::findOrFail($id);
 
         $isCreator = $actor->exists && $actor->id === $group->user_id;

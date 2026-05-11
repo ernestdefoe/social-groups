@@ -16,8 +16,9 @@ class PromoteMemberController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id     = $request->getAttribute('id');
-        $userId = $request->getAttribute('userId');
+        $params = $request->getQueryParams();
+        $id     = $params['id'] ?? null;
+        $userId = $params['userId'] ?? null;
 
         $group = SocialGroup::findOrFail($id);
 

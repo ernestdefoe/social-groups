@@ -17,7 +17,8 @@ class DeleteGroupDiscussionController implements RequestHandlerInterface
         $actor        = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $discussionId = $request->getAttribute('discussionId');
+        $params       = $request->getQueryParams();
+        $discussionId = $params['discussionId'] ?? null;
         $discussion   = SocialGroupDiscussion::findOrFail($discussionId);
 
         $isModerator = $discussion->group->members()
