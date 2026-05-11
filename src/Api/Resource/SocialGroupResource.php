@@ -24,13 +24,23 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
-        $q = $context->request->getQueryParams()['q'] ?? null;
+        $params = $context->request->getQueryParams();
+
+        // Plain text search (groups page search bar)
+        $q = $params['q'] ?? null;
         if ($q) {
             $query->where(function ($sub) use ($q) {
                 $sub->where('name', 'like', "%{$q}%")
                     ->orWhere('description', 'like', "%{$q}%");
             });
         }
+
+        // Slug lookup (group page loads by slug)
+        $slug = $params['slug'] ?? null;
+        if ($slug) {
+            $query->where('slug', $slug);
+        }
+
         $query->orderByDesc('member_count');
     }
 

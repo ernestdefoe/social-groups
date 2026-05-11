@@ -32,7 +32,7 @@ export default class GroupPage extends Page {
   loadGroup(slug) {
     app.store
       .find('social-groups', {
-        filter: { slug },
+        slug,
         include: 'user',
         'page[limit]': 1,
       })
