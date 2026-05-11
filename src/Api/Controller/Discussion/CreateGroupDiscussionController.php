@@ -18,7 +18,7 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
         $actor   = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $body    = json_decode((string) $request->getBody(), true) ?? [];
+        $body    = $request->getParsedBody() ?? [];
         $groupId = (int) ($body['groupId'] ?? 0);
         $title   = trim($body['title'] ?? '');
         $content = trim($body['content'] ?? '');

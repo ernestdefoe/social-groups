@@ -17,7 +17,7 @@ class CreateGroupPostController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $body         = json_decode((string) $request->getBody(), true) ?? [];
+        $body         = $request->getParsedBody() ?? [];
         $discussionId = (int) ($body['discussionId'] ?? 0);
         $content      = trim($body['content'] ?? '');
 
