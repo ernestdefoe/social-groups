@@ -10,7 +10,8 @@ use Flarum\User\User;
  * @property int    $discussion_id
  * @property int    $group_id
  * @property int    $user_id
- * @property string $content
+ * @property string      $content
+ * @property string|null $content_parsed
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  */

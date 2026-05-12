@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -12,6 +13,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class ListGroupPostsController implements RequestHandlerInterface
 {
+    public function __construct(private Formatter $formatter) {}
+
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
@@ -67,15 +70,22 @@ class ListGroupPostsController implements RequestHandlerInterface
         $createdAt = $p->created_at?->toIso8601String() ?? $fallbackTime;
         $updatedAt = $p->updated_at?->toIso8601String() ?? $createdAt;
 
+        // Render sanitized HTML; fall back to escaped plain text for posts that
+        // pre-date the content_parsed column (no re-parse required at read time).
+        $contentParsed = $p->content_parsed !== null
+            ? $this->formatter->render($p->content_parsed)
+            : nl2br(htmlspecialchars($p->content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+
         return [
-            'id'           => $p->id,
-            'discussionId' => $p->discussion_id,
-            'content'      => $p->content,
-            'createdAt'    => $createdAt,
-            'updatedAt'    => $updatedAt,
-            'canEdit'      => $actorId && $actorId === $p->user_id,
-            'canDelete'    => $actorId && $actorId === $p->user_id,
-            'user'         => $p->user ? [
+            'id'            => $p->id,
+            'discussionId'  => $p->discussion_id,
+            'content'       => $p->content,
+            'contentParsed' => $contentParsed,
+            'createdAt'     => $createdAt,
+            'updatedAt'     => $updatedAt,
+            'canEdit'       => $actorId && $actorId === $p->user_id,
+            'canDelete'     => $actorId && $actorId === $p->user_id,
+            'user'          => $p->user ? [
                 'id'          => $p->user->id,
                 'displayName' => $p->user->display_name,
                 'avatarUrl'   => $p->user->avatar_url,

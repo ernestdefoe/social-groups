@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -12,6 +13,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class CreateGroupPostController implements RequestHandlerInterface
 {
+    public function __construct(private Formatter $formatter) {}
+
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor = RequestUtil::getActor($request);
@@ -42,11 +45,14 @@ class CreateGroupPostController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'You must be a member of this group to reply.'], 403);
         }
 
+        $contentParsed = $this->formatter->parse($content);
+
         $post = SocialGroupPost::create([
-            'discussion_id' => $discussion->id,
-            'group_id'      => $discussion->group_id,
-            'user_id'       => $actor->id,
-            'content'       => $content,
+            'discussion_id'  => $discussion->id,
+            'group_id'       => $discussion->group_id,
+            'user_id'        => $actor->id,
+            'content'        => $content,
+            'content_parsed' => $contentParsed,
         ]);
 
         // Update discussion metadata
@@ -56,14 +62,15 @@ class CreateGroupPostController implements RequestHandlerInterface
         $discussion->save();
 
         return new JsonResponse([
-            'id'           => $post->id,
-            'discussionId' => $post->discussion_id,
-            'content'      => $post->content,
-            'createdAt'    => $post->created_at->toIso8601String(),
-            'updatedAt'    => $post->updated_at->toIso8601String(),
-            'canEdit'      => true,
-            'canDelete'    => true,
-            'user'         => [
+            'id'             => $post->id,
+            'discussionId'   => $post->discussion_id,
+            'content'        => $post->content,
+            'contentParsed'  => $this->formatter->render($post->content_parsed),
+            'createdAt'      => $post->created_at->toIso8601String(),
+            'updatedAt'      => $post->updated_at->toIso8601String(),
+            'canEdit'        => true,
+            'canDelete'      => true,
+            'user'           => [
                 'id'          => $actor->id,
                 'displayName' => $actor->display_name,
                 'avatarUrl'   => $actor->avatar_url,

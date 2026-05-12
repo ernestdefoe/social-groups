@@ -3,6 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -11,6 +12,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class UpdateGroupPostController implements RequestHandlerInterface
 {
+    public function __construct(private Formatter $formatter) {}
+
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         $actor  = RequestUtil::getActor($request);
@@ -35,18 +38,22 @@ class UpdateGroupPostController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'Post content may not exceed 20 000 characters.'], 422);
         }
 
-        $post->content = $content;
+        $contentParsed = $this->formatter->parse($content);
+
+        $post->content        = $content;
+        $post->content_parsed = $contentParsed;
         $post->save();
 
         return new JsonResponse([
-            'id'           => $post->id,
-            'discussionId' => $post->discussion_id,
-            'content'      => $post->content,
-            'createdAt'    => $post->created_at->toIso8601String(),
-            'updatedAt'    => $post->updated_at->toIso8601String(),
-            'canEdit'      => true,
-            'canDelete'    => true,
-            'user'         => [
+            'id'            => $post->id,
+            'discussionId'  => $post->discussion_id,
+            'content'       => $post->content,
+            'contentParsed' => $this->formatter->render($post->content_parsed),
+            'createdAt'     => $post->created_at->toIso8601String(),
+            'updatedAt'     => $post->updated_at->toIso8601String(),
+            'canEdit'       => true,
+            'canDelete'     => true,
+            'user'          => [
                 'id'          => $actor->id,
                 'displayName' => $actor->display_name,
                 'avatarUrl'   => $actor->avatar_url,

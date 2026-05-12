@@ -1461,8 +1461,36 @@
     padding: 0.85rem 1rem;
     font-size: 0.92rem;
     line-height: 1.7;
-    white-space: pre-wrap;
     word-wrap: break-word;
+    overflow-wrap: break-word;
+
+    // Formatter produces block-level elements; collapse margins so the first
+    // and last paragraph don't add extra space inside the card padding.
+    p { margin: 0 0 0.6em; &:last-child { margin-bottom: 0; } }
+    ul, ol { margin: 0 0 0.6em; padding-left: 1.4em; &:last-child { margin-bottom: 0; } }
+    blockquote {
+      margin: 0 0 0.6em;
+      padding: 0.4em 0.8em;
+      border-left: 3px solid var(--control-bg);
+      color: var(--muted-color);
+      &:last-child { margin-bottom: 0; }
+    }
+    pre {
+      margin: 0 0 0.6em;
+      padding: 0.6em 0.8em;
+      background: var(--control-bg);
+      border-radius: @sg-radius;
+      overflow-x: auto;
+      font-size: 0.85em;
+      &:last-child { margin-bottom: 0; }
+    }
+    code {
+      background: var(--control-bg);
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+      font-size: 0.88em;
+    }
+    a { color: var(--primary-color, @sg-primary-hex); }
   }
 
   &-postEdit {

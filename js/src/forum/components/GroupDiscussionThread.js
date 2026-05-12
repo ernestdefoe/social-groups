@@ -258,7 +258,7 @@ export default class GroupDiscussionThread extends Page {
                 }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.cancel_edit')),
               ]),
             ])
-          : m('.SGThread-postContent', post.content),
+          : m('.SGThread-postContent', m.trust(post.contentParsed)),
 
         // Actions
         !isEditing && (post.canEdit || post.canDelete)
