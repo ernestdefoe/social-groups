@@ -13,4 +13,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Weblate repository update
+        if: ${{ secrets.WEBLATE_HOOK_URL != '' }}
         run: curl -fsS "${{ secrets.WEBLATE_HOOK_URL }}"
