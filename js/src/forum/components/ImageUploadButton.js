@@ -50,7 +50,7 @@ export default class ImageUploadButton extends Component {
         // Loading overlay
         this.loading
           ? m('div.ImageUploadButton-loading', [m(LoadingIndicator, { size: 'small', display: 'inline' })])
-          : m('div.ImageUploadButton-overlay', [m('span', 'Change')]),
+          : m('div.ImageUploadButton-overlay', [m('span', app.translator.trans('ernestdefoe-social-groups.forum.upload.change'))]),
       ]
     );
   }

@@ -48,13 +48,14 @@ export default class GroupHero extends Component {
             m('div.GroupHero-meta', [
               m('span', [
                 m('i.fas.fa-users'),
-                ` ${memberCount} ${memberCount === 1 ? 'member' : 'members'}`,
+                ' ',
+                app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: memberCount }),
               ]),
               group.isPrivate()
-                ? m('span', [m('i.fas.fa-lock'), ' Private'])
-                : m('span', [m('i.fas.fa-globe'), ' Public']),
+                ? m('span', [m('i.fas.fa-lock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
+                : m('span', [m('i.fas.fa-globe'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.public')]),
               isApproval
-                ? m('span', [m('i.fas.fa-user-check'), ' Approval required'])
+                ? m('span', [m('i.fas.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
                 : null,
             ]),
           ]),

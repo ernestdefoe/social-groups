@@ -74,7 +74,7 @@ export default class GroupCard extends Component {
           m('div.GroupCard-name', name),
           m('div.GroupCard-meta', [
             m('i.fas.fa-users'),
-            m('span', ` ${this.memberCount} ${this.memberCount === 1 ? 'member' : 'members'}`),
+            m('span', ' ' + app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.memberCount })),
             group.isPrivate() ? m('span.GroupCard-private', [m('i.fas.fa-lock'), ' Private']) : null,
             isApproval ? m('span.GroupCard-approval', [m('i.fas.fa-user-check'), ' Approval']) : null,
           ]),

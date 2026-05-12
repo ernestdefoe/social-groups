@@ -124,7 +124,7 @@ export default class MemberList extends Component {
           ),
 
       this.members.length > 0
-        ? m('div.MemberList-count', `${this.members.length} member${this.members.length === 1 ? '' : 's'}`)
+        ? m('div.MemberList-count', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.members.length }))
         : null,
     ]);
   }

@@ -115,7 +115,7 @@ export default class GroupPage extends Page {
                   app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
               : null,
             isApproval
-              ? m('.GroupPage-approvalTag', [m('i.fas.fa-user-check'), ' Approval required'])
+              ? m('.GroupPage-approvalTag', [m('i.fas.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
               : null,
           ]),
 
