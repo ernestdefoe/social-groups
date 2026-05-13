@@ -2,7 +2,7 @@ import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import GroupHero from './GroupHero';
-import GroupDiscussionList from './GroupDiscussionList';
+import GroupFeed from './GroupFeed';
 import MemberList from './MemberList';
 import JoinRequestsPanel from './JoinRequestsPanel';
 import EditGroupModal from './EditGroupModal';
@@ -83,7 +83,7 @@ export default class GroupPage extends Page {
       m('.GroupPage-body', [
         // Main column — discussion feed
         m('.GroupPage-main', [
-          m(GroupDiscussionList, {
+          m(GroupFeed, {
             groupId:   group.id(),
             groupSlug: group.slug(),
             isMember,

@@ -1792,6 +1792,307 @@
 }
 
 // ============================================================
+// Group Feed (SGFeed) — Facebook-style post feed on group page
+// ============================================================
+
+.SGFeed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &-loading { padding: 2rem; text-align: center; }
+
+  &-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--muted-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+
+    i { font-size: 2rem; opacity: .4; }
+    p { margin: 0; font-size: 0.9rem; }
+  }
+
+  &-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 4px 0;
+  }
+
+  &-pageInfo { font-size: 0.85rem; color: var(--muted-color); }
+
+  // ── Composer card ──────────────────────────────────────────
+  &-composer {
+    background: var(--body-bg);
+    border-radius: 12px;
+    box-shadow: @sg-shadow;
+    padding: 12px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  &-composerAvatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--primary-color, @sg-primary-hex);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  &-composerInitial {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  &-composerRight { flex: 1; }
+
+  &-composerTextarea {
+    width: 100%;
+    background: var(--control-bg);
+    border: none; outline: none;
+    border-radius: 20px;
+    padding: 9px 16px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    color: var(--text-color);
+    resize: none;
+    overflow: hidden;
+    transition: min-height 0.15s;
+
+    &::placeholder { color: var(--muted-color); }
+  }
+
+  &-composerActions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  &-cancelBtn {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.85rem; font-weight: 600;
+    color: var(--muted-color);
+    padding: 6px 12px; border-radius: 6px;
+    transition: background @sg-transition;
+
+    &:hover { background: var(--control-bg); }
+  }
+
+  &-postBtn {
+    background: var(--primary-color, @sg-primary-hex);
+    color: #fff; border: none; cursor: pointer;
+    font-size: 0.88rem; font-weight: 600;
+    padding: 7px 18px; border-radius: 6px;
+    transition: opacity @sg-transition;
+
+    &:hover:not(:disabled) { opacity: 0.88; }
+    &:disabled { opacity: 0.45; cursor: default; }
+  }
+
+  // ── Post card ──────────────────────────────────────────────
+  &-post {
+    background: var(--body-bg);
+    border-radius: 12px;
+    box-shadow: @sg-shadow;
+    transition: opacity @sg-transition;
+
+    &.is-deleting { opacity: 0.4; pointer-events: none; }
+  }
+
+  &-postHeader {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px 0;
+    position: relative;
+  }
+
+  &-postAvatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--primary-color, @sg-primary-hex);
+    flex-shrink: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  &-postInitial { font-size: 1rem; font-weight: 700; color: #fff; }
+
+  &-postMeta { flex: 1; }
+
+  &-postAuthor {
+    display: block;
+    font-weight: 700; font-size: 0.9rem;
+    color: var(--text-color);
+  }
+
+  &-postTime { font-size: 0.78rem; color: var(--muted-color); }
+
+  &-postMenu { position: relative; flex-shrink: 0; }
+
+  &-postMenuBtn {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted-color); font-size: 1rem;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 50%;
+    transition: background @sg-transition;
+
+    &:hover { background: var(--control-bg); }
+  }
+
+  &-postDropdown {
+    position: absolute; top: 38px; right: 0;
+    background: var(--body-bg);
+    border-radius: 10px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    min-width: 160px; z-index: 100; overflow: hidden;
+  }
+
+  &-dropdownItem {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    background: none; border: none; cursor: pointer;
+    font-size: 0.88rem; color: var(--text-color);
+    text-align: left;
+    transition: background @sg-transition;
+
+    &:hover { background: var(--control-bg); }
+
+    &--danger {
+      color: var(--error-color, #e2574a);
+      &:hover { background: fade(#e2574a, 10%); }
+    }
+  }
+
+  &-postContent {
+    padding: 10px 16px 12px;
+    font-size: 0.92rem; line-height: 1.65;
+    word-wrap: break-word; overflow-wrap: break-word;
+
+    p { margin: 0 0 0.5em; &:last-child { margin-bottom: 0; } }
+    ul, ol { margin: 0 0 0.5em; padding-left: 1.4em; &:last-child { margin-bottom: 0; } }
+    a { color: var(--primary-color, @sg-primary-hex); }
+    blockquote {
+      margin: 0 0 0.5em; padding: 0.4em 0.8em;
+      border-left: 3px solid var(--control-bg);
+      color: var(--muted-color);
+    }
+    code {
+      background: var(--control-bg);
+      padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.88em;
+    }
+  }
+
+  &-noContent { color: var(--muted-color); font-style: italic; }
+
+  &-postStatBar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 16px;
+    font-size: 0.82rem; color: var(--muted-color);
+    border-top: 1px solid var(--control-bg);
+  }
+
+  &-statLikes { display: inline-flex; align-items: center; gap: 4px; }
+  &-likeIcon  { font-size: 0.88rem; }
+  &-statDot   { color: var(--muted-color); }
+
+  &-statComments {
+    background: none; border: none; cursor: pointer;
+    font-size: 0.82rem; color: var(--muted-color); padding: 0;
+    &:hover { text-decoration: underline; }
+  }
+
+  // Like | Comments action bar
+  &-postActionBar {
+    display: flex;
+    border-top: 1px solid var(--control-bg);
+    overflow: hidden;
+  }
+
+  &-likeBtn,
+  &-commentBtn {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px;
+    padding: 8px;
+    font-size: 0.88rem; font-weight: 600;
+    color: var(--muted-color);
+    background: none; border: none; cursor: pointer;
+    transition: background @sg-transition, color @sg-transition;
+
+    &:hover { background: var(--control-bg); color: var(--primary-color, @sg-primary-hex); }
+  }
+
+  &-likeBtn--liked { color: var(--primary-color, @sg-primary-hex); }
+
+  // Inline reply row
+  &-replyRow {
+    display: flex;
+    gap: 8px; align-items: center;
+    padding: 8px 16px 12px;
+    border-top: 1px solid var(--control-bg);
+  }
+
+  &-replyAvatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--primary-color, @sg-primary-hex);
+    flex-shrink: 0; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700; color: #fff;
+
+    img { width: 100%; height: 100%; object-fit: cover; }
+  }
+
+  &-replyInputWrap {
+    flex: 1;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--control-bg);
+    border-radius: 20px;
+    padding: 6px 10px 6px 14px;
+  }
+
+  &-replyInput {
+    flex: 1;
+    background: none; border: none; outline: none;
+    font-size: 0.88rem; font-family: inherit;
+    color: var(--text-color); resize: none;
+    min-height: 20px; overflow: hidden;
+
+    &::placeholder { color: var(--muted-color); }
+  }
+
+  &-replySendBtn {
+    background: none; border: none; cursor: pointer;
+    color: var(--primary-color, @sg-primary-hex);
+    font-size: 0.95rem; flex-shrink: 0;
+    padding: 2px 4px;
+    transition: opacity @sg-transition;
+
+    &:disabled { opacity: 0.35; cursor: default; }
+  }
+}
+
+// ============================================================
 // Responsive
 // ============================================================
 

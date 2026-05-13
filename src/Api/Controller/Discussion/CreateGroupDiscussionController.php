@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller\Discussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -13,6 +14,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class CreateGroupDiscussionController implements RequestHandlerInterface
 {
+    public function __construct(private Formatter $formatter) {}
+
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
@@ -21,11 +24,19 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
 
             $body    = (array) ($request->getParsedBody() ?? []);
             $groupId = (int) ($body['groupId'] ?? 0);
-            $title   = trim((string) ($body['title'] ?? ''));
             $content = trim((string) ($body['content'] ?? ''));
+            // Title is optional — auto-generated from content if omitted
+            $title   = trim((string) ($body['title'] ?? ''));
 
-            if (! $groupId || ! $title || ! $content) {
-                return new JsonResponse(['error' => 'groupId, title, and content are required.'], 422);
+            if (! $groupId || ! $content) {
+                return new JsonResponse(['error' => 'groupId and content are required.'], 422);
+            }
+
+            if (! $title) {
+                $title = mb_substr(preg_replace('/\s+/', ' ', $content), 0, 80);
+                if (mb_strlen($content) > 80) {
+                    $title .= '…';
+                }
             }
 
             if (mb_strlen($title) > 255) {
@@ -38,13 +49,13 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
 
             $group = SocialGroup::findOrFail($groupId);
 
-            // Must be a member to post
             $isMember = $group->members()->where('user_id', $actor->id)->exists();
             if (! $isMember) {
                 return new JsonResponse(['error' => 'You must be a member of this group to post.'], 403);
             }
 
-            $now = \Carbon\Carbon::now();
+            $now           = \Carbon\Carbon::now();
+            $contentParsed = $this->formatter->parse($content);
 
             $discussion = SocialGroupDiscussion::create([
                 'group_id'             => $group->id,
@@ -56,23 +67,40 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
                 'is_locked'            => false,
             ]);
 
-            SocialGroupPost::create([
-                'discussion_id' => $discussion->id,
-                'group_id'      => $group->id,
-                'user_id'       => $actor->id,
-                'content'       => $content,
+            $firstPost = SocialGroupPost::create([
+                'discussion_id'  => $discussion->id,
+                'group_id'       => $group->id,
+                'user_id'        => $actor->id,
+                'content'        => $content,
+                'content_parsed' => $contentParsed,
             ]);
 
+            $renderedContent = $this->formatter->render($contentParsed);
+
             return new JsonResponse([
-                'id'             => $discussion->id,
-                'groupId'        => $discussion->group_id,
-                'title'          => $discussion->title,
-                'commentCount'   => $discussion->comment_count,
-                'isLocked'       => false,
-                'lastPostedAt'   => $now->toIso8601String(),
-                'createdAt'      => ($discussion->created_at ?? $now)->toIso8601String(),
-                'canDelete'      => true,
-                'user'           => [
+                'id'           => $discussion->id,
+                'groupId'      => $discussion->group_id,
+                'title'        => $discussion->title,
+                'commentCount' => $discussion->comment_count,
+                'isLocked'     => false,
+                'lastPostedAt' => $now->toIso8601String(),
+                'createdAt'    => ($discussion->created_at ?? $now)->toIso8601String(),
+                'canDelete'    => true,
+                'firstPost'    => [
+                    'id'            => $firstPost->id,
+                    'content'       => $firstPost->content,
+                    'contentParsed' => $renderedContent,
+                    'likeCount'     => 0,
+                    'isLiked'       => false,
+                    'canEdit'       => true,
+                    'createdAt'     => ($firstPost->created_at ?? $now)->toIso8601String(),
+                    'user'          => [
+                        'id'          => $actor->id,
+                        'displayName' => $actor->display_name,
+                        'avatarUrl'   => $actor->avatar_url,
+                    ],
+                ],
+                'user' => [
                     'id'          => $actor->id,
                     'displayName' => $actor->display_name,
                     'avatarUrl'   => $actor->avatar_url,
