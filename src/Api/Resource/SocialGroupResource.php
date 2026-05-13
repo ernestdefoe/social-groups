@@ -7,6 +7,7 @@ use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
+use Flarum\Http\RequestUtil;
 use Illuminate\Database\Eloquent\Builder;
 use Tobyz\JsonApiServer\Context as BaseContext;
 
@@ -34,11 +35,19 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
-        $params = $context->request->getQueryParams();
+        $actor   = RequestUtil::getActor($context->request);
+        $actorId = $actor->exists ? $actor->id : null;
 
-        // Search is handled client-side in GroupsPage.js.
-        // filter[*] params on AbstractDatabaseResource trigger Flarum 2's
-        // searcher system (AbstractSearcher) which throws if not implemented.
+        if ($actorId) {
+            // Batch all three per-actor lookups as correlated subqueries on the
+            // main SELECT so the Index endpoint never issues O(n) extra queries.
+            $query->withCount([
+                'members as actor_is_member'       => fn ($q) => $q->where('user_id', $actorId),
+                'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
+                'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
+            ]);
+        }
+
         $query->orderByDesc('member_count');
     }
 
@@ -115,10 +124,9 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('isMember')
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    return $group->members()->where('user_id', $actor->id)->exists();
+                    if (! $actor->exists) return false;
+                    $pre = $group->actor_is_member;
+                    return $pre !== null ? (bool) $pre : $group->members()->where('user_id', $actor->id)->exists();
                 }),
 
             Schema\Boolean::make('isCreator')
@@ -136,10 +144,9 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('isPending')
                 ->get(function ($g, Context $context) {
                     $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    return $g->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->exists();
+                    if (! $actor->exists) return false;
+                    $pre = $g->actor_is_pending;
+                    return $pre !== null ? (bool) $pre : $g->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->exists();
                 }),
 
             Schema\Integer::make('pendingRequestCount')
@@ -151,7 +158,8 @@ class SocialGroupResource extends AbstractDatabaseResource
                     ) {
                         return 0;
                     }
-                    return $g->joinRequests()->where('status', 'pending')->count();
+                    $pre = $g->pending_req_count;
+                    return $pre !== null ? (int) $pre : $g->joinRequests()->where('status', 'pending')->count();
                 }),
 
             Schema\Relationship\ToOne::make('user')

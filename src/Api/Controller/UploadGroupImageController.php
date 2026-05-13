@@ -47,7 +47,7 @@ class UploadGroupImageController implements RequestHandlerInterface
         }
 
         $ext = strtolower(pathinfo($file->getClientFilename(), PATHINFO_EXTENSION));
-        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+        if (! in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
             return new JsonResponse(['error' => 'Invalid file type. Allowed: jpg, jpeg, png, gif, webp'], 422);
         }
 
@@ -55,6 +55,24 @@ class UploadGroupImageController implements RequestHandlerInterface
         $maxSize = 5 * 1024 * 1024;
         if ($file->getSize() > $maxSize) {
             return new JsonResponse(['error' => 'File too large. Maximum size is 5MB'], 422);
+        }
+
+        // Read the stream once so we can both sniff and upload without rewinding
+        $streamContents = $file->getStream()->getContents();
+
+        // Sniff actual MIME type — the client-supplied extension is untrusted
+        $tmpPath = tempnam(sys_get_temp_dir(), 'sg_upload_');
+        try {
+            file_put_contents($tmpPath, $streamContents);
+            $finfo    = new \finfo(FILEINFO_MIME_TYPE);
+            $mimeType = $finfo->file($tmpPath);
+        } finally {
+            @unlink($tmpPath);
+        }
+
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (! in_array($mimeType, $allowedMimes, true)) {
+            return new JsonResponse(['error' => 'Invalid file content. Only image files are allowed.'], 422);
         }
 
         $disk = $this->filesystem->disk('flarum-assets');
@@ -68,7 +86,7 @@ class UploadGroupImageController implements RequestHandlerInterface
 
         $filename = 'social-groups/' . $group->id . '-' . $type . '-' . time() . '.' . $ext;
 
-        $disk->put($filename, $file->getStream()->getContents(), 'public');
+        $disk->put($filename, $streamContents, 'public');
         $url = $disk->url($filename);
 
         if ($type === 'banner') {
