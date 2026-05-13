@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import Button from 'flarum/common/components/Button';
@@ -49,8 +50,9 @@ export default class GroupDiscussionThread extends Page {
     this.loading = true;
     this.error   = null;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-posts/${discussionId}`, {
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/sg-posts/${discussionId}`, {
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then((r) => {
         if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
@@ -84,20 +86,22 @@ export default class GroupDiscussionThread extends Page {
       m.redraw();
 
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('files[]', file);
 
-      fetch(`${app.forum.attribute('apiUrl')}/fof/upload`, {
-        method:  'POST',
-        headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
-        body:    fd,
+      fetch(`${apiBase()}/fof/upload`, {
+        method:      'POST',
+        credentials: 'same-origin',
+        headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
+        body:        fd,
       })
         .then((r) => {
           if (!r.ok) return r.json().then((e) => { throw new Error(e.errors?.[0]?.detail || e.error || 'Upload failed'); });
           return r.json();
         })
         .then((data) => {
-          const uuid   = data.data?.attributes?.uuid || data.data?.id;
-          const upload = this[uploadsKey].find((u) => u.id === id);
+          const fileData = Array.isArray(data.data) ? data.data[0] : data.data;
+          const uuid     = fileData?.attributes?.uuid || fileData?.id;
+          const upload   = this[uploadsKey].find((u) => u.id === id);
           if (upload) {
             upload.uuid      = uuid;
             upload.uploading = false;
@@ -135,8 +139,9 @@ export default class GroupDiscussionThread extends Page {
     this.submitting = true;
     this.replyError = null;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-posts`, {
-      method:  'POST',
+    fetch(`${apiBase()}/sg-posts`, {
+      method:      'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',
@@ -185,8 +190,9 @@ export default class GroupDiscussionThread extends Page {
     const content = this.editText.trim();
     if (!content) return;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-posts/${post.id}`, {
-      method:  'PATCH',
+    fetch(`${apiBase()}/sg-posts/${post.id}`, {
+      method:      'PATCH',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',
@@ -208,9 +214,10 @@ export default class GroupDiscussionThread extends Page {
     if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_post_confirm'))) return;
     this.deletingId = post.id;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-posts/${post.id}`, {
-      method:  'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/sg-posts/${post.id}`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     }).then(() => {
       this.posts = this.posts.filter((p) => p.id !== post.id);
       if (this.discussion) this.discussion.commentCount = Math.max(0, (this.discussion.commentCount || 1) - 1);

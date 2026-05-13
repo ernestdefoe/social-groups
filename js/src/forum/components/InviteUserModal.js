@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
@@ -65,8 +66,9 @@ export default class InviteUserModal extends Modal {
     this.error   = null;
     this.success = null;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${this.attrs.groupId}/invite`, {
-      method:  'POST',
+    fetch(`${apiBase()}/social-groups/${this.attrs.groupId}/invite`, {
+      method:      'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',

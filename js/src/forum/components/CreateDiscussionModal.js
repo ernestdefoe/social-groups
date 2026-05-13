@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
@@ -68,7 +69,7 @@ export default class CreateDiscussionModal extends Modal {
     this.loading = true;
     this.error   = null;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-discussions`, {
+    fetch(`${apiBase()}/sg-discussions`, {
       method:  'POST',
       headers: {
         'Content-Type': 'application/json',

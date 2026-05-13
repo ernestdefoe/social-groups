@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 
@@ -115,9 +116,10 @@ export default class GroupHero extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
-      method: 'POST',
-      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken },
     })
       .then((res) => res.json())
       .then((data) => {
@@ -138,9 +140,10 @@ export default class GroupHero extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
-      method: 'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken },
     })
       .then((res) => res.json())
       .then((data) => {
@@ -156,9 +159,10 @@ export default class GroupHero extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
-      method: 'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken },
+    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken },
     })
       .then(() => {
         this.joining = false;

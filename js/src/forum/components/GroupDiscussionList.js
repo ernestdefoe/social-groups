@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -36,8 +37,9 @@ export default class GroupDiscussionList extends Component {
     this.loading  = true;
     this.page     = page;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-discussions/${groupId}?page=${page}`, {
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/sg-discussions/${groupId}?page=${page}`, {
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -63,9 +65,10 @@ export default class GroupDiscussionList extends Component {
     if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_confirm'))) return;
     this.deleting = d.id;
 
-    fetch(`${app.forum.attribute('apiUrl')}/sg-discussions/${d.id}`, {
-      method:  'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/sg-discussions/${d.id}`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     }).then(() => {
       this.discussions = this.discussions.filter((x) => x.id !== d.id);
       this.total       = Math.max(0, this.total - 1);

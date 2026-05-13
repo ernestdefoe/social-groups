@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
@@ -189,7 +190,7 @@ export default class GroupCard extends Component {
     this.joining = true;
 
     const method = this.isMember ? 'DELETE' : 'POST';
-    const url = `${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`;
+    const url = `${apiBase()}/social-groups/${group.id()}/join`;
 
     fetch(url, {
       method,
@@ -222,7 +223,7 @@ export default class GroupCard extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/join`, {
+    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
       method: 'DELETE',
       headers: { 'X-CSRF-Token': app.session.csrfToken },
     })

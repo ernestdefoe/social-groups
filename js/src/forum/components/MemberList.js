@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -23,8 +24,9 @@ export default class MemberList extends Component {
     const { groupId } = this.attrs;
     this.loading = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/members`, {
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/members`, {
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -43,9 +45,10 @@ export default class MemberList extends Component {
     this.actioning[member.userId] = 'promote';
     const { groupId } = this.attrs;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/members/${member.userId}/promote`, {
-      method:  'POST',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/members/${member.userId}/promote`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then(() => {
         const idx = this.members.findIndex((m) => m.userId === member.userId);
@@ -63,9 +66,10 @@ export default class MemberList extends Component {
     this.actioning[member.userId] = 'demote';
     const { groupId } = this.attrs;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/members/${member.userId}/demote`, {
-      method:  'POST',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/members/${member.userId}/demote`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then(() => {
         const idx = this.members.findIndex((m) => m.userId === member.userId);

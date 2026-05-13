@@ -1,3 +1,4 @@
+import { apiBase } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -24,8 +25,9 @@ export default class JoinRequestsPanel extends Component {
     const groupId = this.attrs.groupId;
     this.loading  = true;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/requests`, {
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/requests`, {
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -44,9 +46,10 @@ export default class JoinRequestsPanel extends Component {
     this.actioning[request.id] = 'approve';
     const groupId = this.attrs.groupId;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/requests/${request.id}/approve`, {
-      method:  'POST',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/requests/${request.id}/approve`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then((r) => r.json())
       .then((data) => {
@@ -65,9 +68,10 @@ export default class JoinRequestsPanel extends Component {
     this.actioning[request.id] = 'reject';
     const groupId = this.attrs.groupId;
 
-    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${groupId}/requests/${request.id}`, {
-      method:  'DELETE',
-      headers: { 'X-CSRF-Token': app.session.csrfToken || '' },
+    fetch(`${apiBase()}/social-groups/${groupId}/requests/${request.id}`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     })
       .then(() => {
         this.requests = this.requests.filter((r) => r.id !== request.id);
