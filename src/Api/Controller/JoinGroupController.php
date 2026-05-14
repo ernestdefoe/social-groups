@@ -28,6 +28,9 @@ class JoinGroupController implements RequestHandlerInterface
         $existing = $group->members()->where('user_id', $actor->id)->first();
 
         if ($existing) {
+            if ($existing->banned_at !== null) {
+                return new JsonResponse(['error' => 'You have been removed from this group.'], 403);
+            }
             return new JsonResponse([
                 'status'      => 'joined',
                 'memberCount' => $group->member_count,

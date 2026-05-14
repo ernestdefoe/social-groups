@@ -12,7 +12,7 @@ export default class MemberList extends Component {
     this.members   = [];
     this.loading   = true;
     this.error     = null;
-    this.actioning = {}; // userId → 'promote'|'demote'
+    this.actioning = {}; // userId → 'promote'|'demote'|'remove'
   }
 
   oncreate(vnode) {
@@ -83,6 +83,29 @@ export default class MemberList extends Component {
       });
   }
 
+  removeMember(member) {
+    if (!confirm(`Remove ${member.displayName} from this group? They will not be able to rejoin.`)) return;
+
+    this.actioning[member.userId] = 'remove';
+    m.redraw();
+
+    fetch(`${apiBase()}/social-groups/${this.attrs.groupId}/members/${member.userId}`, {
+      method:      'DELETE',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        this.members = this.members.filter((m) => m.userId !== member.userId);
+        delete this.actioning[member.userId];
+        m.redraw();
+      })
+      .catch(() => {
+        delete this.actioning[member.userId];
+        m.redraw();
+      });
+  }
+
   openInvite() {
     app.modal.show(InviteUserModal, {
       groupId:   this.attrs.groupId,
@@ -134,9 +157,10 @@ export default class MemberList extends Component {
   }
 
   renderMember(member, isCreator) {
-    const profileUrl = app.route('user', { username: member.slug });
-    const acting     = this.actioning[member.userId];
+    const profileUrl  = app.route('user', { username: member.slug });
+    const acting      = this.actioning[member.userId];
     const canModerate = isCreator && member.role !== 'creator';
+    const canRemove   = member.canRemove;
 
     return m('div.MemberList-row', { key: member.userId }, [
       // Avatar + name
@@ -158,24 +182,36 @@ export default class MemberList extends Component {
         ]),
       ]),
 
-      // Moderation buttons (creator only, non-creator members)
-      canModerate
+      // Moderation buttons
+      canModerate || canRemove
         ? m('div.MemberList-actions', [
-            member.role === 'member'
+            canModerate
+              ? (member.role === 'member'
+                  ? m(Button, {
+                      class:       'Button Button--sm MemberList-promoteBtn',
+                      'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.promote_member'),
+                      loading:     acting === 'promote',
+                      disabled:    !!acting,
+                      onclick:     () => this.promote(member),
+                    }, m('i.fas.fa-shield-alt'))
+                  : m(Button, {
+                      class:       'Button Button--sm MemberList-demoteBtn',
+                      'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.demote_member'),
+                      loading:     acting === 'demote',
+                      disabled:    !!acting,
+                      onclick:     () => this.demote(member),
+                    }, m('i.fas.fa-user')))
+              : null,
+            canRemove
               ? m(Button, {
-                  class:       'Button Button--sm MemberList-promoteBtn',
-                  'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.promote_member'),
-                  loading:     acting === 'promote',
-                  disabled:    !!acting,
-                  onclick:     () => this.promote(member),
-                }, m('i.fas.fa-shield-alt'))
-              : m(Button, {
-                  class:       'Button Button--sm MemberList-demoteBtn',
-                  'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.demote_member'),
-                  loading:     acting === 'demote',
-                  disabled:    !!acting,
-                  onclick:     () => this.demote(member),
-                }, m('i.fas.fa-user')),
+                  class:       'Button Button--sm MemberList-removeBtn',
+                  'aria-label': 'Remove member',
+                  title:        'Remove member',
+                  loading:      acting === 'remove',
+                  disabled:     !!acting,
+                  onclick:      () => this.removeMember(member),
+                }, m('i.fas.fa-user-times'))
+              : null,
           ])
         : null,
     ]);

@@ -2,6 +2,7 @@
 
 use Ernestdefoe\SocialGroups\Api\Controller\ApproveJoinRequestController;
 use Ernestdefoe\SocialGroups\Api\Controller\FeatureGroupController;
+use Ernestdefoe\SocialGroups\Api\Controller\KickGroupMemberController;
 use Ernestdefoe\SocialGroups\Api\Controller\GroupRssFeedController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMediaController;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
@@ -85,7 +86,8 @@ return [
         // Member moderation
         ->get('/social-groups/{id}/members',                         'sg.members.list',          ListGroupMembersController::class)
         ->post('/social-groups/{id}/members/{userId}/promote',       'sg.members.promote',       PromoteMemberController::class)
-        ->post('/social-groups/{id}/members/{userId}/demote',        'sg.members.demote',        DemoteMemberController::class),
+        ->post('/social-groups/{id}/members/{userId}/demote',        'sg.members.demote',        DemoteMemberController::class)
+        ->delete('/social-groups/{id}/members/{userId}',             'sg.members.kick',          KickGroupMemberController::class),
 
     (new Extend\ApiResource(SocialGroupResource::class)),
 

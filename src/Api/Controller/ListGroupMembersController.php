@@ -18,9 +18,14 @@ class ListGroupMembersController implements RequestHandlerInterface
         $id     = $params['id'] ?? null;
         $group = SocialGroup::findOrFail($id);
 
-        $isCreator = $actor->exists && $actor->id === $group->user_id;
+        $actorMember = $actor->exists
+            ? $group->members()->where('user_id', $actor->id)->first()
+            : null;
+        $actorRole   = $actorMember?->role;
+        $actorCanMod = $actor->isAdmin() || in_array($actorRole, ['creator', 'moderator'], true);
+        $isCreator   = $actor->exists && $actor->id === $group->user_id;
 
-        $members = $group->members()->with('user')->get()->map(function ($member) use ($isCreator) {
+        $members = $group->members()->with('user')->whereNull('banned_at')->get()->map(function ($member) use ($actorCanMod, $isCreator, $actor) {
             $user = $member->user;
 
             return [
@@ -31,6 +36,7 @@ class ListGroupMembersController implements RequestHandlerInterface
                 'role'        => $member->role,
                 'joinedAt'    => $member->joined_at?->toIso8601String(),
                 'canModerate' => $isCreator,
+                'canRemove'   => $actorCanMod && $member->role !== 'creator' && $user->id !== $actor->id,
             ];
         });
 
