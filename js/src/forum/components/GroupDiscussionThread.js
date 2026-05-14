@@ -565,18 +565,19 @@ export default class GroupDiscussionThread extends Page {
               : null,
             m('button.SGThread-likeBtn', {
               class:   active ? 'SGThread-likeBtn--liked' : '',
-              onclick: () => {
-                if (actorReaction) {
-                  this.toggleReaction(post, actorReaction);
-                } else {
-                  clearTimeout(this._pickerTimer);
-                  this.pickerPostId = this.pickerPostId === post.id ? null : post.id;
-                  m.redraw();
-                }
-              },
+              onclick: () => this.toggleReaction(post, actorReaction || 'like'),
             }, active
                 ? [active.emoji, ' ', active.label]
                 : [m('i.fas.fa-thumbs-up'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.like')]),
+            m('button.SGThread-pickerToggle', {
+              title:   'More reactions',
+              onclick: (e) => {
+                e.stopPropagation();
+                clearTimeout(this._pickerTimer);
+                this.pickerPostId = this.pickerPostId === post.id ? null : post.id;
+                m.redraw();
+              },
+            }, m('i.fas.fa-smile')),
           ])
         : null,
       actor && !this.discussion?.isLocked
