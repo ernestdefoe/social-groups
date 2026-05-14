@@ -26,9 +26,7 @@ export default class GroupDiscussionThread extends Page {
     this.uploads     = [];
     this.editUploads = [];
 
-    this.pickerPostId      = null;
-    this._pickerTimer      = null;
-    this._pickerClickLock  = false;
+    this.pickerPostId = null;
 
     this.linkPreview    = null;
     this.previewLoading = false;
@@ -50,6 +48,10 @@ export default class GroupDiscussionThread extends Page {
         this.openMenuId = null;
         m.redraw();
       }
+      if (this.pickerPostId !== null && !e.target.closest('.SGThread-reactWrap')) {
+        this.pickerPostId = null;
+        m.redraw();
+      }
     };
     document.addEventListener('click', this._closeMenu);
   }
@@ -65,7 +67,6 @@ export default class GroupDiscussionThread extends Page {
     this._revokeAll(this.uploads);
     this._revokeAll(this.editUploads);
     document.removeEventListener('click', this._closeMenu);
-    clearTimeout(this._pickerTimer);
     clearTimeout(this._previewTimer);
   }
 
@@ -157,24 +158,13 @@ export default class GroupDiscussionThread extends Page {
 
   // ── Reactions ─────────────────────────────────────────────────────────────
 
-  openPicker(postId) {
-    clearTimeout(this._pickerTimer);
-    this._pickerTimer = setTimeout(() => { this.pickerPostId = postId; m.redraw(); }, 500);
-  }
-
-  closePicker() {
-    if (this._pickerClickLock) return;
-    clearTimeout(this._pickerTimer);
-    this._pickerTimer = setTimeout(() => { this.pickerPostId = null; m.redraw(); }, 300);
-  }
-
-  keepPicker() {
-    clearTimeout(this._pickerTimer);
+  togglePicker(postId) {
+    this.pickerPostId = this.pickerPostId === postId ? null : postId;
+    m.redraw();
   }
 
   toggleReaction(post, reactionKey) {
     if (!app.session.user || !post || !post.id) return;
-    this._pickerClickLock = false;
 
     const prevReaction  = post.actorReaction;
     const prevReactions = { ...(post.reactions || {}) };
@@ -549,43 +539,27 @@ export default class GroupDiscussionThread extends Page {
 
     return m('.SGThread-postActionBar', [
       actor
-        ? m('.SGThread-reactWrap', {
-            onmouseenter: () => this.openPicker(post.id),
-            onmouseleave: () => this.closePicker(),
-          }, [
+        ? m('.SGThread-reactWrap', [
             pickerOpen
-              ? m('.SGThread-reactionPicker', {
-                  onmouseenter: () => this.keepPicker(),
-                  onmouseleave: () => this.closePicker(),
-                }, GroupDiscussionThread.REACTIONS.map((r) =>
-                  m('button.SGThread-pickerBtn', {
-                    key:     r.key,
-                    title:   r.label,
-                    class:   actorReaction === r.key ? 'is-active' : '',
-                    onclick: () => this.toggleReaction(post, r.key),
-                  }, [m('span.SGThread-pickerEmoji', r.emoji), m('span.SGThread-pickerLabel', r.label)])
-                ))
+              ? m('.SGThread-reactionPicker',
+                  GroupDiscussionThread.REACTIONS.map((r) =>
+                    m('button.SGThread-pickerBtn', {
+                      key:     r.key,
+                      title:   r.label,
+                      class:   actorReaction === r.key ? 'is-active' : '',
+                      onclick: (e) => { e.stopPropagation(); this.pickerPostId = null; this.toggleReaction(post, r.key); },
+                    }, [m('span.SGThread-pickerEmoji', r.emoji), m('span.SGThread-pickerLabel', r.label)])
+                  ))
               : null,
             m('button.SGThread-likeBtn', {
               class:   active ? 'SGThread-likeBtn--liked' : '',
-              onclick: () => this.toggleReaction(post, actorReaction || 'like'),
+              onclick: (e) => { e.stopPropagation(); this.toggleReaction(post, actorReaction || 'like'); },
             }, active
                 ? [active.emoji, ' ', active.label]
                 : [m('i.fas.fa-thumbs-up'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.like')]),
             m('button.SGThread-pickerToggle', {
               title:   'More reactions',
-              onclick: (e) => {
-                e.stopPropagation();
-                clearTimeout(this._pickerTimer);
-                if (this.pickerPostId === post.id) {
-                  this._pickerClickLock = false;
-                  this.pickerPostId = null;
-                } else {
-                  this._pickerClickLock = true;
-                  this.pickerPostId = post.id;
-                }
-                m.redraw();
-              },
+              onclick: (e) => { e.stopPropagation(); this.togglePicker(post.id); },
             }, m('i.fas.fa-smile')),
           ])
         : null,

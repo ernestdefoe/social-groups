@@ -37,9 +37,7 @@ export default class GroupFeed extends Component {
     this.replyTexts     = {};
     this.replySubmitting = {};
 
-    this.pickerDiscId      = null;
-    this._pickerTimer      = null;
-    this._pickerClickLock  = false;
+    this.pickerDiscId = null;
 
     this.searchQuery  = '';
     this._searchTimer = null;
@@ -55,6 +53,10 @@ export default class GroupFeed extends Component {
     this._closeMenu = (e) => {
       if (this.openMenuId !== null && !e.target.closest('.SGFeed-postMenu')) {
         this.openMenuId = null;
+        m.redraw();
+      }
+      if (this.pickerDiscId !== null && !e.target.closest('.SGFeed-reactWrap')) {
+        this.pickerDiscId = null;
         m.redraw();
       }
     };
@@ -73,7 +75,6 @@ export default class GroupFeed extends Component {
   onremove() {
     document.removeEventListener('click', this._closeMenu);
     revokeAll(this.postUploads);
-    clearTimeout(this._pickerTimer);
     clearTimeout(this._previewTimer);
     clearTimeout(this._searchTimer);
   }
@@ -121,24 +122,13 @@ export default class GroupFeed extends Component {
 
   // ── Reaction picker ───────────────────────────────────────────────────────
 
-  openPicker(discId) {
-    clearTimeout(this._pickerTimer);
-    this._pickerTimer = setTimeout(() => { this.pickerDiscId = discId; m.redraw(); }, 500);
-  }
-
-  closePicker() {
-    if (this._pickerClickLock) return;
-    clearTimeout(this._pickerTimer);
-    this._pickerTimer = setTimeout(() => { this.pickerDiscId = null; m.redraw(); }, 300);
-  }
-
-  keepPicker() {
-    clearTimeout(this._pickerTimer);
+  togglePicker(discId) {
+    this.pickerDiscId = this.pickerDiscId === discId ? null : discId;
+    m.redraw();
   }
 
   toggleReaction(d, reactionKey) {
     if (!app.session.user || !d.firstPost || !d.firstPost.id) return;
-    this._pickerClickLock = false;
     const fp = d.firstPost;
 
     const prevReaction  = fp.actorReaction;
@@ -733,22 +723,17 @@ export default class GroupFeed extends Component {
       // Reaction | Comment action bar
       m('.SGFeed-postActionBar', [
         actor && fp
-          ? m('.SGFeed-reactWrap', {
-              onmouseenter: () => this.openPicker(d.id),
-              onmouseleave: () => this.closePicker(),
-            }, [
+          ? m('.SGFeed-reactWrap', [
               this.pickerDiscId === d.id
-                ? m('.SGFeed-reactionPicker', {
-                    onmouseenter: () => this.keepPicker(),
-                    onmouseleave: () => this.closePicker(),
-                  }, GroupFeed.REACTIONS.map((r) =>
-                    m('button.SGFeed-pickerBtn', {
-                      key:     r.key,
-                      title:   r.label,
-                      class:   fp.actorReaction === r.key ? 'is-active' : '',
-                      onclick: () => this.toggleReaction(d, r.key),
-                    }, [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)])
-                  ))
+                ? m('.SGFeed-reactionPicker',
+                    GroupFeed.REACTIONS.map((r) =>
+                      m('button.SGFeed-pickerBtn', {
+                        key:     r.key,
+                        title:   r.label,
+                        class:   fp.actorReaction === r.key ? 'is-active' : '',
+                        onclick: (e) => { e.stopPropagation(); this.pickerDiscId = null; this.toggleReaction(d, r.key); },
+                      }, [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)])
+                    ))
                 : null,
               (() => {
                 const active = fp.actorReaction
@@ -757,24 +742,13 @@ export default class GroupFeed extends Component {
                 return [
                   m('button.SGFeed-likeBtn', {
                     class:   active ? 'SGFeed-likeBtn--liked' : '',
-                    onclick: () => this.toggleReaction(d, fp.actorReaction || 'like'),
+                    onclick: (e) => { e.stopPropagation(); this.toggleReaction(d, fp.actorReaction || 'like'); },
                   }, active
                       ? [active.emoji, ' ', active.label]
                       : [m('i.fas.fa-thumbs-up'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.like')]),
                   m('button.SGFeed-pickerToggle', {
                     title:   'More reactions',
-                    onclick: (e) => {
-                      e.stopPropagation();
-                      clearTimeout(this._pickerTimer);
-                      if (this.pickerDiscId === d.id) {
-                        this._pickerClickLock = false;
-                        this.pickerDiscId = null;
-                      } else {
-                        this._pickerClickLock = true;
-                        this.pickerDiscId = d.id;
-                      }
-                      m.redraw();
-                    },
+                    onclick: (e) => { e.stopPropagation(); this.togglePicker(d.id); },
                   }, m('i.fas.fa-smile')),
                 ];
               })(),
