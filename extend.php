@@ -23,6 +23,8 @@ use Ernestdefoe\SocialGroups\Api\Controller\Post\DeleteGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\ListGroupPostsController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TogglePostReactionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\UpdateGroupPostController;
+use Ernestdefoe\SocialGroups\Api\Controller\ListUserGroupsController;
+use Ernestdefoe\SocialGroups\Api\Controller\Poll\VotePollController;
 use Ernestdefoe\SocialGroups\Api\Controller\PromoteMemberController;
 use Ernestdefoe\SocialGroups\Api\Controller\RejectJoinRequestController;
 use Ernestdefoe\SocialGroups\Api\Controller\UploadGroupImageController;
@@ -91,7 +93,11 @@ return [
         ->get('/social-groups/{id}/members',                         'sg.members.list',          ListGroupMembersController::class)
         ->post('/social-groups/{id}/members/{userId}/promote',       'sg.members.promote',       PromoteMemberController::class)
         ->post('/social-groups/{id}/members/{userId}/demote',        'sg.members.demote',        DemoteMemberController::class)
-        ->delete('/social-groups/{id}/members/{userId}',             'sg.members.kick',          KickGroupMemberController::class),
+        ->delete('/social-groups/{id}/members/{userId}',             'sg.members.kick',          KickGroupMemberController::class)
+        // User group badges
+        ->get('/sg-user-groups/{userId}',   'sg.user-groups',   ListUserGroupsController::class)
+        // Polls
+        ->post('/sg-polls/{pollId}/vote',   'sg.polls.vote',    VotePollController::class),
 
     (new Extend\ApiResource(SocialGroupResource::class)),
 

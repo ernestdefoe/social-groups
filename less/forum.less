@@ -3034,3 +3034,239 @@
     -webkit-box-orient: vertical;
   }
 }
+
+// ── User Group Badges (Feature 19) ──────────────────────────────────────────
+.UserGroupBadges {
+  padding: 8px 16px 4px;
+  border-top: 1px solid var(--control-bg, #f0f0f0);
+  margin-top: 4px;
+
+  &-label {
+    font-size: 0.75em;
+    font-weight: 600;
+    color: var(--muted-color, #9ca3af);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+
+    i { margin-right: 3px; }
+  }
+
+  &-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 4px;
+    border-radius: 20px;
+    background: var(--control-bg, #f3f4f6);
+    text-decoration: none;
+    color: var(--text-color, #374151);
+    font-size: 0.8em;
+    transition: background 0.15s;
+
+    &:hover { background: var(--secondary-bg, #e5e7eb); text-decoration: none; }
+  }
+
+  &-img {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  &-initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: 0.65em;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  &-name {
+    font-weight: 500;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// ── Poll composer (Feature 20) ───────────────────────────────────────────────
+.SGFeed-pollToggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--muted-color, #9ca3af);
+  font-size: 1.1em;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover { color: var(--primary-color, #4A90E2); background: var(--control-bg, #f3f4f6); }
+  &.is-active { color: var(--primary-color, #4A90E2); }
+}
+
+.SGFeed-pollComposer {
+  margin: 8px 0;
+  padding: 12px;
+  border: 1px solid var(--control-bg, #e5e7eb);
+  border-radius: 8px;
+  background: var(--body-bg, #fafafa);
+
+  &-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--text-color, #374151);
+  }
+
+  &-multiToggle {
+    font-weight: 400;
+    font-size: 0.9em;
+    color: var(--muted-color, #6b7280);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  &-question {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  &-optRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  &-opt { flex: 1; }
+
+  &-removeOpt {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--muted-color, #9ca3af);
+    padding: 4px;
+    border-radius: 4px;
+
+    &:hover { color: var(--danger-color, #ef4444); }
+  }
+
+  &-addOpt {
+    background: none;
+    border: 1px dashed var(--control-bg, #d1d5db);
+    color: var(--muted-color, #6b7280);
+    cursor: pointer;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.82em;
+    width: 100%;
+    margin-top: 2px;
+
+    &:hover { border-color: var(--primary-color, #4A90E2); color: var(--primary-color, #4A90E2); }
+
+    i { margin-right: 4px; }
+  }
+}
+
+// ── Poll display ─────────────────────────────────────────────────────────────
+.SGFeed-poll {
+  margin: 8px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--control-bg, #e5e7eb);
+  border-radius: 8px;
+  background: var(--body-bg, #fafafa);
+
+  &-question {
+    font-weight: 600;
+    font-size: 0.9em;
+    color: var(--text-color, #111827);
+    margin-bottom: 10px;
+
+    i { color: var(--primary-color, #4A90E2); margin-right: 5px; }
+  }
+
+  &-options { display: flex; flex-direction: column; gap: 6px; }
+
+  &-option {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border: 1px solid var(--control-bg, #e5e7eb);
+    border-radius: 6px;
+    background: var(--body-bg, #fff);
+    cursor: pointer;
+    overflow: hidden;
+    text-align: left;
+    transition: border-color 0.15s;
+
+    &:hover:not(:disabled) { border-color: var(--primary-color, #4A90E2); }
+    &:disabled { cursor: default; }
+
+    &.is-voted {
+      border-color: var(--primary-color, #4A90E2);
+      background: rgba(74, 144, 226, 0.05);
+    }
+  }
+
+  &-optBar {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    background: rgba(74, 144, 226, 0.12);
+    transition: width 0.3s ease;
+    pointer-events: none;
+    border-radius: 6px 0 0 6px;
+  }
+
+  &-optText {
+    position: relative;
+    flex: 1;
+    font-size: 0.88em;
+    color: var(--text-color, #374151);
+  }
+
+  &-optPct {
+    position: relative;
+    font-size: 0.8em;
+    color: var(--muted-color, #6b7280);
+    margin-left: 8px;
+    font-weight: 600;
+    min-width: 34px;
+    text-align: right;
+  }
+
+  &-check {
+    position: relative;
+    margin-left: 6px;
+    color: var(--primary-color, #4A90E2);
+    font-size: 0.75em;
+  }
+
+  &-footer {
+    margin-top: 8px;
+    font-size: 0.78em;
+    color: var(--muted-color, #9ca3af);
+  }
+
+  &-ended {
+    font-style: italic;
+  }
+}

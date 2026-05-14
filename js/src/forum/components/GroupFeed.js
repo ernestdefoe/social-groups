@@ -42,6 +42,9 @@ export default class GroupFeed extends Component {
 
     this.searchQuery  = '';
     this._searchTimer = null;
+
+    // Poll composer state
+    this.poll = null; // null = no poll; object = { question, options: ['', ''], isMultiSelect: false }
   }
 
   oncreate(vnode) {
@@ -186,7 +189,18 @@ export default class GroupFeed extends Component {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',
       },
-      body: JSON.stringify({ groupId: this.attrs.groupId, content, linkPreview: this.linkPreview || null }),
+      body: JSON.stringify({
+        groupId:     this.attrs.groupId,
+        content,
+        linkPreview: this.linkPreview || null,
+        poll:        this.poll && this.poll.question.trim() && this.poll.options.filter((o) => o.trim()).length >= 2
+          ? {
+              question:      this.poll.question.trim(),
+              options:       this.poll.options.filter((o) => o.trim()),
+              isMultiSelect: this.poll.isMultiSelect,
+            }
+          : null,
+      }),
     })
       .then((r) => {
         if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
@@ -198,6 +212,7 @@ export default class GroupFeed extends Component {
         this.postText       = '';
         this.postFocused    = false;
         this.postSubmitting = false;
+        this.poll           = null;
         revokeAll(this.postUploads);
         this.postUploads    = [];
         clearLinkPreview(this);
@@ -402,6 +417,7 @@ export default class GroupFeed extends Component {
         }),
         viewUploadChips(this.postUploads, (id) => removeUpload(this, id, 'postUploads', 'postText')),
         viewComposerLinkPreview(this),
+        this.poll ? this.viewPollComposer() : null,
         expanded
           ? m('.SGFeed-composerActions', [
               m('label.SGFeed-composerAttach', {
@@ -419,12 +435,23 @@ export default class GroupFeed extends Component {
                 }),
                 m('i.fas.fa-paperclip'),
               ]),
+              m('button.SGFeed-pollToggle', {
+                class:   this.poll ? 'is-active' : '',
+                title:   this.poll ? 'Remove poll' : 'Add poll',
+                onclick: () => {
+                  this.poll = this.poll
+                    ? null
+                    : { question: '', options: ['', ''], isMultiSelect: false };
+                  m.redraw();
+                },
+              }, m('i.fas.fa-poll')),
               m('button.SGFeed-cancelBtn', {
                 onclick: () => {
                   revokeAll(this.postUploads);
                   this.postUploads = [];
                   this.postText    = '';
                   this.postFocused = false;
+                  this.poll        = null;
                   clearLinkPreview(this);
                   m.redraw();
                 },
@@ -437,6 +464,135 @@ export default class GroupFeed extends Component {
                   : app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_button')),
             ])
           : null,
+      ]),
+    ]);
+  }
+
+  viewPollComposer() {
+    const p = this.poll;
+    return m('.SGFeed-pollComposer', [
+      m('.SGFeed-pollComposer-header', [
+        m('span', [m('i.fas.fa-poll'), ' Poll']),
+        m('label.SGFeed-pollComposer-multiToggle', [
+          m('input[type=checkbox]', {
+            checked:  p.isMultiSelect,
+            onchange: (e) => { p.isMultiSelect = e.target.checked; m.redraw(); },
+          }),
+          ' Allow multiple choices',
+        ]),
+      ]),
+      m('input.FormControl.SGFeed-pollComposer-question', {
+        type:        'text',
+        placeholder: 'Ask a question…',
+        value:       p.question,
+        maxlength:   500,
+        oninput:     (e) => { p.question = e.target.value; },
+      }),
+      p.options.map((opt, i) =>
+        m('.SGFeed-pollComposer-optRow', { key: i }, [
+          m('input.FormControl.SGFeed-pollComposer-opt', {
+            type:        'text',
+            placeholder: `Option ${i + 1}`,
+            value:       opt,
+            maxlength:   255,
+            oninput:     (e) => { p.options[i] = e.target.value; },
+          }),
+          p.options.length > 2
+            ? m('button.SGFeed-pollComposer-removeOpt', {
+                onclick: () => { p.options.splice(i, 1); m.redraw(); },
+              }, m('i.fas.fa-times'))
+            : null,
+        ])
+      ),
+      p.options.length < 6
+        ? m('button.SGFeed-pollComposer-addOpt', {
+            onclick: () => { p.options.push(''); m.redraw(); },
+          }, [m('i.fas.fa-plus'), ' Add option'])
+        : null,
+    ]);
+  }
+
+  votePoll(d, optionId) {
+    if (!app.session.user || !d.poll) return;
+    const poll = d.poll;
+    const actor = app.session.user;
+
+    const alreadyVoted = poll.actorVotedOptionIds.includes(optionId);
+    let newVoteIds;
+    if (poll.isMultiSelect) {
+      newVoteIds = alreadyVoted
+        ? poll.actorVotedOptionIds.filter((id) => id !== optionId)
+        : [...poll.actorVotedOptionIds, optionId];
+    } else {
+      newVoteIds = alreadyVoted ? [] : [optionId];
+    }
+
+    // Optimistic update
+    const prevVoteIds = [...poll.actorVotedOptionIds];
+    const prevCounts  = poll.options.map((o) => o.voteCount);
+    poll.actorVotedOptionIds = newVoteIds;
+    poll.options.forEach((o) => {
+      const wasVoted = prevVoteIds.includes(o.id);
+      const isVoted  = newVoteIds.includes(o.id);
+      if (wasVoted && !isVoted) o.voteCount = Math.max(0, o.voteCount - 1);
+      if (!wasVoted && isVoted) o.voteCount = o.voteCount + 1;
+    });
+    poll.totalVotes = poll.options.reduce((s, o) => s + o.voteCount, 0);
+    m.redraw();
+
+    fetch(`${apiBase()}/sg-polls/${poll.id}/vote`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': app.session.csrfToken || '',
+      },
+      body: JSON.stringify({ optionIds: newVoteIds }),
+    })
+      .then((r) => r.ok ? r.json() : r.json().then((e) => { throw new Error(e.error || 'Error'); }))
+      .then((updated) => {
+        d.poll = updated;
+        m.redraw();
+      })
+      .catch(() => {
+        poll.actorVotedOptionIds = prevVoteIds;
+        poll.options.forEach((o, i) => { o.voteCount = prevCounts[i]; });
+        poll.totalVotes = prevCounts.reduce((s, c) => s + c, 0);
+        m.redraw();
+      });
+  }
+
+  viewPoll(d) {
+    const poll  = d.poll;
+    const actor = app.session.user;
+    if (!poll) return null;
+
+    const ended  = poll.endsAt && new Date(poll.endsAt) < new Date();
+    const canVote = actor && !ended;
+    const max    = Math.max(1, ...poll.options.map((o) => o.voteCount));
+
+    return m('.SGFeed-poll', [
+      m('.SGFeed-poll-question', [m('i.fas.fa-poll'), ' ', poll.question]),
+      m('.SGFeed-poll-options',
+        poll.options.map((opt) => {
+          const voted  = poll.actorVotedOptionIds.includes(opt.id);
+          const pct    = poll.totalVotes > 0 ? Math.round((opt.voteCount / poll.totalVotes) * 100) : 0;
+          return m('button.SGFeed-poll-option', {
+            key:      opt.id,
+            class:    voted ? 'is-voted' : '',
+            disabled: !canVote,
+            onclick:  () => canVote && this.votePoll(d, opt.id),
+          }, [
+            m('.SGFeed-poll-optBar', { style: `width:${pct}%` }),
+            m('span.SGFeed-poll-optText', opt.text),
+            m('span.SGFeed-poll-optPct', `${pct}%`),
+            voted ? m('i.fas.fa-check.SGFeed-poll-check') : null,
+          ]);
+        })
+      ),
+      m('.SGFeed-poll-footer', [
+        m('span', `${poll.totalVotes} vote${poll.totalVotes !== 1 ? 's' : ''}`),
+        ended ? m('span.SGFeed-poll-ended', ' · Ended') : null,
       ]),
     ]);
   }
@@ -534,6 +690,9 @@ export default class GroupFeed extends Component {
               : null,
           ])
         : null,
+
+      // Poll
+      d.poll ? this.viewPoll(d) : null,
 
       // Reaction count + comment count stat bar
       (() => {

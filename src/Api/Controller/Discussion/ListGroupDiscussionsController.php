@@ -2,6 +2,9 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller\Discussion;
 
+use Ernestdefoe\SocialGroups\Api\Concern\SerializesPoll;
+use Ernestdefoe\SocialGroups\Model\SgPoll;
+use Ernestdefoe\SocialGroups\Model\SgPollVote;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
@@ -15,6 +18,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class ListGroupDiscussionsController implements RequestHandlerInterface
 {
+    use SerializesPoll;
+
     public function __construct(private Formatter $formatter) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -143,12 +148,54 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
                 }
             }
 
+            // Batch-load polls
+            $pollsByDiscussion = SgPoll::with('options')
+                ->whereIn('discussion_id', $discussionIds)
+                ->get()
+                ->keyBy('discussion_id');
+
+            $pollMap = [];
+            if ($pollsByDiscussion->isNotEmpty()) {
+                $allOptionIds = $pollsByDiscussion->flatMap(fn ($p) => $p->options->pluck('id'))->all();
+
+                $allVoteCounts = SgPollVote::whereIn('option_id', $allOptionIds)
+                    ->selectRaw('option_id, COUNT(*) as cnt')
+                    ->groupBy('option_id')
+                    ->pluck('cnt', 'option_id')
+                    ->all();
+
+                $actorPollVotes = $actorId
+                    ? SgPollVote::whereIn('poll_id', $pollsByDiscussion->pluck('id')->all())
+                        ->where('user_id', $actorId)
+                        ->get()
+                        ->groupBy('poll_id')
+                        ->map(fn ($rows) => $rows->pluck('option_id')->all())
+                    : collect();
+
+                foreach ($pollsByDiscussion as $discId => $poll) {
+                    $options = $poll->options->sortBy('sort_order');
+                    $pollMap[$discId] = [
+                        'id'                  => $poll->id,
+                        'question'            => $poll->question,
+                        'isMultiSelect'       => (bool) $poll->is_multi_select,
+                        'endsAt'              => $poll->ends_at?->toIso8601String(),
+                        'totalVotes'          => (int) $options->sum(fn ($o) => $allVoteCounts[$o->id] ?? 0),
+                        'actorVotedOptionIds' => $actorPollVotes[$poll->id] ?? [],
+                        'options'             => $options->map(fn ($o) => [
+                            'id'        => $o->id,
+                            'text'      => $o->text,
+                            'voteCount' => (int) ($allVoteCounts[$o->id] ?? 0),
+                        ])->values()->all(),
+                    ];
+                }
+            }
+
             $now          = \Carbon\Carbon::now()->toIso8601String();
             $actorIsAdmin = $actorId ? $actor->isAdmin() : false;
 
             return new JsonResponse([
-                'data'  => $discussions->map(function ($d) use ($firstPostsByDiscussion, $reactionsByPost, $actorReactions, $actorId, $actorIsAdmin, $actorCanPin, $sharedFromMap, $now) {
-                    return $this->serialize($d, $firstPostsByDiscussion[$d->id] ?? null, $reactionsByPost->all(), $actorReactions, $actorId, $actorIsAdmin, $actorCanPin, $sharedFromMap, $now);
+                'data'  => $discussions->map(function ($d) use ($firstPostsByDiscussion, $reactionsByPost, $actorReactions, $actorId, $actorIsAdmin, $actorCanPin, $sharedFromMap, $pollMap, $now) {
+                    return $this->serialize($d, $firstPostsByDiscussion[$d->id] ?? null, $reactionsByPost->all(), $actorReactions, $actorId, $actorIsAdmin, $actorCanPin, $sharedFromMap, $pollMap, $now);
                 })->values(),
                 'total' => $total,
                 'page'  => $page,
@@ -172,6 +219,7 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
         bool $actorIsAdmin,
         bool $actorCanPin,
         array $sharedFromMap,
+        array $pollMap,
         string $now
     ): array {
         $serializedFirstPost = null;
@@ -213,6 +261,7 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
             'sharedFrom'     => $d->shared_from_discussion_id
                 ? ($sharedFromMap[$d->shared_from_discussion_id] ?? null)
                 : null,
+            'poll'           => $pollMap[$d->id] ?? null,
             'firstPost'      => $serializedFirstPost,
             'user'           => $d->user ? [
                 'id'          => $d->user->id,

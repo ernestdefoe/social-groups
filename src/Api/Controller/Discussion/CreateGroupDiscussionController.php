@@ -3,6 +3,9 @@
 namespace Ernestdefoe\SocialGroups\Api\Controller\Discussion;
 
 use Ernestdefoe\SocialGroups\Api\Concern\SanitizesLinkPreview;
+use Ernestdefoe\SocialGroups\Api\Concern\SerializesPoll;
+use Ernestdefoe\SocialGroups\Model\SgPoll;
+use Ernestdefoe\SocialGroups\Model\SgPollOption;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
@@ -16,6 +19,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 class CreateGroupDiscussionController implements RequestHandlerInterface
 {
     use SanitizesLinkPreview;
+    use SerializesPoll;
 
     public function __construct(private Formatter $formatter) {}
 
@@ -32,6 +36,24 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
             $linkPreview = isset($body['linkPreview']) && is_array($body['linkPreview'])
                 ? $this->sanitizeLinkPreview($body['linkPreview'])
                 : null;
+
+            $pollData = null;
+            if (isset($body['poll']) && is_array($body['poll'])) {
+                $pq = trim((string) ($body['poll']['question'] ?? ''));
+                $po = array_values(array_filter(array_map(
+                    fn ($t) => mb_substr(trim((string) $t), 0, 255),
+                    (array) ($body['poll']['options'] ?? [])
+                ), fn ($t) => $t !== ''));
+
+                if ($pq !== '' && count($po) >= 2 && count($po) <= 6) {
+                    $pollData = [
+                        'question'        => mb_substr($pq, 0, 500),
+                        'options'         => $po,
+                        'is_multi_select' => ! empty($body['poll']['isMultiSelect']),
+                        'ends_at'         => null,
+                    ];
+                }
+            }
 
             if (! $groupId || ! $content) {
                 return new JsonResponse(['error' => 'groupId and content are required.'], 422);
@@ -81,6 +103,25 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
                 'link_preview'   => $linkPreview,
             ]);
 
+            $poll = null;
+            if ($pollData) {
+                $poll = SgPoll::create([
+                    'discussion_id'   => $discussion->id,
+                    'question'        => $pollData['question'],
+                    'is_multi_select' => $pollData['is_multi_select'],
+                    'ends_at'         => $pollData['ends_at'],
+                ]);
+                foreach ($pollData['options'] as $i => $optionText) {
+                    SgPollOption::create([
+                        'poll_id'    => $poll->id,
+                        'text'       => $optionText,
+                        'sort_order' => $i,
+                    ]);
+                }
+                $poll->load('options');
+            }
+
+            $actorId         = $actor->id;
             $renderedContent = $this->formatter->render($contentParsed);
 
             return new JsonResponse([
@@ -117,6 +158,7 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
                     'displayName' => $actor->display_name,
                     'avatarUrl'   => $actor->avatar_url,
                 ],
+                'poll' => $this->serializePoll($poll, $actorId),
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return new JsonResponse(['error' => 'Group not found.'], 404);
