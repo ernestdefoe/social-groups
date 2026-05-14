@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -13,6 +14,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 class ListGroupMediaController implements RequestHandlerInterface
 {
     private const PER_PAGE = 24;
+
+    public function __construct(private Formatter $formatter) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -33,12 +36,17 @@ class ListGroupMediaController implements RequestHandlerInterface
                 }
             }
 
-            $total = SocialGroupPost::where('group_id', $groupId)
-                ->where('content_parsed', 'like', '%<img%')
-                ->count();
+            $mediaQuery = fn () => SocialGroupPost::where('group_id', $groupId)
+                ->where(function ($q) {
+                    // Catch fof/upload BBCode in raw content AND inline img tags
+                    // that survive into the parsed XML AST
+                    $q->where('content', 'like', '%[upl-file%')
+                      ->orWhere('content_parsed', 'like', '%<img%');
+                });
 
-            $posts = SocialGroupPost::where('group_id', $groupId)
-                ->where('content_parsed', 'like', '%<img%')
+            $total = $mediaQuery()->count();
+
+            $posts = $mediaQuery()
                 ->with('user')
                 ->orderByDesc('created_at')
                 ->skip($offset)
@@ -47,7 +55,10 @@ class ListGroupMediaController implements RequestHandlerInterface
 
             $items = [];
             foreach ($posts as $post) {
-                $urls = $this->extractImageUrls($post->content_parsed ?? '');
+                $rendered = $post->content_parsed !== null
+                    ? $this->formatter->render($post->content_parsed)
+                    : '';
+                $urls = $this->extractImageUrls($rendered);
                 foreach ($urls as $url) {
                     $items[] = [
                         'url'          => $url,
