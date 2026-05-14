@@ -1906,6 +1906,16 @@
     &:disabled { opacity: 0.45; cursor: default; }
   }
 
+  &-composerAttach {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%;
+    cursor: pointer; color: var(--muted-color);
+    font-size: 0.95rem; margin-right: auto;
+    transition: background @sg-transition, color @sg-transition;
+
+    &:hover { background: var(--control-bg); color: var(--primary-color, @sg-primary-hex); }
+  }
+
   // ── Post card ──────────────────────────────────────────────
   &-post {
     background: var(--body-bg);
@@ -2089,6 +2099,57 @@
     transition: opacity @sg-transition;
 
     &:disabled { opacity: 0.35; cursor: default; }
+  }
+}
+
+// ============================================================
+// Shared upload chips (used by SGFeed composer and SGThread)
+// ============================================================
+
+.SGUploadChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.SGUploadChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--control-bg);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  max-width: 220px;
+
+  &-thumb {
+    width: 30px; height: 30px;
+    object-fit: cover; border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  &-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-color);
+  }
+
+  &-remove {
+    background: none; border: none; cursor: pointer;
+    font-size: 1rem; line-height: 1; padding: 0 2px;
+    color: var(--muted-color); flex-shrink: 0;
+
+    &:hover { color: var(--text-color); }
+  }
+
+  &--loading { opacity: 0.65; }
+
+  &--error {
+    background: fade(#e2574a, 12%);
+    .SGUploadChip-name { color: var(--error-color, #e2574a); }
   }
 }
 

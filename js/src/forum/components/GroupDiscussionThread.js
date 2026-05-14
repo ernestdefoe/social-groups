@@ -1,4 +1,5 @@
 import { apiBase } from '../utils/api';
+import { pastedImages } from '../utils/uploads';
 import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import Button from 'flarum/common/components/Button';
@@ -330,6 +331,10 @@ export default class GroupDiscussionThread extends Page {
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
           },
+          onpaste: (e) => {
+            const imgs = pastedImages(e);
+            if (imgs.length) { e.preventDefault(); this.handleFiles(imgs, 'uploads', 'replyText'); }
+          },
           rows:     1,
           disabled: this.submitting,
         }),
@@ -454,6 +459,10 @@ export default class GroupDiscussionThread extends Page {
             m('textarea.FormControl.SGThread-editTextarea', {
               value:   this.editText,
               oninput: (e) => { this.editText = e.target.value; },
+              onpaste: (e) => {
+                const imgs = pastedImages(e);
+                if (imgs.length) { e.preventDefault(); this.handleFiles(imgs, 'editUploads', 'editText'); }
+              },
               rows:    4,
             }),
             this.editUploads.length

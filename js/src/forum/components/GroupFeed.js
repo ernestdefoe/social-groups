@@ -1,4 +1,5 @@
 import { apiBase } from '../utils/api';
+import { pastedImages, handleFiles, removeUpload, revokeAll, viewUploadChips } from '../utils/uploads';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -21,6 +22,7 @@ export default class GroupFeed extends Component {
     this.postSubmitting = false;
     this.postError      = null;
     this.postFocused    = false;
+    this.postUploads    = [];
 
     // Per-post comment reply state: { [discussionId]: text }
     this.replyTexts     = {};
@@ -51,6 +53,7 @@ export default class GroupFeed extends Component {
 
   onremove() {
     document.removeEventListener('click', this._closeMenu);
+    revokeAll(this.postUploads);
   }
 
   load(page = 1) {
@@ -134,6 +137,8 @@ export default class GroupFeed extends Component {
         this.postText       = '';
         this.postFocused    = false;
         this.postSubmitting = false;
+        revokeAll(this.postUploads);
+        this.postUploads    = [];
         m.redraw();
       })
       .catch((err) => {
@@ -269,15 +274,41 @@ export default class GroupFeed extends Component {
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
           },
+          onpaste: (e) => {
+            const imgs = pastedImages(e);
+            if (imgs.length) { e.preventDefault(); handleFiles(this, imgs, 'postUploads', 'postText'); }
+          },
           disabled: this.postSubmitting,
         }),
+        viewUploadChips(this.postUploads, (id) => removeUpload(this, id, 'postUploads', 'postText')),
         expanded
           ? m('.SGFeed-composerActions', [
+              m('label.SGFeed-composerAttach', {
+                title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.upload_image'),
+              }, [
+                m('input[type=file]', {
+                  accept:   'image/*',
+                  multiple: true,
+                  style:    'display:none',
+                  disabled: this.postSubmitting,
+                  onchange: (e) => {
+                    if (e.target.files.length) handleFiles(this, Array.from(e.target.files), 'postUploads', 'postText');
+                    e.target.value = '';
+                  },
+                }),
+                m('i.fas.fa-paperclip'),
+              ]),
               m('button.SGFeed-cancelBtn', {
-                onclick: () => { this.postText = ''; this.postFocused = false; m.redraw(); },
+                onclick: () => {
+                  revokeAll(this.postUploads);
+                  this.postUploads = [];
+                  this.postText    = '';
+                  this.postFocused = false;
+                  m.redraw();
+                },
               }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.cancel_edit')),
               m('button.SGFeed-postBtn', {
-                disabled: this.postSubmitting || !this.postText.trim(),
+                disabled: this.postSubmitting || (!this.postText.trim() && !this.postUploads.length) || this.postUploads.some((u) => u.uploading),
                 onclick:  () => this.submitPost(),
               }, this.postSubmitting
                   ? m('i.fas.fa-spinner.fa-spin')
