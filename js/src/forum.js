@@ -6,9 +6,15 @@ import SocialGroup from './forum/models/SocialGroup';
 import GroupsPage from './forum/components/GroupsPage';
 import GroupPage from './forum/components/GroupPage';
 import GroupDiscussionThread from './forum/components/GroupDiscussionThread';
+import SocialGroupNewPostNotification from './forum/components/SocialGroupNewPostNotification';
+import SocialGroupNewReplyNotification from './forum/components/SocialGroupNewReplyNotification';
 
 app.initializers.add('ernestdefoe-social-groups', () => {
   app.store.models['social-groups'] = SocialGroup;
+
+  // Notification components
+  app.notificationComponents.socialGroupNewPost  = SocialGroupNewPostNotification;
+  app.notificationComponents.socialGroupNewReply = SocialGroupNewReplyNotification;
 
   // Routes
   app.routes['ernestdefoe-social-groups.index'] = {

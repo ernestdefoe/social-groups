@@ -4,8 +4,12 @@ namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
+use Flarum\Notification\NotificationSyncer;
+use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -13,7 +17,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class CreateGroupPostController implements RequestHandlerInterface
 {
-    public function __construct(private Formatter $formatter) {}
+    public function __construct(
+        private Formatter           $formatter,
+        private NotificationSyncer  $notifications
+    ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -39,7 +46,6 @@ class CreateGroupPostController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'This discussion is locked.'], 403);
         }
 
-        // Must be a member to reply
         $group    = $discussion->group;
         $isMember = $group->members()->where('user_id', $actor->id)->exists();
         if (! $isMember) {
@@ -47,15 +53,16 @@ class CreateGroupPostController implements RequestHandlerInterface
         }
 
         // Validate and flatten parent to 1 level of nesting
+        $resolvedParent = null;
         if ($parentPostId) {
-            $parent = SocialGroupPost::where('id', $parentPostId)
+            $resolvedParent = SocialGroupPost::where('id', $parentPostId)
                 ->where('discussion_id', $discussion->id)
                 ->first();
-            if (! $parent) {
+            if (! $resolvedParent) {
                 return new JsonResponse(['error' => 'Parent post not found.'], 422);
             }
-            // If the parent is itself a reply, attach to its parent (stay at 1 level)
-            $parentPostId = $parent->parent_post_id ?? $parent->id;
+            // Flatten: if parent is itself a reply, attach to its parent instead
+            $parentPostId = $resolvedParent->parent_post_id ?? $resolvedParent->id;
         }
 
         $contentParsed = $this->formatter->parse($content);
@@ -69,11 +76,38 @@ class CreateGroupPostController implements RequestHandlerInterface
             'parent_post_id' => $parentPostId,
         ]);
 
-        // Update discussion metadata
         $discussion->increment('comment_count');
         $discussion->last_posted_at      = \Carbon\Carbon::now();
         $discussion->last_posted_user_id = $actor->id;
         $discussion->save();
+
+        // ── Notifications ────────────────────────────────────────────────────
+        try {
+            if (! $parentPostId) {
+                // New top-level comment — notify discussion creator + prior commenters
+                $recipients = $this->discussionParticipants($discussion, $actor->id);
+                if ($recipients) {
+                    $this->notifications->sync(
+                        new SocialGroupNewPostBlueprint($post, $actor, $discussion),
+                        $recipients
+                    );
+                }
+            } else {
+                // Nested reply — notify the parent post's author
+                $parentPost = SocialGroupPost::find($parentPostId);
+                if ($parentPost && $parentPost->user_id && $parentPost->user_id !== $actor->id) {
+                    $recipient = User::find($parentPost->user_id);
+                    if ($recipient) {
+                        $this->notifications->sync(
+                            new SocialGroupNewReplyBlueprint($post, $actor, $parentPost, $discussion),
+                            [$recipient]
+                        );
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            resolve('log')->error('[social-groups] Notification failed: ' . $e->getMessage(), ['exception' => $e]);
+        }
 
         return new JsonResponse([
             'id'             => $post->id,
@@ -94,5 +128,19 @@ class CreateGroupPostController implements RequestHandlerInterface
                 'slug'        => $actor->username,
             ],
         ], 201);
+    }
+
+    private function discussionParticipants(SocialGroupDiscussion $discussion, int $actorId): array
+    {
+        $ids = SocialGroupPost::where('discussion_id', $discussion->id)
+            ->where('user_id', '!=', $actorId)
+            ->pluck('user_id')
+            ->push($discussion->user_id)
+            ->unique()
+            ->filter(fn ($id) => $id && $id !== $actorId)
+            ->values()
+            ->all();
+
+        return $ids ? User::whereIn('id', $ids)->get()->all() : [];
     }
 }

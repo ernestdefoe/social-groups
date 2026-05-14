@@ -117,6 +117,10 @@ ernestdefoe-social-groups:
       invalid_type: Invalid file type. Please upload a JPG, PNG, GIF, or WebP image.
       too_large: File is too large. Maximum size is 5MB.
 
+    notifications:
+      new_post: "posted in {discussionTitle}"
+      new_reply: "replied to your comment in {discussionTitle}"
+
   admin:
     permissions:
       create_groups: Create social groups
