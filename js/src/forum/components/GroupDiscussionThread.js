@@ -26,8 +26,9 @@ export default class GroupDiscussionThread extends Page {
     this.uploads     = [];
     this.editUploads = [];
 
-    this.pickerPostId = null;
-    this._pickerTimer = null;
+    this.pickerPostId      = null;
+    this._pickerTimer      = null;
+    this._pickerClickLock  = false;
 
     this.linkPreview    = null;
     this.previewLoading = false;
@@ -162,6 +163,7 @@ export default class GroupDiscussionThread extends Page {
   }
 
   closePicker() {
+    if (this._pickerClickLock) return;
     clearTimeout(this._pickerTimer);
     this._pickerTimer = setTimeout(() => { this.pickerPostId = null; m.redraw(); }, 300);
   }
@@ -172,6 +174,7 @@ export default class GroupDiscussionThread extends Page {
 
   toggleReaction(post, reactionKey) {
     if (!app.session.user || !post || !post.id) return;
+    this._pickerClickLock = false;
 
     const prevReaction  = post.actorReaction;
     const prevReactions = { ...(post.reactions || {}) };
@@ -574,7 +577,13 @@ export default class GroupDiscussionThread extends Page {
               onclick: (e) => {
                 e.stopPropagation();
                 clearTimeout(this._pickerTimer);
-                this.pickerPostId = this.pickerPostId === post.id ? null : post.id;
+                if (this.pickerPostId === post.id) {
+                  this._pickerClickLock = false;
+                  this.pickerPostId = null;
+                } else {
+                  this._pickerClickLock = true;
+                  this.pickerPostId = post.id;
+                }
                 m.redraw();
               },
             }, m('i.fas.fa-smile')),

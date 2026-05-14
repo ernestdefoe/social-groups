@@ -37,8 +37,9 @@ export default class GroupFeed extends Component {
     this.replyTexts     = {};
     this.replySubmitting = {};
 
-    this.pickerDiscId = null;
-    this._pickerTimer = null;
+    this.pickerDiscId      = null;
+    this._pickerTimer      = null;
+    this._pickerClickLock  = false;
 
     this.searchQuery  = '';
     this._searchTimer = null;
@@ -126,6 +127,7 @@ export default class GroupFeed extends Component {
   }
 
   closePicker() {
+    if (this._pickerClickLock) return;
     clearTimeout(this._pickerTimer);
     this._pickerTimer = setTimeout(() => { this.pickerDiscId = null; m.redraw(); }, 300);
   }
@@ -136,6 +138,7 @@ export default class GroupFeed extends Component {
 
   toggleReaction(d, reactionKey) {
     if (!app.session.user || !d.firstPost || !d.firstPost.id) return;
+    this._pickerClickLock = false;
     const fp = d.firstPost;
 
     const prevReaction  = fp.actorReaction;
@@ -763,7 +766,13 @@ export default class GroupFeed extends Component {
                     onclick: (e) => {
                       e.stopPropagation();
                       clearTimeout(this._pickerTimer);
-                      this.pickerDiscId = this.pickerDiscId === d.id ? null : d.id;
+                      if (this.pickerDiscId === d.id) {
+                        this._pickerClickLock = false;
+                        this.pickerDiscId = null;
+                      } else {
+                        this._pickerClickLock = true;
+                        this.pickerDiscId = d.id;
+                      }
                       m.redraw();
                     },
                   }, m('i.fas.fa-smile')),
