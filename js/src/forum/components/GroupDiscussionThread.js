@@ -196,7 +196,10 @@ export default class GroupDiscussionThread extends Page {
       },
       body: nextReaction ? JSON.stringify({ reaction: nextReaction }) : undefined,
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('reaction_failed');
+        return r.json();
+      })
       .then((data) => {
         post.reactions     = data.reactions || {};
         post.actorReaction = data.actorReaction || null;

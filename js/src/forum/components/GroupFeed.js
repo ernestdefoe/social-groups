@@ -160,7 +160,10 @@ export default class GroupFeed extends Component {
       },
       body: nextReaction ? JSON.stringify({ reaction: nextReaction }) : undefined,
     })
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error('reaction_failed');
+        return r.json();
+      })
       .then((data) => {
         fp.reactions     = data.reactions || {};
         fp.actorReaction = data.actorReaction || null;
