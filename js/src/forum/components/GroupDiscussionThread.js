@@ -309,8 +309,8 @@ export default class GroupDiscussionThread extends Page {
     this.deletingId = post.id;
     this.openMenuId = null;
 
-    fetch(`${apiBase()}/sg-posts/${post.id}`, {
-      method:      'DELETE',
+    fetch(`${apiBase()}/sg-posts/${post.id}/delete`, {
+      method:      'POST',
       credentials: 'same-origin',
       headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
     }).then(() => {

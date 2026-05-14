@@ -148,8 +148,8 @@ export default class GroupHero extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
-      method:      'DELETE',
+    fetch(`${apiBase()}/social-groups/${group.id()}/leave`, {
+      method:      'POST',
       credentials: 'same-origin',
       headers:     { 'X-CSRF-Token': app.session.csrfToken },
     })
@@ -167,8 +167,8 @@ export default class GroupHero extends Component {
     if (this.joining) return;
     this.joining = true;
 
-    fetch(`${apiBase()}/social-groups/${group.id()}/join`, {
-      method:      'DELETE',
+    fetch(`${apiBase()}/social-groups/${group.id()}/leave`, {
+      method:      'POST',
       credentials: 'same-origin',
       headers:     { 'X-CSRF-Token': app.session.csrfToken },
     })

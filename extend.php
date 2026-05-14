@@ -63,8 +63,8 @@ return [
         // Groups
         ->patch('/social-groups/{id}/feature',    'social-groups.feature',    FeatureGroupController::class)
         ->get('/sg-analytics/{groupId}',         'social-groups.analytics',  GroupAnalyticsController::class)
-        ->post('/social-groups/{id}/join',    'social-groups.join',          JoinGroupController::class)
-        ->delete('/social-groups/{id}/join',  'social-groups.leave',         LeaveGroupController::class)
+        ->post('/social-groups/{id}/join',    'social-groups.join',  JoinGroupController::class)
+        ->post('/social-groups/{id}/leave',   'social-groups.leave', LeaveGroupController::class)
         ->post('/social-groups/{id}/image',   'social-groups.upload-image',  UploadGroupImageController::class)
         ->post('/social-groups/{id}/banner',  'social-groups.upload-banner', UploadGroupImageController::class)
         ->post('/social-groups/{id}/invite',  'social-groups.invite',        InviteUserController::class)
@@ -80,8 +80,8 @@ return [
         // Posts
         ->get('/sg-posts/{discussionId}',     'sg-posts.list',   ListGroupPostsController::class)
         ->post('/sg-posts',                   'sg-posts.create', CreateGroupPostController::class)
-        ->patch('/sg-posts/{postId}',         'sg-posts.update', UpdateGroupPostController::class)
-        ->delete('/sg-posts/{postId}',        'sg-posts.delete', DeleteGroupPostController::class)
+        ->patch('/sg-posts/{postId}',          'sg-posts.update', UpdateGroupPostController::class)
+        ->post('/sg-posts/{postId}/delete',   'sg-posts.delete', DeleteGroupPostController::class)
         ->post('/sg-posts/{postId}/react',   'sg-posts.react',   TogglePostReactionController::class)
         ->post('/sg-posts/{postId}/unreact', 'sg-posts.unreact', TogglePostReactionController::class)
         // Join requests
