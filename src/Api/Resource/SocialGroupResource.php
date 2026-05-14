@@ -48,7 +48,7 @@ class SocialGroupResource extends AbstractDatabaseResource
             ]);
         }
 
-        $query->orderByDesc('member_count');
+        $query->orderByDesc('is_featured')->orderByDesc('member_count');
     }
 
     public function endpoints(): array
@@ -162,6 +162,12 @@ class SocialGroupResource extends AbstractDatabaseResource
                     $pre = $g->pending_req_count;
                     return $pre !== null ? (int) $pre : $g->joinRequests()->where('status', 'pending')->count();
                 }),
+
+            Schema\Boolean::make('isFeatured')
+                ->get(fn ($group) => (bool) $group->is_featured),
+
+            Schema\Boolean::make('canFeature')
+                ->get(fn ($group, Context $context) => $context->getActor()->isAdmin()),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')

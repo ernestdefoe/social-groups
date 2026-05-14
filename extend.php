@@ -1,6 +1,7 @@
 <?php
 
 use Ernestdefoe\SocialGroups\Api\Controller\ApproveJoinRequestController;
+use Ernestdefoe\SocialGroups\Api\Controller\FeatureGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMembersController;
 use Ernestdefoe\SocialGroups\Api\Controller\DemoteMemberController;
@@ -51,6 +52,7 @@ return [
 
     (new Extend\Routes('api'))
         // Groups
+        ->patch('/social-groups/{id}/feature', 'social-groups.feature',       FeatureGroupController::class)
         ->post('/social-groups/{id}/join',    'social-groups.join',          JoinGroupController::class)
         ->delete('/social-groups/{id}/join',  'social-groups.leave',         LeaveGroupController::class)
         ->post('/social-groups/{id}/image',   'social-groups.upload-image',  UploadGroupImageController::class)

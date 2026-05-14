@@ -49,6 +49,27 @@ export default class GroupsPage extends Page {
     );
   }
 
+  toggleFeature(group) {
+    const was = group.isFeatured();
+    group.pushData({ attributes: { isFeatured: !was } });
+    m.redraw();
+
+    fetch(`${app.forum.attribute('apiUrl')}/social-groups/${group.id()}/feature`, {
+      method:      'PATCH',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        group.pushData({ attributes: { isFeatured: data.isFeatured } });
+        m.redraw();
+      })
+      .catch(() => {
+        group.pushData({ attributes: { isFeatured: was } });
+        m.redraw();
+      });
+  }
+
   onSearch(value) {
     this.searchValue = value;
     m.redraw();
@@ -115,9 +136,34 @@ export default class GroupsPage extends Page {
                   }, app.translator.trans('ernestdefoe-social-groups.forum.groups.create_button'))
                 : null,
             ])
-          : m('div.GroupsPage-grid',
-              this.filteredGroups.map((group) => m(GroupCard, { group, key: group.id() }))
-            ),
+          : (() => {
+              const groups   = this.filteredGroups;
+              const featured = groups.filter((g) => g.isFeatured());
+              const regular  = groups.filter((g) => !g.isFeatured());
+              return [
+                featured.length
+                  ? m('div.GroupsPage-featured', [
+                      m('h3.GroupsPage-featuredHeading', [m('i.fas.fa-star'), ' Featured Groups']),
+                      m('div.GroupsPage-grid.GroupsPage-grid--featured',
+                        featured.map((group) => m(GroupCard, {
+                          group,
+                          key:           group.id(),
+                          onToggleFeature: () => this.toggleFeature(group),
+                        }))
+                      ),
+                    ])
+                  : null,
+                regular.length
+                  ? m('div.GroupsPage-grid',
+                      regular.map((group) => m(GroupCard, {
+                        group,
+                        key:           group.id(),
+                        onToggleFeature: () => this.toggleFeature(group),
+                      }))
+                    )
+                  : null,
+              ];
+            })(),
       ]),
     ]);
   }

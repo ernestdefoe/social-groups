@@ -26,7 +26,8 @@ class SocialGroup extends AbstractModel
     public $timestamps = true;
 
     protected $casts = [
-        'is_private' => 'boolean',
+        'is_private'  => 'boolean',
+        'is_featured' => 'boolean',
     ];
 
     public function joinRequests()

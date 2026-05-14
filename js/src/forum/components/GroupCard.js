@@ -78,6 +78,7 @@ export default class GroupCard extends Component {
             m('span', ' ' + app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.memberCount })),
             group.isPrivate() ? m('span.GroupCard-private', [m('i.fas.fa-lock'), ' Private']) : null,
             isApproval ? m('span.GroupCard-approval', [m('i.fas.fa-user-check'), ' Approval']) : null,
+            group.isFeatured() ? m('span.GroupCard-featured', [m('i.fas.fa-star'), ' Featured']) : null,
           ]),
           description
             ? m('div.GroupCard-description', description)
@@ -101,6 +102,8 @@ export default class GroupCard extends Component {
   }
 
   renderKebabMenu(group) {
+    const canFeature = group.canFeature?.() ?? false;
+
     return m('div.GroupCard-kebab', [
       m('button.GroupCard-kebabBtn', {
         type: 'button',
@@ -114,6 +117,18 @@ export default class GroupCard extends Component {
 
       this.kebabOpen
         ? m('div.GroupCard-kebabMenu', [
+            canFeature
+              ? m('button.GroupCard-kebabItem', {
+                  type: 'button',
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    this.kebabOpen = false;
+                    if (this.attrs.onToggleFeature) this.attrs.onToggleFeature();
+                  },
+                }, group.isFeatured()
+                    ? [m('i.fas.fa-star'), ' Unfeature group']
+                    : [m('i.far.fa-star'), ' Feature group'])
+              : null,
             m('button.GroupCard-kebabItem', {
               type: 'button',
               onclick: (e) => {
