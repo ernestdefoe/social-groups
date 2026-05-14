@@ -53,6 +53,10 @@ export default class SocialGroup extends Model {
     return this.attribute('membershipType') || 'open';
   }
 
+  isFeatured() {
+    return this.attribute('isFeatured') || false;
+  }
+
   isPending() {
     return this.attribute('isPending') || false;
   }
