@@ -1,6 +1,7 @@
 <?php
 
 use Ernestdefoe\SocialGroups\Api\Controller\ApproveJoinRequestController;
+use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMembersController;
 use Ernestdefoe\SocialGroups\Api\Controller\DemoteMemberController;
 use Ernestdefoe\SocialGroups\Api\Controller\Discussion\CreateGroupDiscussionController;
@@ -54,6 +55,8 @@ return [
         ->post('/social-groups/{id}/image',   'social-groups.upload-image',  UploadGroupImageController::class)
         ->post('/social-groups/{id}/banner',  'social-groups.upload-banner', UploadGroupImageController::class)
         ->post('/social-groups/{id}/invite',  'social-groups.invite',        InviteUserController::class)
+        // Link preview proxy
+        ->get('/sg-link-preview', 'sg-link-preview', FetchLinkPreviewController::class)
         // Discussions
         ->get('/sg-discussions/{groupId}',           'sg-discussions.list',   ListGroupDiscussionsController::class)
         ->post('/sg-discussions',                    'sg-discussions.create', CreateGroupDiscussionController::class)

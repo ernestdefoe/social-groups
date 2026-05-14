@@ -117,6 +117,7 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
                 'contentParsed' => $contentParsed,
                 'reactions'     => (object) ($reactionsByPost[$firstPost->id] ?? []),
                 'actorReaction' => $actorReactions[$firstPost->id] ?? null,
+                'linkPreview'   => $firstPost->link_preview,
                 'canEdit'       => $actorId && $actorId === $firstPost->user_id,
                 'createdAt'     => $firstPost->created_at?->toIso8601String() ?? $now,
                 'user'          => $firstPost->user ? [

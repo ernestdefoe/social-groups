@@ -65,6 +65,10 @@ class CreateGroupPostController implements RequestHandlerInterface
             $parentPostId = $resolvedParent->parent_post_id ?? $resolvedParent->id;
         }
 
+        $linkPreview = isset($body['linkPreview']) && is_array($body['linkPreview'])
+            ? $this->sanitizeLinkPreview($body['linkPreview'])
+            : null;
+
         $contentParsed = $this->formatter->parse($content);
 
         $post = SocialGroupPost::create([
@@ -74,6 +78,7 @@ class CreateGroupPostController implements RequestHandlerInterface
             'content'        => $content,
             'content_parsed' => $contentParsed,
             'parent_post_id' => $parentPostId,
+            'link_preview'   => $linkPreview,
         ]);
 
         $discussion->increment('comment_count');
@@ -119,6 +124,7 @@ class CreateGroupPostController implements RequestHandlerInterface
             'reactions'      => (object) [],
             'actorReaction'  => null,
             'parentPostId'   => $post->parent_post_id,
+            'linkPreview'    => $post->link_preview,
             'canEdit'        => $actor->id === $post->user_id,
             'canDelete'      => $actor->id === $post->user_id,
             'user'           => [
@@ -128,6 +134,23 @@ class CreateGroupPostController implements RequestHandlerInterface
                 'slug'        => $actor->username,
             ],
         ], 201);
+    }
+
+    private function sanitizeLinkPreview(array $raw): ?array
+    {
+        $url = filter_var($raw['url'] ?? '', FILTER_VALIDATE_URL);
+        if (! $url || ! in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            return null;
+        }
+        $image = filter_var($raw['image'] ?? '', FILTER_VALIDATE_URL) ?: null;
+
+        return [
+            'url'         => $url,
+            'title'       => mb_substr(strip_tags($raw['title']       ?? ''), 0, 200),
+            'description' => mb_substr(strip_tags($raw['description'] ?? ''), 0, 500),
+            'image'       => $image,
+            'siteName'    => mb_substr(strip_tags($raw['siteName']    ?? ''), 0, 100),
+        ];
     }
 
     private function discussionParticipants(SocialGroupDiscussion $discussion, int $actorId): array

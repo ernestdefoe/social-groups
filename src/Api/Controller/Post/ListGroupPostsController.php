@@ -102,6 +102,7 @@ class ListGroupPostsController implements RequestHandlerInterface
             'reactions'     => (object) ($reactionsByPost[$p->id] ?? []),
             'actorReaction' => $actorReactions[$p->id] ?? null,
             'parentPostId'  => $p->parent_post_id,
+            'linkPreview'   => $p->link_preview,
             'canEdit'       => $actorId && $actorId === $p->user_id,
             'canDelete'     => $actorId && $actorId === $p->user_id,
             'user'          => $p->user ? [

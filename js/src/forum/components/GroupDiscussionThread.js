@@ -1,5 +1,6 @@
 import { apiBase } from '../utils/api';
 import { pastedImages } from '../utils/uploads';
+import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
 import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import Button from 'flarum/common/components/Button';
@@ -26,6 +27,12 @@ export default class GroupDiscussionThread extends Page {
 
     this.pickerPostId = null;
     this._pickerTimer = null;
+
+    this.linkPreview    = null;
+    this.previewLoading = false;
+    this.previewUrl     = null;
+    this._previewTimer  = null;
+    this._dismissedUrls = new Set();
 
     this.replyingToId          = null;
     this.inlineReplyText       = '';
@@ -57,6 +64,7 @@ export default class GroupDiscussionThread extends Page {
     this._revokeAll(this.editUploads);
     document.removeEventListener('click', this._closeMenu);
     clearTimeout(this._pickerTimer);
+    clearTimeout(this._previewTimer);
   }
 
   _revokeAll(uploads) {
@@ -216,7 +224,7 @@ export default class GroupDiscussionThread extends Page {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',
       },
-      body: JSON.stringify({ discussionId: this.discussion.id, content }),
+      body: JSON.stringify({ discussionId: this.discussion.id, content, linkPreview: this.linkPreview || null }),
     })
       .then((r) => {
         if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
@@ -229,6 +237,7 @@ export default class GroupDiscussionThread extends Page {
         this.submitting = false;
         this._revokeAll(this.uploads);
         this.uploads = [];
+        clearLinkPreview(this);
         m.redraw();
         requestAnimationFrame(() => {
           const el = document.querySelector('.SGThread-posts');
@@ -414,6 +423,7 @@ export default class GroupDiscussionThread extends Page {
             this.replyText = e.target.value;
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
+            scheduleLinkPreview(this, e.target.value);
           },
           onpaste: (e) => {
             const imgs = pastedImages(e);
@@ -425,6 +435,7 @@ export default class GroupDiscussionThread extends Page {
         this.uploads.length
           ? m('.SGThread-uploads', this.uploads.map((u) => this.viewUpload(u, 'uploads', 'replyText')))
           : null,
+        viewComposerLinkPreview(this),
         m('.SGThread-replyFooter', [
           m('.SGThread-replyFooterLeft', [
             this.viewUploadBtn('uploads', 'replyText', this.submitting),
@@ -676,6 +687,7 @@ export default class GroupDiscussionThread extends Page {
             ]),
           ])
         : m('.SGThread-postContent', m.trust(post.contentParsed)),
+      !isEditing ? viewPostLinkPreview(post) : null,
 
       // ── Reaction count bar ──
       this.viewReactionStatBar(post),

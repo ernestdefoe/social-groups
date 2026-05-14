@@ -23,6 +23,8 @@ class SocialGroupPost extends AbstractModel
 
     public $timestamps = true;
 
+    protected $casts = ['link_preview' => 'array'];
+
     public function discussion()
     {
         return $this->belongsTo(SocialGroupDiscussion::class, 'discussion_id');

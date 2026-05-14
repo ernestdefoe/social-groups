@@ -1,5 +1,6 @@
 import { apiBase } from '../utils/api';
 import { pastedImages, handleFiles, removeUpload, revokeAll, viewUploadChips } from '../utils/uploads';
+import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -23,6 +24,12 @@ export default class GroupFeed extends Component {
     this.postError      = null;
     this.postFocused    = false;
     this.postUploads    = [];
+
+    this.linkPreview    = null;
+    this.previewLoading = false;
+    this.previewUrl     = null;
+    this._previewTimer  = null;
+    this._dismissedUrls = new Set();
 
     // Per-post comment reply state: { [discussionId]: text }
     this.replyTexts     = {};
@@ -58,6 +65,7 @@ export default class GroupFeed extends Component {
     document.removeEventListener('click', this._closeMenu);
     revokeAll(this.postUploads);
     clearTimeout(this._pickerTimer);
+    clearTimeout(this._previewTimer);
   }
 
   load(page = 1) {
@@ -164,7 +172,7 @@ export default class GroupFeed extends Component {
         'Content-Type': 'application/json',
         'X-CSRF-Token': app.session.csrfToken || '',
       },
-      body: JSON.stringify({ groupId: this.attrs.groupId, content }),
+      body: JSON.stringify({ groupId: this.attrs.groupId, content, linkPreview: this.linkPreview || null }),
     })
       .then((r) => {
         if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
@@ -178,6 +186,7 @@ export default class GroupFeed extends Component {
         this.postSubmitting = false;
         revokeAll(this.postUploads);
         this.postUploads    = [];
+        clearLinkPreview(this);
         m.redraw();
       })
       .catch((err) => {
@@ -312,6 +321,7 @@ export default class GroupFeed extends Component {
             this.postText = e.target.value;
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
+            scheduleLinkPreview(this, e.target.value);
           },
           onpaste: (e) => {
             const imgs = pastedImages(e);
@@ -320,6 +330,7 @@ export default class GroupFeed extends Component {
           disabled: this.postSubmitting,
         }),
         viewUploadChips(this.postUploads, (id) => removeUpload(this, id, 'postUploads', 'postText')),
+        viewComposerLinkPreview(this),
         expanded
           ? m('.SGFeed-composerActions', [
               m('label.SGFeed-composerAttach', {
@@ -343,6 +354,7 @@ export default class GroupFeed extends Component {
                   this.postUploads = [];
                   this.postText    = '';
                   this.postFocused = false;
+                  clearLinkPreview(this);
                   m.redraw();
                 },
               }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.cancel_edit')),
@@ -408,6 +420,7 @@ export default class GroupFeed extends Component {
       fp
         ? m('.SGFeed-postContent', m.trust(fp.contentParsed))
         : m('.SGFeed-postContent', m('.SGFeed-noContent', d.title)),
+      fp ? viewPostLinkPreview(fp) : null,
 
       // Reaction count + comment count stat bar
       (() => {

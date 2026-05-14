@@ -25,8 +25,10 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
             $body    = (array) ($request->getParsedBody() ?? []);
             $groupId = (int) ($body['groupId'] ?? 0);
             $content = trim((string) ($body['content'] ?? ''));
-            // Title is optional — auto-generated from content if omitted
             $title   = trim((string) ($body['title'] ?? ''));
+            $linkPreview = isset($body['linkPreview']) && is_array($body['linkPreview'])
+                ? $this->sanitizeLinkPreview($body['linkPreview'])
+                : null;
 
             if (! $groupId || ! $content) {
                 return new JsonResponse(['error' => 'groupId and content are required.'], 422);
@@ -73,6 +75,7 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
                 'user_id'        => $actor->id,
                 'content'        => $content,
                 'content_parsed' => $contentParsed,
+                'link_preview'   => $linkPreview,
             ]);
 
             $renderedContent = $this->formatter->render($contentParsed);
@@ -92,6 +95,7 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
                     'contentParsed' => $renderedContent,
                     'reactions'     => (object) [],
                     'actorReaction' => null,
+                    'linkPreview'   => $firstPost->link_preview,
                     'canEdit'       => true,
                     'createdAt'     => ($firstPost->created_at ?? $now)->toIso8601String(),
                     'user'          => [
@@ -117,5 +121,20 @@ class CreateGroupDiscussionController implements RequestHandlerInterface
             resolve('log')->error('[social-groups] CreateGroupDiscussionController: ' . $e->getMessage(), ['exception' => $e]);
             return new JsonResponse(['error' => 'An unexpected error occurred.'], 500);
         }
+    }
+
+    private function sanitizeLinkPreview(array $raw): ?array
+    {
+        $url = filter_var($raw['url'] ?? '', FILTER_VALIDATE_URL);
+        if (! $url || ! in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)) {
+            return null;
+        }
+        return [
+            'url'         => $url,
+            'title'       => mb_substr(strip_tags($raw['title']       ?? ''), 0, 200),
+            'description' => mb_substr(strip_tags($raw['description'] ?? ''), 0, 500),
+            'image'       => filter_var($raw['image'] ?? '', FILTER_VALIDATE_URL) ?: null,
+            'siteName'    => mb_substr(strip_tags($raw['siteName']    ?? ''), 0, 100),
+        ];
     }
 }
