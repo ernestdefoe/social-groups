@@ -1,7 +1,6 @@
 import app from 'flarum/forum/app';
 import { extend } from 'flarum/common/extend';
 import IndexSidebar from 'flarum/forum/components/IndexSidebar';
-import SettingsPage from 'flarum/forum/components/SettingsPage';
 import UserCard from 'flarum/forum/components/UserCard';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SocialGroup from './forum/models/SocialGroup';
@@ -36,24 +35,37 @@ app.initializers.add('ernestdefoe-social-groups', () => {
     component: GroupDiscussionThread,
   };
 
-  // ── User card group badges ─────────────────────────────────────────────────
+  // ── User card group badges + primary group selector ───────────────────────
   extend(UserCard.prototype, 'profileItems', function (items) {
     const user = this.attrs.user;
-    if (user && user.id() && items && typeof items.add === 'function') {
-      items.add(
-        'social-group-badges',
-        m(UserGroupBadges, { userId: user.id() }),
-        -10
-      );
+    if (!user || !user.id() || !items || typeof items.add !== 'function') return;
+
+    // Always show group badges on every profile card
+    items.add('social-group-badges', m(UserGroupBadges, { userId: user.id() }), -10);
+
+    // Show the primary group selector only on the current user's own card
+    if (app.session.user && String(app.session.user.id()) === String(user.id())) {
+      items.add('sg-primary-group-selector', m(PrimaryGroupSelector), -20);
     }
   });
 
-  // ── Primary group selector in account settings ────────────────────────────
-  extend(SettingsPage.prototype, 'settingsItems', function (items) {
-    if (app.session.user) {
-      items.add('sg-primary-group', m(PrimaryGroupSelector), 10);
+  // ── Primary group selector in account settings (Flarum 2 SettingsPage) ────
+  // SettingsPage may or may not be registered in the Flarum registry depending
+  // on the exact version. Guard with try/require so a missing component never
+  // crashes the whole extension.
+  try {
+    const mod = require('flarum/forum/components/SettingsPage');
+    const SettingsPage = mod?.default ?? mod;
+    if (SettingsPage?.prototype) {
+      extend(SettingsPage.prototype, 'settingsItems', function (items) {
+        if (app.session.user) {
+          items.add('sg-primary-group', m(PrimaryGroupSelector), 10);
+        }
+      });
     }
-  });
+  } catch (_) {
+    // SettingsPage not available in this Flarum build — selector is on the profile card instead
+  }
 
   // ── Sidebar navigation link ────────────────────────────────────────────────
   extend(IndexSidebar.prototype, 'navItems', function (items) {
