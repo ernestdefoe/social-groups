@@ -3446,12 +3446,21 @@
   font-weight: 700;
 }
 
+// Right column — bubble + footer stacked vertically
+.SGFeed-commentRight {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .SGFeed-commentBody {
+  display: inline-block;        // shrink-wrap to content width
   background: var(--control-bg, #f3f4f6);
   border-radius: 12px;
   padding: 8px 12px;
-  flex: 1;
-  min-width: 0;
+  max-width: 100%;
 }
 
 .SGFeed-commentAuthor {
@@ -3468,17 +3477,99 @@
   word-break: break-word;
   line-height: 1.45;
 
-  // Strip block-level margins inside a compact comment bubble
   p { margin: 0; }
   img { max-width: 100%; border-radius: 6px; }
 }
 
+// Footer row: time · React · reaction count
+.SGFeed-commentFooter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 4px;
+  flex-wrap: wrap;
+}
+
 .SGFeed-commentTime {
-  display: block;
   font-size: 11px;
   color: var(--muted-color, #9ca3af);
-  margin-top: 4px;
 }
+
+// ── Comment reaction picker ────────────────────────────────────────────────
+
+.SGFeed-commentReactWrap {
+  position: relative;
+}
+
+.SGFeed-commentPicker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 200;
+  background: var(--body-bg, #fff);
+  border-radius: 24px;
+  padding: 6px 8px;
+  display: flex;
+  gap: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  animation: sg-fade-in 0.12s ease;
+  white-space: nowrap;
+
+  // Reuse the same pickerBtn styles already defined for SGFeed/SGThread
+  .SGFeed-pickerBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 50%;
+    padding: 4px;
+    transition: transform 0.1s ease, background @sg-transition;
+
+    &:hover, &.is-active { transform: scale(1.25); background: var(--control-bg, #f3f4f6); }
+  }
+
+  .SGFeed-pickerEmoji { font-size: 22px; line-height: 1; }
+  .SGFeed-pickerLabel { font-size: 9px; color: var(--muted-color, #9ca3af); margin-top: 2px; }
+}
+
+// The compact "React" button below a comment bubble
+.SGFeed-commentReactBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-color, #6b7280);
+  padding: 2px 6px;
+  border-radius: 10px;
+  transition: background @sg-transition, color @sg-transition;
+
+  &:hover { background: var(--control-bg, #f3f4f6); color: var(--primary-color, @sg-primary-hex); }
+
+  &.is-active {
+    color: var(--primary-color, @sg-primary-hex);
+    background: fade(@sg-primary-hex, 10%);
+  }
+}
+
+// Reaction count pill shown after the React button
+.SGFeed-commentReactStat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--muted-color, #6b7280);
+  background: var(--control-bg, #f3f4f6);
+  border-radius: 10px;
+  padding: 2px 7px;
+}
+
+.SGFeed-commentReactEmoji { font-size: 12px; line-height: 1; }
 
 // Active state for the Comments toggle button
 .SGFeed-commentBtn.is-active {

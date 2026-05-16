@@ -46,10 +46,11 @@ export default class GroupFeed extends Component {
     this.poll = null; // null = no poll; object = { question, options: ['', ''], isMultiSelect: false }
 
     // Inline comment state
-    this.expandedDiscIds = new Set();   // IDs of discussions showing inline comments
-    this.loadedComments  = {};          // { [discId]: post[] }
-    this.commentsLoading = {};          // { [discId]: bool }
-    this._rtFeedHandler  = null;        // sg:post-created DOM listener
+    this.expandedDiscIds  = new Set();   // IDs of discussions showing inline comments
+    this.loadedComments   = {};          // { [discId]: post[] }
+    this.commentsLoading  = {};          // { [discId]: bool }
+    this._rtFeedHandler   = null;        // sg:post-created DOM listener
+    this.pickerCommentId  = null;        // post.id whose reaction picker is open
   }
 
   oncreate(vnode) {
@@ -63,6 +64,10 @@ export default class GroupFeed extends Component {
       }
       if (this.pickerDiscId !== null && !e.target.closest('.SGFeed-reactWrap')) {
         this.pickerDiscId = null;
+        m.redraw();
+      }
+      if (this.pickerCommentId !== null && !e.target.closest('.SGFeed-commentReactWrap')) {
+        this.pickerCommentId = null;
         m.redraw();
       }
     };
@@ -193,6 +198,49 @@ export default class GroupFeed extends Component {
       .catch(() => {
         fp.reactions     = prevReactions;
         fp.actorReaction = prevReaction;
+        m.redraw();
+      });
+  }
+
+  // ── Comment reactions (inline comment cards in the feed) ─────────────────
+
+  toggleCommentReaction(post, reactionKey) {
+    if (!app.session.user || !post || !post.id) return;
+
+    const prevReaction  = post.actorReaction;
+    const prevReactions = { ...(post.reactions || {}) };
+    const nextReaction  = prevReaction === reactionKey ? null : reactionKey;
+
+    // Optimistic update
+    post.actorReaction = nextReaction;
+    const updated = { ...prevReactions };
+    if (prevReaction) { updated[prevReaction] = Math.max(0, (updated[prevReaction] || 0) - 1); if (!updated[prevReaction]) delete updated[prevReaction]; }
+    if (nextReaction) { updated[nextReaction] = (updated[nextReaction] || 0) + 1; }
+    post.reactions      = updated;
+    this.pickerCommentId = null;
+    m.redraw();
+
+    const reactUrl = nextReaction
+      ? `${apiBase()}/sg-posts/${post.id}/react`
+      : `${apiBase()}/sg-posts/${post.id}/unreact`;
+    fetch(reactUrl, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        ...(nextReaction ? { 'Content-Type': 'application/json' } : {}),
+        'X-CSRF-Token': app.session.csrfToken || '',
+      },
+      body: nextReaction ? JSON.stringify({ reaction: nextReaction }) : undefined,
+    })
+      .then((r) => r.ok ? r.json() : r.json().then((e) => { throw new Error(e.error || 'Error'); }))
+      .then((data) => {
+        post.reactions     = data.reactions || {};
+        post.actorReaction = data.actorReaction || null;
+        m.redraw();
+      })
+      .catch(() => {
+        post.reactions     = prevReactions;
+        post.actorReaction = prevReaction;
         m.redraw();
       });
   }
@@ -396,6 +444,7 @@ export default class GroupFeed extends Component {
     const PREVIEW = 3;
     const shown   = comments.slice(-PREVIEW);
     const hidden  = Math.max(0, comments.length - PREVIEW);
+    const actor   = app.session.user;
 
     return m('.SGFeed-comments', [
       hidden > 0
@@ -404,17 +453,83 @@ export default class GroupFeed extends Component {
           }, `View all ${comments.length} comments in thread`)
         : null,
       shown.map((post) => {
-        const user = post.user;
+        const user        = post.user;
+        const reactions   = post.reactions || {};
+        const totalReact  = Object.values(reactions).reduce((s, c) => s + Number(c), 0);
+        const actorReact  = post.actorReaction || null;
+        const pickerOpen  = this.pickerCommentId === post.id;
+        const activeEmoji = actorReact ? GroupFeed.REACTIONS.find((r) => r.key === actorReact) : null;
+
+        const topEmojis = Object.entries(reactions)
+          .filter(([, c]) => Number(c) > 0)
+          .sort(([, a], [, b]) => Number(b) - Number(a))
+          .slice(0, 3)
+          .map(([key]) => GroupFeed.REACTIONS.find((r) => r.key === key)?.emoji || '👍');
+
         return m('.SGFeed-comment', { key: post.id }, [
+          // Avatar
           m('.SGFeed-commentAvatar', [
             user?.avatarUrl
               ? m('img', { src: user.avatarUrl, alt: user.displayName })
               : m('span.SGFeed-commentInitial', (user?.displayName || '?')[0].toUpperCase()),
           ]),
-          m('.SGFeed-commentBody', [
-            m('span.SGFeed-commentAuthor', user?.displayName || ''),
-            m('.SGFeed-commentContent', m.trust(post.contentParsed || post.content || '')),
-            m('span.SGFeed-commentTime', humanTime(new Date(post.createdAt))),
+
+          // Right column: bubble + footer
+          m('.SGFeed-commentRight', [
+            // Content bubble
+            m('.SGFeed-commentBody', [
+              m('span.SGFeed-commentAuthor', user?.displayName || ''),
+              m('.SGFeed-commentContent', m.trust(post.contentParsed || post.content || '')),
+            ]),
+
+            // Footer: time · React button · reaction count bubble
+            m('.SGFeed-commentFooter', [
+              m('span.SGFeed-commentTime', humanTime(new Date(post.createdAt))),
+
+              // React button + picker
+              actor
+                ? m('.SGFeed-commentReactWrap', [
+                    pickerOpen
+                      ? m('.SGFeed-commentPicker',
+                          GroupFeed.REACTIONS.map((r) =>
+                            m('button.SGFeed-pickerBtn', {
+                              key:     r.key,
+                              title:   r.label,
+                              class:   actorReact === r.key ? 'is-active' : '',
+                              onclick: (e) => {
+                                e.stopPropagation();
+                                this.toggleCommentReaction(post, r.key);
+                              },
+                            }, [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)])
+                          ))
+                      : null,
+                    m('button.SGFeed-commentReactBtn', {
+                      class:   activeEmoji ? 'is-active' : '',
+                      title:   activeEmoji ? `Remove ${activeEmoji.label}` : 'React',
+                      onclick: (e) => {
+                        e.stopPropagation();
+                        if (activeEmoji) {
+                          this.toggleCommentReaction(post, actorReact);
+                        } else {
+                          this.pickerCommentId = pickerOpen ? null : post.id;
+                          m.redraw();
+                        }
+                      },
+                    }, activeEmoji
+                        ? [activeEmoji.emoji, ' ', activeEmoji.label]
+                        : [m('i.fas.fa-smile-beam'), ' React']),
+                  ])
+                : null,
+
+              // Reaction stat bubble (emoji stack + total count)
+              totalReact > 0
+                ? m('span.SGFeed-commentReactStat', [
+                    topEmojis.map((emoji) => m('span.SGFeed-commentReactEmoji', emoji)),
+                    ' ',
+                    totalReact,
+                  ])
+                : null,
+            ]),
           ]),
         ]);
       }),
