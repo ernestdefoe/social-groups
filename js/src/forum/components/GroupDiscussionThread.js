@@ -85,6 +85,13 @@ export default class GroupDiscussionThread extends Page {
       if (this._seenPostIds.has(data.id)) return;
 
       this._seenPostIds.add(data.id);
+      // The broadcast always sends canEdit/canDelete as false (server can't
+      // know who is receiving). Patch them client-side for the author.
+      const me = app.session.user;
+      if (me && data.user && String(data.user.id) === String(me.id())) {
+        data.canEdit   = true;
+        data.canDelete = true;
+      }
       this.posts.push(data);
       if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
       m.redraw();
@@ -777,6 +784,11 @@ export default class GroupDiscussionThread extends Page {
     const isDeleting = this.deletingId === post.id;
     const menuOpen   = this.openMenuId === post.id;
     const actor      = app.session.user;
+    // Client-side fallback: always allow edit/delete on your own posts even if
+    // the server flag was missing (e.g. posts injected via WebSocket broadcast).
+    const isOwnPost  = actor && post.user && String(post.user.id) === String(actor.id());
+    const canEdit    = post.canEdit   || isOwnPost;
+    const canDelete  = post.canDelete || isOwnPost;
     const cls = '.SGThread-post'
       + (nested    ? '.SGThread-post--nested' : '')
       + (isDeleting ? '.is-deleting'          : '');
@@ -800,7 +812,7 @@ export default class GroupDiscussionThread extends Page {
               : null,
           ]),
         ]),
-        !isEditing && (post.canEdit || post.canDelete)
+        !isEditing && (canEdit || canDelete)
           ? m('.SGThread-postMenu', [
               m('button.SGThread-postMenuBtn', {
                 onclick: (e) => {
@@ -812,13 +824,13 @@ export default class GroupDiscussionThread extends Page {
               }, m('i.fas.fa-ellipsis-h')),
               menuOpen
                 ? m('.SGThread-postDropdown', [
-                    post.canEdit
+                    canEdit
                       ? m('button.SGThread-dropdownItem', { onclick: () => this.startEdit(post) }, [
                           m('i.fas.fa-pencil-alt'), ' ',
                           app.translator.trans('ernestdefoe-social-groups.forum.discussions.edit'),
                         ])
                       : null,
-                    post.canDelete
+                    canDelete
                       ? m('button.SGThread-dropdownItem.SGThread-dropdownItem--danger', { onclick: () => this.deletePost(post) }, [
                           m('i.fas.fa-trash'), ' ',
                           app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_post'),
