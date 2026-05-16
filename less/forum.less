@@ -17,10 +17,13 @@
 @sg-secondary-hex: #7b5ea7;
 
 // ── Dark-mode compatibility ──────────────────────────────────────────────────
-// Flarum core defines --body-color for text (not --text-color). Map our alias
-// so that dark-mode themes redefining --body-color are picked up everywhere.
-// CSS custom properties resolve lazily, so var(--text-color) inside a
-// .dark-mode element will correctly resolve to the dark-mode --body-color.
+// Flarum themes implement dark mode in two ways:
+//   (a) redefining CSS custom properties  — var(--body-color) picks this up
+//   (b) changing `color` on <body> directly — only `inherit` picks this up
+//
+// Our components use `color: inherit` for primary content text so BOTH
+// mechanisms work. --text-color is kept as a convenience alias for the
+// few places that genuinely need a variable (e.g. input placeholders).
 :root {
   --text-color: var(--body-color);
 }
@@ -2189,15 +2192,15 @@
   background: var(--control-bg);
   border-radius: 10px;
   padding: 0;
-  // Explicitly set all text colours so dark-mode themes that use a different
-  // --body-bg / --control-bg pairing don't leave text invisible.
-  color: var(--body-color);
+  // Use `inherit` for text so dark-mode themes that change the body `color`
+  // property (rather than redefining --body-color) are respected automatically.
+  color: inherit;
 
   .SGThread-postHeader   { padding: 10px 12px 0; }
   .SGThread-postContent  {
     padding: 6px 12px 8px;
     font-size: 0.88rem;
-    color: var(--body-color);   // never inherit a stale dark colour
+    color: inherit;
   }
   .SGThread-postStatBar  { padding: 3px 12px; }
   .SGThread-postActionBar {
@@ -2206,9 +2209,9 @@
   }
   .SGThread-postAvatar  { width: 32px; height: 32px; font-size: 0.8rem; }
   .SGThread-postMeta    { font-size: 0.9em; }
-  .SGThread-postAuthor  { color: var(--body-color); }   // username — explicit override
-  .SGThread-postTime    { color: var(--muted-color); }  // timestamp
-  .SGThread-postInitial { color: #fff; }                // letter avatar always white-on-primary
+  .SGThread-postAuthor  { color: inherit; font-weight: 700; }
+  .SGThread-postTime    { color: var(--muted-color); }
+  .SGThread-postInitial { color: #fff; }
 }
 
 .SGThread-replyBtn {
@@ -2258,7 +2261,7 @@
   flex: 1;
   background: none; border: none; outline: none;
   font-size: 0.88rem; font-family: inherit;
-  color: var(--body-color); resize: none;
+  color: inherit; resize: none;
   min-height: 18px; overflow: hidden;
   &::placeholder { color: var(--muted-color); }
 }
@@ -3467,13 +3470,13 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: var(--body-color, #111827);
+  color: inherit;   // inherit page body colour — dark-mode themes set this on <body>
   margin-bottom: 2px;
 }
 
 .SGFeed-commentContent {
   font-size: 14px;
-  color: var(--body-color, #374151);
+  color: inherit;   // same — never override with a variable that may be stale
   word-break: break-word;
   line-height: 1.45;
 
