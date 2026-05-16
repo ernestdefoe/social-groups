@@ -74,28 +74,25 @@ export default class GroupDiscussionThread extends Page {
   // ── Realtime setup / teardown ──────────────────────────────────────────────
 
   _setupRealtime() {
-    // sg:post-created — a new post arrived via WebSocket.
-    this._rtPostHandler = (e) => {
+    // ── Shared handlers (work with both binding modes) ────────────────────
+    const handlePost = (data) => {
       if (!this._rtActive) return;
-      const post = e.detail;
-      if (!post || !post.id) return;
+      if (!data || !data.id) return;
       // Only inject posts for the discussion currently on screen.
-      if (String(post.discussionId) !== String(this.attrs.discussionId)) return;
+      if (String(data.discussionId) !== String(this.attrs.discussionId)) return;
       // Deduplicate: skip if we already have this post (own posts are added
       // immediately from the POST response; this filters the WebSocket echo).
-      if (this._seenPostIds.has(post.id)) return;
+      if (this._seenPostIds.has(data.id)) return;
 
-      this._seenPostIds.add(post.id);
-      this.posts.push(post);
+      this._seenPostIds.add(data.id);
+      this.posts.push(data);
       if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
       m.redraw();
     };
-    document.addEventListener('sg:post-created', this._rtPostHandler);
 
-    // sg:typing — a member started or stopped typing.
-    this._rtTypingHandler = (e) => {
+    const handleTyping = (data) => {
       if (!this._rtActive) return;
-      const { discussionId, userId, displayName, avatarUrl, isTyping } = e.detail || {};
+      const { discussionId, userId, displayName, avatarUrl, isTyping } = data || {};
       if (!discussionId || !userId) return;
       if (String(discussionId) !== String(this.attrs.discussionId)) return;
       // Never show the current user as typing to themselves.
@@ -113,19 +110,41 @@ export default class GroupDiscussionThread extends Page {
       this._typingTimer = setTimeout(() => {
         const cutoff = Date.now() - 4000;
         let changed = false;
-        for (const [id, data] of this._typingUsers.entries()) {
-          if (data.at < cutoff) { this._typingUsers.delete(id); changed = true; }
+        for (const [uid, entry] of this._typingUsers.entries()) {
+          if (entry.at < cutoff) { this._typingUsers.delete(uid); changed = true; }
         }
         if (changed) m.redraw();
       }, 4500);
     };
-    document.addEventListener('sg:typing', this._rtTypingHandler);
+
+    // ── Binding strategy ──────────────────────────────────────────────────
+    // oncreate() fires after the full app boot, so app.realtime is
+    // guaranteed to be initialised if flarum/realtime is installed.
+    // Prefer direct binding so we bypass the DOM-event bridge entirely
+    // and avoid any initialiser-ordering races in forum.js.
+    const rt = app.realtime;
+    if (rt && typeof rt.onPublicChannelEvent === 'function') {
+      rt.onPublicChannelEvent('sg-post-created', handlePost);
+      rt.onPublicChannelEvent('sg-typing',       handleTyping);
+      this._rtMode = 'direct';
+    } else {
+      // Fall back to DOM CustomEvents dispatched by the forum.js bridge.
+      this._rtPostHandler   = (e) => handlePost(e.detail);
+      this._rtTypingHandler = (e) => handleTyping(e.detail);
+      document.addEventListener('sg:post-created', this._rtPostHandler);
+      document.addEventListener('sg:typing',       this._rtTypingHandler);
+      this._rtMode = 'dom';
+    }
   }
 
   _teardownRealtime() {
     this._rtActive = false;
-    document.removeEventListener('sg:post-created', this._rtPostHandler);
-    document.removeEventListener('sg:typing',       this._rtTypingHandler);
+    // Direct-mode handlers guard themselves via this._rtActive = false above.
+    // DOM-mode handlers must be explicitly removed.
+    if (this._rtMode === 'dom') {
+      document.removeEventListener('sg:post-created', this._rtPostHandler);
+      document.removeEventListener('sg:typing',       this._rtTypingHandler);
+    }
     clearTimeout(this._typingTimer);
     // Tell the server we stopped typing (fire-and-forget).
     if (this._isTyping) this._sendTyping(false);

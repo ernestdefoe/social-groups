@@ -13,6 +13,10 @@ import UserGroupBadges from './forum/components/UserGroupBadges';
 import PrimaryGroupSelector from './forum/components/PrimaryGroupSelector';
 
 app.initializers.add('ernestdefoe-social-groups', (app) => {
+  // NOTE: priority -10 ensures this initializer runs after flarum/realtime's
+  // (which registers at the default priority 0).  Without this, app.realtime
+  // is undefined when the Realtime extender below calls extend(app, id) and
+  // the WebSocket event registrations silently fail.
   // ── flarum/realtime integration (optional) ────────────────────────────────
   // Bridge WebSocket public-channel events to DOM CustomEvents so individual
   // components can subscribe/unsubscribe cleanly without direct Pusher access.
@@ -102,4 +106,4 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
       90
     );
   });
-});
+}, -10);
