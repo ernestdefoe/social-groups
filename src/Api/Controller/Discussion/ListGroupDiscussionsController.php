@@ -36,7 +36,9 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
                     'is_gallery'             => Schema::hasColumn('social_group_discussions', 'is_gallery'),
                     'is_pinned'              => Schema::hasColumn('social_group_discussions', 'is_pinned'),
                     'shared_from'            => Schema::hasColumn('social_group_discussions', 'shared_from_discussion_id'),
-                    'polls'                  => Schema::hasTable('sg_polls'),
+                    'polls'                  => Schema::hasTable('sg_polls')
+                                                 && Schema::hasTable('sg_poll_options')
+                                                 && Schema::hasTable('sg_poll_votes'),
                     'reactions'              => Schema::hasTable('social_group_post_reactions'),
                     'link_preview'           => Schema::hasColumn('social_group_posts', 'link_preview'),
                 ];
@@ -265,9 +267,13 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
         $serializedFirstPost = null;
 
         if ($firstPost) {
-            $contentParsed = $firstPost->content_parsed !== null
-                ? $this->formatter->render($firstPost->content_parsed)
-                : nl2br(htmlspecialchars($firstPost->content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            try {
+                $contentParsed = $firstPost->content_parsed !== null
+                    ? $this->formatter->render($firstPost->content_parsed)
+                    : nl2br(htmlspecialchars($firstPost->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            } catch (\Throwable) {
+                $contentParsed = nl2br(htmlspecialchars($firstPost->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+            }
 
             $serializedFirstPost = [
                 'id'            => $firstPost->id,

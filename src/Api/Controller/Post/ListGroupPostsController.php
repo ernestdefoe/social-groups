@@ -92,9 +92,13 @@ class ListGroupPostsController implements RequestHandlerInterface
         $createdAt = $p->created_at?->toIso8601String() ?? $fallbackTime;
         $updatedAt = $p->updated_at?->toIso8601String() ?? $createdAt;
 
-        $contentParsed = $p->content_parsed !== null
-            ? $this->formatter->render($p->content_parsed)
-            : nl2br(htmlspecialchars($p->content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        try {
+            $contentParsed = $p->content_parsed !== null
+                ? $this->formatter->render($p->content_parsed)
+                : nl2br(htmlspecialchars($p->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        } catch (\Throwable) {
+            $contentParsed = nl2br(htmlspecialchars($p->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+        }
 
         return [
             'id'            => $p->id,

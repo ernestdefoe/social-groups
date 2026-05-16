@@ -65,10 +65,14 @@ class ListGroupMediaController implements RequestHandlerInterface
             foreach ($posts as $post) {
                 // New gallery posts store direct image URLs in `content` (no formatter).
                 // Old posts (if any) may have gone through the formatter and have content_parsed.
-                if ($post->content_parsed !== null) {
-                    $rendered = $this->formatter->render($post->content_parsed);
-                    $urls     = $this->extractImageUrls($rendered);
-                } else {
+                try {
+                    if ($post->content_parsed !== null) {
+                        $rendered = $this->formatter->render($post->content_parsed);
+                        $urls     = $this->extractImageUrls($rendered);
+                    } else {
+                        $urls = $this->extractRawUrls($post->content ?? '');
+                    }
+                } catch (\Throwable) {
                     $urls = $this->extractRawUrls($post->content ?? '');
                 }
 

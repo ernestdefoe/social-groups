@@ -56,9 +56,13 @@ class GroupRssFeedController implements RequestHandlerInterface
 
                 $description = '';
                 if ($post) {
-                    $rendered    = $post->content_parsed !== null
-                        ? $this->formatter->render($post->content_parsed)
-                        : htmlspecialchars($post->content, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                    try {
+                        $rendered = $post->content_parsed !== null
+                            ? $this->formatter->render($post->content_parsed)
+                            : htmlspecialchars($post->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                    } catch (\Throwable) {
+                        $rendered = htmlspecialchars($post->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                    }
                     $plain       = strip_tags($rendered);
                     $description = mb_strlen($plain) > 500
                         ? mb_substr($plain, 0, 500) . '…'
