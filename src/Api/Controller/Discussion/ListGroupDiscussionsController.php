@@ -247,7 +247,12 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'Group not found.'], 404);
         } catch (\Throwable $e) {
             resolve('log')->error('[social-groups] ListGroupDiscussionsController: ' . $e->getMessage(), ['exception' => $e]);
-            return new JsonResponse(['error' => 'An unexpected error occurred.'], 500);
+            return new JsonResponse([
+                'error'     => 'An unexpected error occurred.',
+                'exception' => get_class($e),
+                'message'   => $e->getMessage(),
+                'at'        => basename($e->getFile()) . ':' . $e->getLine(),
+            ], 500);
         }
     }
 

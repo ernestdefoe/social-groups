@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Model;
 
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 /**
  * @property int    $id
@@ -23,7 +24,27 @@ class SocialGroupPost extends AbstractModel
 
     public $timestamps = true;
 
-    protected $casts = ['link_preview' => 'array'];
+    // Do NOT cast link_preview via $casts — Laravel's 'array' cast throws
+    // JsonException on malformed JSON, which would kill the entire feed query.
+    // We decode defensively in the accessor instead.
+    protected $casts = [];
+
+    protected function linkPreview(): Attribute
+    {
+        return Attribute::make(
+            get: static function ($value): ?array {
+                if ($value === null || $value === '') return null;
+                if (is_array($value)) return $value;
+                try {
+                    $decoded = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
+                    return is_array($decoded) ? $decoded : null;
+                } catch (\JsonException) {
+                    return null;
+                }
+            },
+            set: static fn ($value): ?string => $value !== null ? json_encode($value) : null,
+        );
+    }
 
     public function discussion()
     {
