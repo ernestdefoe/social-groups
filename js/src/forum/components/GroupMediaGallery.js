@@ -92,13 +92,19 @@ export default class GroupMediaGallery extends Component {
         })
         .then((data) => {
           const fileData = Array.isArray(data.data) ? data.data[0] : data.data;
-          return fileData?.attributes?.bbcode || `[upl-file uuid="${fileData?.attributes?.uuid || fileData?.id}"][/upl-file]`;
+          // Prefer direct URL so the gallery controller can use it without
+          // running the content through the Flarum formatter.
+          const url = fileData?.attributes?.url
+            || fileData?.attributes?.downloadUrl
+            || '';
+          if (!url) throw new Error('Upload succeeded but no file URL was returned.');
+          return url;
         });
     });
 
     Promise.all(uploads)
-      .then((bbcodes) => {
-        const content = bbcodes.join('\n');
+      .then((urls) => {
+        const content = urls.join('\n');
         return fetch(`${apiBase()}/sg-media-post/${this.attrs.groupId}`, {
           method:      'POST',
           credentials: 'same-origin',

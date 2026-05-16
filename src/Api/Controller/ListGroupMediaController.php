@@ -47,14 +47,10 @@ class ListGroupMediaController implements RequestHandlerInterface
                 ->pluck('id')
                 ->all();
 
+            // All posts in gallery discussions are image posts — no content filter needed.
+            // If no gallery discussion exists yet the result set is intentionally empty.
             $mediaQuery = fn () => SocialGroupPost::where('group_id', $groupId)
-                ->whereIn('discussion_id', $galleryDiscussionIds)
-                ->where(function ($q) {
-                    // Catch fof/upload BBCode in raw content AND inline img tags
-                    // that survive into the parsed XML AST
-                    $q->where('content', 'like', '%[upl-file%')
-                      ->orWhere('content_parsed', 'like', '%<img%');
-                });
+                ->whereIn('discussion_id', $galleryDiscussionIds);
 
             $total = $mediaQuery()->count();
 
@@ -67,10 +63,15 @@ class ListGroupMediaController implements RequestHandlerInterface
 
             $items = [];
             foreach ($posts as $post) {
-                $rendered = $post->content_parsed !== null
-                    ? $this->formatter->render($post->content_parsed)
-                    : '';
-                $urls = $this->extractImageUrls($rendered);
+                // New gallery posts store direct image URLs in `content` (no formatter).
+                // Old posts (if any) may have gone through the formatter and have content_parsed.
+                if ($post->content_parsed !== null) {
+                    $rendered = $this->formatter->render($post->content_parsed);
+                    $urls     = $this->extractImageUrls($rendered);
+                } else {
+                    $urls = $this->extractRawUrls($post->content ?? '');
+                }
+
                 foreach ($urls as $url) {
                     $items[] = [
                         'url'          => $url,
@@ -98,6 +99,13 @@ class ListGroupMediaController implements RequestHandlerInterface
             resolve('log')->error('[social-groups] ListGroupMediaController: ' . $e->getMessage(), ['exception' => $e]);
             return new JsonResponse(['error' => 'An unexpected error occurred.'], 500);
         }
+    }
+
+    /** Extract bare https?:// URLs stored one-per-line in gallery post content. */
+    private function extractRawUrls(string $content): array
+    {
+        preg_match_all('#https?://\S+#i', $content, $matches);
+        return array_values(array_unique(array_filter($matches[0])));
     }
 
     private function extractImageUrls(string $html): array
