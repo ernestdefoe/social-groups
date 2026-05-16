@@ -3,6 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
 use Ernestdefoe\SocialGroups\Api\Concern\SanitizesLinkPreview;
+use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
@@ -88,6 +89,13 @@ class CreateGroupPostController implements RequestHandlerInterface
         $discussion->last_posted_at      = \Carbon\Carbon::now();
         $discussion->last_posted_user_id = $actor->id;
         $discussion->save();
+
+        // ── Realtime broadcast ───────────────────────────────────────────────
+        try {
+            resolve('events')->dispatch(new SocialGroupPostWasCreated($post, $actor, $discussion));
+        } catch (\Throwable $e) {
+            resolve('log')->error('[social-groups] Realtime event dispatch failed: ' . $e->getMessage());
+        }
 
         // ── Notifications ────────────────────────────────────────────────────
         try {

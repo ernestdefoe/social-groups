@@ -3279,3 +3279,79 @@
     font-style: italic;
   }
 }
+
+// ── Realtime: typing indicator bar ──────────────────────────────────────────
+
+.SGThread-typingBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 4px;
+  min-height: 32px;
+  animation: sg-fade-in 0.2s ease;
+}
+
+.SGThread-typingAvatars {
+  display: flex;
+  gap: -4px;
+}
+
+.SGThread-typingAvatar,
+.SGThread-typingInitial {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--body-bg, #fff);
+  margin-right: -5px;
+  flex-shrink: 0;
+}
+
+.SGThread-typingInitial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary, #4a90e2);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.SGThread-typingLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted-color, #9ca3af);
+  font-style: italic;
+}
+
+// Animated three-dot bounce
+.SGThread-typingDots {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 14px;
+
+  span {
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--muted-color, #9ca3af);
+    animation: sg-typing-bounce 1.2s infinite ease-in-out;
+
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+}
+
+@keyframes sg-typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%           { transform: translateY(-4px); }
+}
+
+@keyframes sg-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

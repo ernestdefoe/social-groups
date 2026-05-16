@@ -22,6 +22,9 @@ use Ernestdefoe\SocialGroups\Api\Controller\Post\CreateGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\DeleteGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\ListGroupPostsController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TogglePostReactionController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\TypingStatusController;
+use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
+use Ernestdefoe\SocialGroups\Listener\BroadcastGroupPost;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\UpdateGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListUserGroupsController;
 use Ernestdefoe\SocialGroups\Api\Controller\SetPrimaryGroupController;
@@ -100,7 +103,12 @@ return [
         // User group badges
         ->get('/sg-user-groups/{userId}',   'sg.user-groups',   ListUserGroupsController::class)
         // Polls
-        ->post('/sg-polls/{pollId}/vote',   'sg.polls.vote',    VotePollController::class),
+        ->post('/sg-polls/{pollId}/vote',   'sg.polls.vote',    VotePollController::class)
+        // Realtime — typing indicator (no-op if flarum/realtime is not installed)
+        ->post('/sg-typing',                'sg.typing',        TypingStatusController::class),
+
+    (new Extend\Event())
+        ->listen(SocialGroupPostWasCreated::class, BroadcastGroupPost::class),
 
     (new Extend\ApiResource(SocialGroupResource::class)),
 

@@ -37,11 +37,26 @@ export default class GroupDiscussionThread extends Page {
     this.replyingToId          = null;
     this.inlineReplyText       = '';
     this.inlineReplySubmitting = false;
+
+    // ── Realtime state ────────────────────────────────────────────────────
+    // Set of post IDs we have already rendered — prevents double-injection
+    // when the same post arrives both from the POST response and the WebSocket.
+    this._seenPostIds   = new Set();
+    // Map of userId → { displayName, avatarUrl, at } for typing indicators.
+    this._typingUsers   = new Map();
+    this._typingTimer   = null;
+    // Throttle: timestamp of last typing-status request sent to the server.
+    this._lastTypingSent = 0;
+    this._isTyping       = false;
+    // Flag cleared in onremove so stale event handlers become no-ops.
+    this._rtActive       = false;
   }
 
   oncreate(vnode) {
     super.oncreate(vnode);
     this.load();
+    this._rtActive = true;
+    this._setupRealtime();
 
     this._closeMenu = (e) => {
       if (this.openMenuId !== null && !e.target.closest('.SGThread-postMenu')) {
@@ -56,6 +71,89 @@ export default class GroupDiscussionThread extends Page {
     document.addEventListener('click', this._closeMenu);
   }
 
+  // ── Realtime setup / teardown ──────────────────────────────────────────────
+
+  _setupRealtime() {
+    // sg:post-created — a new post arrived via WebSocket.
+    this._rtPostHandler = (e) => {
+      if (!this._rtActive) return;
+      const post = e.detail;
+      if (!post || !post.id) return;
+      // Only inject posts for the discussion currently on screen.
+      if (String(post.discussionId) !== String(this.attrs.discussionId)) return;
+      // Deduplicate: skip if we already have this post (own posts are added
+      // immediately from the POST response; this filters the WebSocket echo).
+      if (this._seenPostIds.has(post.id)) return;
+
+      this._seenPostIds.add(post.id);
+      this.posts.push(post);
+      if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
+      m.redraw();
+    };
+    document.addEventListener('sg:post-created', this._rtPostHandler);
+
+    // sg:typing — a member started or stopped typing.
+    this._rtTypingHandler = (e) => {
+      if (!this._rtActive) return;
+      const { discussionId, userId, displayName, avatarUrl, isTyping } = e.detail || {};
+      if (!discussionId || !userId) return;
+      if (String(discussionId) !== String(this.attrs.discussionId)) return;
+      // Never show the current user as typing to themselves.
+      if (app.session.user && String(userId) === String(app.session.user.id())) return;
+
+      if (isTyping) {
+        this._typingUsers.set(String(userId), { displayName, avatarUrl, at: Date.now() });
+      } else {
+        this._typingUsers.delete(String(userId));
+      }
+      m.redraw();
+
+      // Auto-expire stale typing indicators (safety net for missed "stopped" events).
+      clearTimeout(this._typingTimer);
+      this._typingTimer = setTimeout(() => {
+        const cutoff = Date.now() - 4000;
+        let changed = false;
+        for (const [id, data] of this._typingUsers.entries()) {
+          if (data.at < cutoff) { this._typingUsers.delete(id); changed = true; }
+        }
+        if (changed) m.redraw();
+      }, 4500);
+    };
+    document.addEventListener('sg:typing', this._rtTypingHandler);
+  }
+
+  _teardownRealtime() {
+    this._rtActive = false;
+    document.removeEventListener('sg:post-created', this._rtPostHandler);
+    document.removeEventListener('sg:typing',       this._rtTypingHandler);
+    clearTimeout(this._typingTimer);
+    // Tell the server we stopped typing (fire-and-forget).
+    if (this._isTyping) this._sendTyping(false);
+  }
+
+  // Throttled typing-status sender.  At most one request per 2 s while typing;
+  // sends immediately when isTyping flips to false.
+  _sendTyping(isTyping) {
+    if (!app.session.user || !this.discussion) return;
+    if (!isTyping && !this._isTyping) return; // no change
+
+    const now = Date.now();
+    if (isTyping && (now - this._lastTypingSent) < 2000) return; // throttle
+
+    this._isTyping       = isTyping;
+    this._lastTypingSent = now;
+
+    fetch(`${apiBase()}/sg-typing`, {
+      method:      'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': app.session.csrfToken || '',
+      },
+      body: JSON.stringify({ discussionId: this.discussion.id, isTyping }),
+    }).catch(() => {}); // fire-and-forget — errors are non-critical
+  }
+
   onupdate(vnode) {
     if (vnode.attrs.discussionId !== this.attrs.discussionId) {
       this.load();
@@ -68,6 +166,7 @@ export default class GroupDiscussionThread extends Page {
     this._revokeAll(this.editUploads);
     document.removeEventListener('click', this._closeMenu);
     clearTimeout(this._previewTimer);
+    this._teardownRealtime();
   }
 
   _revokeAll(uploads) {
@@ -90,6 +189,8 @@ export default class GroupDiscussionThread extends Page {
       .then((data) => {
         this.discussion = data.discussion;
         this.posts      = data.data || [];
+        // Seed the seen-set so WebSocket echoes of already-loaded posts are ignored.
+        this._seenPostIds = new Set(this.posts.map((p) => p.id));
         this.loading    = false;
         document.title  = `${this.discussion.title} — ${app.forum.attribute('title')}`;
         m.redraw();
@@ -230,6 +331,9 @@ export default class GroupDiscussionThread extends Page {
         return r.json();
       })
       .then((post) => {
+        // Register as seen so the WebSocket echo doesn't double-insert it.
+        this._seenPostIds.add(post.id);
+        this._sendTyping(false);
         this.posts.push(post);
         if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
         this.replyText  = '';
@@ -348,6 +452,8 @@ export default class GroupDiscussionThread extends Page {
         return r.json();
       })
       .then((post) => {
+        this._seenPostIds.add(post.id);
+        this._sendTyping(false);
         this.posts.push(post);
         if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
         this.inlineReplyText       = '';
@@ -359,6 +465,37 @@ export default class GroupDiscussionThread extends Page {
         this.inlineReplySubmitting = false;
         m.redraw();
       });
+  }
+
+  // ── Typing indicator ──────────────────────────────────────────────────────
+
+  viewTypingBar() {
+    const typers = [...this._typingUsers.values()];
+    if (!typers.length) return null;
+
+    let label;
+    if (typers.length === 1) {
+      label = `${typers[0].displayName} is typing…`;
+    } else if (typers.length === 2) {
+      label = `${typers[0].displayName} and ${typers[1].displayName} are typing…`;
+    } else {
+      label = `${typers[0].displayName} and ${typers.length - 1} others are typing…`;
+    }
+
+    return m('.SGThread-typingBar', [
+      m('.SGThread-typingAvatars',
+        typers.slice(0, 3).map((t) =>
+          t.avatarUrl
+            ? m('img.SGThread-typingAvatar', { src: t.avatarUrl, alt: t.displayName, key: t.displayName })
+            : m('span.SGThread-typingInitial', { key: t.displayName }, (t.displayName || '?')[0].toUpperCase())
+        )
+      ),
+      m('span.SGThread-typingLabel', [
+        m('.SGThread-typingDots', [m('span'), m('span'), m('span')]),
+        ' ',
+        label,
+      ]),
+    ]);
   }
 
   // ── Views ─────────────────────────────────────────────────────────────────
@@ -407,6 +544,8 @@ export default class GroupDiscussionThread extends Page {
               return topLevel.map((post) => this.viewPost(post, repliesByParent));
             })()),
 
+            this.viewTypingBar(),
+
             actor && !this.discussion.isLocked
               ? this.viewReplyBox(actor)
               : null,
@@ -431,7 +570,9 @@ export default class GroupDiscussionThread extends Page {
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
             scheduleLinkPreview(this, e.target.value);
+            if (e.target.value.trim()) this._sendTyping(true);
           },
+          onblur: () => this._sendTyping(false),
           onpaste: (e) => {
             const imgs = pastedImages(e);
             if (imgs.length) { e.preventDefault(); this.handleFiles(imgs, 'uploads', 'replyText'); }
@@ -594,7 +735,9 @@ export default class GroupDiscussionThread extends Page {
             this.inlineReplyText = e.target.value;
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
+            if (e.target.value.trim()) this._sendTyping(true);
           },
+          onblur:    () => this._sendTyping(false),
           onkeydown: (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.submitInlineReply(); }
           },

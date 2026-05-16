@@ -1,5 +1,5 @@
 import app from 'flarum/forum/app';
-import { extend } from 'flarum/common/extend';
+import { extend as flarumExtend } from 'flarum/common/extend';
 import IndexSidebar from 'flarum/forum/components/IndexSidebar';
 import UserCard from 'flarum/forum/components/UserCard';
 import LinkButton from 'flarum/common/components/LinkButton';
@@ -12,7 +12,28 @@ import SocialGroupNewReplyNotification from './forum/components/SocialGroupNewRe
 import UserGroupBadges from './forum/components/UserGroupBadges';
 import PrimaryGroupSelector from './forum/components/PrimaryGroupSelector';
 
-app.initializers.add('ernestdefoe-social-groups', () => {
+app.initializers.add('ernestdefoe-social-groups', (app) => {
+  // ── flarum/realtime integration (optional) ────────────────────────────────
+  // Bridge WebSocket public-channel events to DOM CustomEvents so individual
+  // components can subscribe/unsubscribe cleanly without direct Pusher access.
+  // Calling rtExtender.extend(app, id) directly is equivalent to returning the
+  // extender from the module export — without triggering the autoExportLoader.
+  try {
+    const mod = require('flarum-realtime/forum/extenders/Realtime');
+    const RealtimeExtender = mod?.default ?? mod;
+    if (RealtimeExtender) {
+      new RealtimeExtender()
+        .onPublicChannelEvent('sg-post-created', (data) => {
+          document.dispatchEvent(new CustomEvent('sg:post-created', { detail: data }));
+        })
+        .onPublicChannelEvent('sg-typing', (data) => {
+          document.dispatchEvent(new CustomEvent('sg:typing', { detail: data }));
+        })
+        .extend(app, 'ernestdefoe-social-groups');
+    }
+  } catch (_) {
+    // flarum/realtime not installed — live updates silently disabled.
+  }
   app.store.models['social-groups'] = SocialGroup;
 
   // Notification components
@@ -36,7 +57,7 @@ app.initializers.add('ernestdefoe-social-groups', () => {
   };
 
   // ── User card group badges + primary group selector ───────────────────────
-  extend(UserCard.prototype, 'profileItems', function (items) {
+  flarumExtend(UserCard.prototype, 'profileItems', function (items) {
     const user = this.attrs.user;
     if (!user || !user.id() || !items || typeof items.add !== 'function') return;
 
@@ -50,14 +71,13 @@ app.initializers.add('ernestdefoe-social-groups', () => {
   });
 
   // ── Primary group selector in account settings (Flarum 2 SettingsPage) ────
-  // SettingsPage may or may not be registered in the Flarum registry depending
-  // on the exact version. Guard with try/require so a missing component never
-  // crashes the whole extension.
+  // SettingsPage may or may not exist depending on Flarum version. Guard with
+  // try/require so a missing component never crashes the whole extension.
   try {
     const mod = require('flarum/forum/components/SettingsPage');
     const SettingsPage = mod?.default ?? mod;
     if (SettingsPage?.prototype) {
-      extend(SettingsPage.prototype, 'settingsItems', function (items) {
+      flarumExtend(SettingsPage.prototype, 'settingsItems', function (items) {
         if (app.session.user) {
           items.add('sg-primary-group', m(PrimaryGroupSelector), 10);
         }
@@ -68,7 +88,7 @@ app.initializers.add('ernestdefoe-social-groups', () => {
   }
 
   // ── Sidebar navigation link ────────────────────────────────────────────────
-  extend(IndexSidebar.prototype, 'navItems', function (items) {
+  flarumExtend(IndexSidebar.prototype, 'navItems', function (items) {
     items.add(
       'social-groups',
       m(
