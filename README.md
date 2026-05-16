@@ -2,7 +2,7 @@
 
 A modern social groups extension for Flarum 2. Members can create their own communities, post discussions and polls, react to posts, share content across groups, and manage membership — all without requiring Flarum tags.
 
-**Current version: 2.3.0**
+**Current version: 2.3.28**
 
 ---
 
