@@ -551,16 +551,20 @@ export default class GroupDiscussionThread extends Page {
                     }, [m('span.SGThread-pickerEmoji', r.emoji), m('span.SGThread-pickerLabel', r.label)])
                   ))
               : null,
-            m('button.SGThread-likeBtn', {
-              class:   active ? 'SGThread-likeBtn--liked' : '',
-              onclick: (e) => { e.stopPropagation(); this.toggleReaction(post, actorReaction || 'like'); },
+            // Single React button: opens picker when idle, removes reaction when active
+            m('button.SGThread-reactBtn', {
+              class:   active ? 'SGThread-reactBtn--active' : '',
+              onclick: (e) => {
+                e.stopPropagation();
+                if (active) {
+                  this.toggleReaction(post, actorReaction); // same key → removes it
+                } else {
+                  this.togglePicker(post.id);               // opens emoji picker
+                }
+              },
             }, active
                 ? [active.emoji, ' ', active.label]
-                : [m('i.fas.fa-thumbs-up'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.like')]),
-            m('button.SGThread-pickerToggle', {
-              title:   'More reactions',
-              onclick: (e) => { e.stopPropagation(); this.togglePicker(post.id); },
-            }, m('i.fas.fa-smile')),
+                : [m('i.fas.fa-smile-beam'), ' React']),
           ])
         : null,
       actor && !this.discussion?.isLocked

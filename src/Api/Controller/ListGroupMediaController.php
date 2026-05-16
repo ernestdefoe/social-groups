@@ -101,11 +101,17 @@ class ListGroupMediaController implements RequestHandlerInterface
         }
     }
 
-    /** Extract bare https?:// URLs stored one-per-line in gallery post content. */
+    /**
+     * Extract https?:// URLs from raw gallery post content.
+     * Excludes brackets/quotes so bbcode wrappers like [upl-file]URL[/upl-file]
+     * don't bleed ] or [/tag] onto the matched URL.
+     */
     private function extractRawUrls(string $content): array
     {
-        preg_match_all('#https?://\S+#i', $content, $matches);
-        return array_values(array_unique(array_filter($matches[0])));
+        preg_match_all('#https?://[^\s\[\]<>"\']+#i', $content, $matches);
+        // Strip any trailing punctuation that may still be attached
+        $urls = array_map(fn ($u) => rtrim($u, '.,;:!?)}"\''), $matches[0]);
+        return array_values(array_unique(array_filter($urls)));
     }
 
     private function extractImageUrls(string $html): array
