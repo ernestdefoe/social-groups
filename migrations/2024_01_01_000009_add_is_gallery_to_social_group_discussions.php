@@ -5,14 +5,18 @@ use Illuminate\Database\Schema\Builder;
 
 return [
     'up' => function (Builder $schema) {
-        $schema->table('social_group_discussions', function (Blueprint $table) {
-            $table->boolean('is_gallery')->default(false)->after('is_locked');
-        });
+        if (! $schema->hasColumn('social_group_discussions', 'is_gallery')) {
+            $schema->table('social_group_discussions', function (Blueprint $table) {
+                $table->boolean('is_gallery')->default(false)->after('is_locked');
+            });
+        }
     },
 
     'down' => function (Builder $schema) {
-        $schema->table('social_group_discussions', function (Blueprint $table) {
-            $table->dropColumn('is_gallery');
-        });
+        if ($schema->hasColumn('social_group_discussions', 'is_gallery')) {
+            $schema->table('social_group_discussions', function (Blueprint $table) {
+                $table->dropColumn('is_gallery');
+            });
+        }
     },
 ];
