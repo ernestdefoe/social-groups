@@ -11,7 +11,6 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPostReaction;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
-use Illuminate\Support\Facades\Schema;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -32,15 +31,18 @@ class ListGroupDiscussionsController implements RequestHandlerInterface
             // Check once per request and degrade gracefully rather than 500.
             static $schema = null;
             if ($schema === null) {
+                // Use the DB manager directly — the Schema facade root is not
+                // guaranteed to be bound in Flarum's container setup.
+                $sb = resolve('db')->getSchemaBuilder();
                 $schema = [
-                    'is_gallery'             => Schema::hasColumn('social_group_discussions', 'is_gallery'),
-                    'is_pinned'              => Schema::hasColumn('social_group_discussions', 'is_pinned'),
-                    'shared_from'            => Schema::hasColumn('social_group_discussions', 'shared_from_discussion_id'),
-                    'polls'                  => Schema::hasTable('sg_polls')
-                                                 && Schema::hasTable('sg_poll_options')
-                                                 && Schema::hasTable('sg_poll_votes'),
-                    'reactions'              => Schema::hasTable('social_group_post_reactions'),
-                    'link_preview'           => Schema::hasColumn('social_group_posts', 'link_preview'),
+                    'is_gallery'   => $sb->hasColumn('social_group_discussions', 'is_gallery'),
+                    'is_pinned'    => $sb->hasColumn('social_group_discussions', 'is_pinned'),
+                    'shared_from'  => $sb->hasColumn('social_group_discussions', 'shared_from_discussion_id'),
+                    'polls'        => $sb->hasTable('sg_polls')
+                                     && $sb->hasTable('sg_poll_options')
+                                     && $sb->hasTable('sg_poll_votes'),
+                    'reactions'    => $sb->hasTable('social_group_post_reactions'),
+                    'link_preview' => $sb->hasColumn('social_group_posts', 'link_preview'),
                 ];
             }
 
