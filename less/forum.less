@@ -2975,7 +2975,8 @@
 // Pinned post badge
 // ============================================================
 
-.SGFeed-pinnedBadge {
+.SGFeed-pinnedBadge,
+.SGThread-pinnedBadge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -2989,6 +2990,17 @@
   vertical-align: middle;
 
   .fa-thumbtack { font-size: 0.85em; }
+}
+
+/* Pinned-reply visual lift inside a discussion thread — subtle warm
+ * border + light tinted background so the pinned reply is reliably
+ * scannable amid a long chronological list. Pairs with the
+ * .SGThread-pinnedBadge in the post header. */
+.SGThread-post--pinned {
+  background: rgba(245, 158, 11, 0.05);
+  border-left: 3px solid rgba(245, 158, 11, 0.5);
+  border-radius: 6px;
+  padding-left: 8px;
 }
 
 // ============================================================

@@ -46,8 +46,13 @@ class ListGroupPostsController implements RequestHandlerInterface
                 }
             }
 
+            // Pinned posts always render at the top of the thread regardless of
+            // their chronological position. The composite index added by the
+            // 2026_05_17 migration (discussion_id, is_pinned) keeps the planner
+            // happy here even on threads with hundreds of replies.
             $posts = SocialGroupPost::where('discussion_id', $discussionId)
                 ->with('user')
+                ->orderByDesc('is_pinned')
                 ->orderBy('created_at')
                 ->get();
 
@@ -124,8 +129,10 @@ class ListGroupPostsController implements RequestHandlerInterface
             'actorReaction' => $actorReactions[$p->id] ?? null,
             'parentPostId'  => $p->parent_post_id,
             'linkPreview'   => $p->link_preview,
+            'isPinned'      => (bool) ($p->is_pinned ?? false),
             'canEdit'       => $actorId && $actorId === $p->user_id,
             'canDelete'     => $actorId && ($actorId === $p->user_id || $isAdmin || $isModerator),
+            'canPin'        => $actorId && ($isAdmin || $isModerator),
             'user'          => $p->user ? [
                 'id'          => $p->user->id,
                 'displayName' => $p->user->display_name,

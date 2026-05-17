@@ -27,7 +27,9 @@ class SocialGroupPost extends AbstractModel
     // Do NOT cast link_preview via $casts — Laravel's 'array' cast throws
     // JsonException on malformed JSON, which would kill the entire feed query.
     // We decode defensively in the accessor instead.
-    protected $casts = [];
+    protected $casts = [
+        'is_pinned' => 'boolean',
+    ];
 
     protected function linkPreview(): Attribute
     {

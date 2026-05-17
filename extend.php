@@ -21,6 +21,7 @@ use Ernestdefoe\SocialGroups\Api\Controller\ListJoinRequestsController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\CreateGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\DeleteGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\ListGroupPostsController;
+use Ernestdefoe\SocialGroups\Api\Controller\Post\PinGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TogglePostReactionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TypingStatusController;
 use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
@@ -88,6 +89,7 @@ return [
         ->get('/sg-thread-posts/{discussionId}', 'sg-posts.list',   ListGroupPostsController::class)
         ->post('/sg-posts',                      'sg-posts.create', CreateGroupPostController::class)
         ->patch('/sg-posts/{postId}',             'sg-posts.update', UpdateGroupPostController::class)
+        ->patch('/sg-posts/{postId}/pin',        'sg-posts.pin',    PinGroupPostController::class)
         ->post('/sg-posts/{postId}/delete',      'sg-posts.delete', DeleteGroupPostController::class)
         ->post('/sg-posts/{postId}/react',   'sg-posts.react',   TogglePostReactionController::class)
         ->post('/sg-posts/{postId}/unreact', 'sg-posts.unreact', TogglePostReactionController::class)

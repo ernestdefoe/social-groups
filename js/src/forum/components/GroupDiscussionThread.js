@@ -427,6 +427,56 @@ export default class GroupDiscussionThread extends Page {
       });
   }
 
+  /**
+   * Toggle the pinned state of a single reply. Optimistic update — we
+   * flip the flag locally and re-order, then reconcile against the
+   * server response. On failure we revert. Mirrors discussion-level
+   * pinning in GroupFeed.pinDiscussion.
+   */
+  pinPost(post) {
+    const wasPinned = !!post.isPinned;
+    post.isPinned = !wasPinned;
+    this.openMenuId = null;
+    this._resortPinned();
+    m.redraw();
+
+    fetch(`${apiBase()}/sg-posts/${post.id}/pin`, {
+      method:      'PATCH',
+      credentials: 'same-origin',
+      headers:     { 'X-CSRF-Token': app.session.csrfToken || '' },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.isPinned === 'boolean') {
+          post.isPinned = data.isPinned;
+          this._resortPinned();
+          m.redraw();
+        }
+      })
+      .catch(() => {
+        post.isPinned = wasPinned;
+        this._resortPinned();
+        m.redraw();
+      });
+  }
+
+  /**
+   * Re-sort this.posts so pinned posts float to the top in their
+   * original chronological order. Stable sort on (is_pinned desc,
+   * createdAt asc) — same shape the backend returns.
+   */
+  _resortPinned() {
+    if (!Array.isArray(this.posts)) return;
+    this.posts.sort((a, b) => {
+      const ap = a.isPinned ? 1 : 0;
+      const bp = b.isPinned ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+      const at = new Date(a.createdAt).getTime();
+      const bt = new Date(b.createdAt).getTime();
+      return at - bt;
+    });
+  }
+
   deletePost(post) {
     if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_post_confirm'))) return;
     this.deletingId = post.id;
@@ -789,8 +839,11 @@ export default class GroupDiscussionThread extends Page {
     const isOwnPost  = actor && post.user && String(post.user.id) === String(actor.id());
     const canEdit    = post.canEdit   || isOwnPost;
     const canDelete  = post.canDelete || isOwnPost;
+    const canPin     = !!post.canPin;
+    const isPinned   = !!post.isPinned;
     const cls = '.SGThread-post'
       + (nested    ? '.SGThread-post--nested' : '')
+      + (isPinned  ? '.SGThread-post--pinned' : '')
       + (isDeleting ? '.is-deleting'          : '');
 
     return m(cls, { key: post.id }, [
@@ -811,8 +864,17 @@ export default class GroupDiscussionThread extends Page {
               ? m('span.SGThread-postEdited', ' · ' + app.translator.trans('ernestdefoe-social-groups.forum.discussions.edited'))
               : null,
           ]),
+          isPinned
+            ? m('span.SGThread-pinnedBadge', {
+                title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned_reply'),
+              }, [
+                m('i.fa-solid.fa-thumbtack'),
+                ' ',
+                app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned'),
+              ])
+            : null,
         ]),
-        !isEditing && (canEdit || canDelete)
+        !isEditing && (canEdit || canDelete || canPin)
           ? m('.SGThread-postMenu', [
               m('button.SGThread-postMenuBtn', {
                 onclick: (e) => {
@@ -824,6 +886,16 @@ export default class GroupDiscussionThread extends Page {
               }, m('i.fa-solid.fa-ellipsis')),
               menuOpen
                 ? m('.SGThread-postDropdown', [
+                    canPin
+                      ? m('button.SGThread-dropdownItem', { onclick: () => this.pinPost(post) }, [
+                          m('i.fa-solid.fa-thumbtack'), ' ',
+                          app.translator.trans(
+                            isPinned
+                              ? 'ernestdefoe-social-groups.forum.discussions.unpin_reply'
+                              : 'ernestdefoe-social-groups.forum.discussions.pin_reply'
+                          ),
+                        ])
+                      : null,
                     canEdit
                       ? m('button.SGThread-dropdownItem', { onclick: () => this.startEdit(post) }, [
                           m('i.fa-solid.fa-pencil'), ' ',

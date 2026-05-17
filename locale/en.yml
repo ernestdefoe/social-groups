@@ -95,6 +95,9 @@ ernestdefoe-social-groups:
       comments_empty: No comments yet. Be the first!
       load_error: Failed to load posts. Please try refreshing the page.
       pinned: Pinned
+      pinned_reply: Pinned by a group moderator
+      pin_reply: Pin this reply
+      unpin_reply: Unpin this reply
       poll_label: Poll
       poll_votes: "{count, plural, one {# vote} other {# votes}}"
       poll_ended: Ended
