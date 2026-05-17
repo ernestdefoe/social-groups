@@ -91,6 +91,18 @@ class SocialGroup extends AbstractModel
             $slug = 'group-' . substr(md5($name . uniqid('', true)), 0, 8);
         }
 
+        // A purely-numeric slug ("33333" for a group literally named "33333")
+        // is indistinguishable from a primary-key id in the URL path. The
+        // /api/social-groups/{id-or-slug} resolver previously short-circuited
+        // numeric input to a PK lookup and returned 404 for the actual row.
+        // SocialGroupResource::find() is now slug-first as a defensive read
+        // path, but we ALSO refuse to mint pure-digit slugs at write time so
+        // new groups never reproduce that ambiguity. A "g-" prefix keeps the
+        // URL readable while guaranteeing at least one non-digit character.
+        if (preg_match('/^\d+$/', $slug)) {
+            $slug = 'g-' . $slug;
+        }
+
         $base = $slug;
         $i    = 1;
 

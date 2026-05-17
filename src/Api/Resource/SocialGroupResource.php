@@ -41,12 +41,28 @@ class SocialGroupResource extends AbstractDatabaseResource
         // plus a small inline access check. Field-level visibility on the
         // Schema fields still gates per-field reads.
         try {
-            if (! is_numeric($id)) {
-                $resolvedId = SocialGroup::where('slug', $id)->value('id');
-                if ($resolvedId === null) {
-                    return null;
-                }
+            // Always try slug first. createSlug() now refuses pure-digit
+            // slugs (see SocialGroup::createSlug) so new groups can't
+            // collide with primary-key ids, but PRE-EXISTING groups on
+            // production installs may already have all-numeric slugs from
+            // before the fix — e.g., an admin named a group "33333" and
+            // the slug landed as "33333" too. Without trying the slug
+            // index first, /api/social-groups/33333 short-circuits to a
+            // primary-key lookup, misses the row entirely, and 404s for
+            // the creator (who, being admin, would otherwise satisfy
+            // canSeeGroup unconditionally).
+            //
+            // Slug column is uniquely indexed (see the create migration),
+            // so the extra query is O(1). When the input IS a real
+            // numeric id and no slug matches, we fall through to the
+            // standard primary-key find().
+            $resolvedId = SocialGroup::where('slug', $id)->value('id');
+            if ($resolvedId !== null) {
                 $id = (string) $resolvedId;
+            } elseif (! is_numeric($id)) {
+                // Non-numeric input that doesn't match any slug — genuinely
+                // not found. Skip the (guaranteed-to-miss) PK lookup.
+                return null;
             }
 
             /** @var SocialGroup|null $group */
