@@ -1,3 +1,4 @@
 js/node_modules/
 js/dist/*.map
 vendor/
+/.claude/
