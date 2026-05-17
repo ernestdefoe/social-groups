@@ -24,6 +24,7 @@ ernestdefoe-social-groups:
       featured_heading: Featured Groups
       feature: Feature group
       unfeature: Unfeature group
+      pending_requests_badge: "{count, plural, one {# pending request — review} other {# pending requests — review}}"
 
     create_modal:
       title: Create a Group

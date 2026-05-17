@@ -25,11 +25,21 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function find(string $id, BaseContext $context): ?object
     {
-        // Allow slug-based lookup: if the "id" is non-numeric treat it as a slug
+        // Allow slug-based lookup: if the "id" is non-numeric treat it as a slug.
+        //
+        // The framework calls scope() on the Index endpoint automatically, but
+        // this overridden find() short-circuits that path for slug lookups —
+        // so we have to apply the same visibility scope here ourselves, or
+        // a non-member visiting /groups/<private-slug> would receive the
+        // private group's payload anyway (the visibility leak users were
+        // hitting before).
         if (! is_numeric($id)) {
-            return SocialGroup::where('slug', $id)->first();
+            $query = SocialGroup::query()->where('slug', $id);
+            $this->scope($query, $context);
+            return $query->first();
         }
 
+        // Numeric id — parent::find() applies scope() through the framework.
         return parent::find($id, $context);
     }
 
@@ -46,6 +56,33 @@ class SocialGroupResource extends AbstractDatabaseResource
                 'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
                 'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
             ]);
+        }
+
+        // -- Visibility ---------------------------------------------------
+        //
+        // `is_private = 1` means the group is hidden from anyone who isn't
+        // already a member, the creator, a moderator, or an admin. Without
+        // this filter the Index endpoint listed private groups to everyone
+        // (including guests) — the bug a user reported on the live site.
+        //
+        // Moderators/admins keep full visibility so they can manage every
+        // group on the forum. Plain members see public groups + their own
+        // private groups + groups they created.
+        $canSeePrivate = $actor->isAdmin()
+            || $actor->hasPermission('ernestdefoe-social-groups.moderate');
+
+        if (! $canSeePrivate) {
+            $query->where(function ($q) use ($actorId) {
+                $q->where('is_private', false);
+                if ($actorId) {
+                    $q->orWhere('user_id', $actorId)
+                      ->orWhereExists(function ($sub) use ($actorId) {
+                          $sub->from('social_group_members')
+                              ->whereColumn('social_group_members.group_id', 'social_groups.id')
+                              ->where('social_group_members.user_id', $actorId);
+                      });
+                }
+            });
         }
 
         $query->orderByDesc('is_featured')->orderByDesc('member_count');

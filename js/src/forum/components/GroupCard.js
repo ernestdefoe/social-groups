@@ -83,6 +83,36 @@ export default class GroupCard extends Component {
           description
             ? m('div.GroupCard-description', description)
             : m('div.GroupCard-description.GroupCard-description--empty', ''),
+
+          // Pending join requests — discoverability fix. The
+          // pendingRequestCount attribute was already exposed by the
+          // SocialGroupResource Schema (gated server-side to the
+          // creator / moderators / admins so it returns 0 for everyone
+          // else) but no JS surface consumed it. Without this, a group
+          // admin who configured "approval" had no signal on the
+          // /groups list that anyone had requested to join — the
+          // JoinRequestsPanel only renders on the specific group's
+          // detail page, AND it returns null when no requests are
+          // present, so a missing badge looked identical to "no one
+          // applied yet". Showing the count here puts the affordance
+          // exactly where the admin is already looking.
+          canEdit && group.pendingRequestCount() > 0
+            ? m('a.GroupCard-pendingBadge', {
+                href,
+                onclick: (e) => {
+                  e.stopPropagation();
+                  m.route.set(href);
+                },
+              }, [
+                m('i.fa-solid.fa-user-clock'),
+                ' ',
+                app.translator.trans(
+                  'ernestdefoe-social-groups.forum.groups.pending_requests_badge',
+                  { count: group.pendingRequestCount() }
+                ),
+              ])
+            : null,
+
           m('div.GroupCard-footer', [
             m(
               Link,
