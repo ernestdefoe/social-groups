@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Foundation\Config;
 use Flarum\Formatter\Formatter;
 use Laminas\Diactoros\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -17,6 +18,7 @@ class GroupRssFeedController implements RequestHandlerInterface
     public function __construct(
         private Formatter $formatter,
         private LoggerInterface $log,
+        private Config $config,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -33,7 +35,7 @@ class GroupRssFeedController implements RequestHandlerInterface
                 return $this->xmlError('This group is private.', 403);
             }
 
-            $baseUrl  = rtrim(resolve('flarum.config')['url'], '/');
+            $baseUrl  = rtrim((string) $this->config->url(), '/');
             $groupUrl = $baseUrl . '/groups/' . rawurlencode($slug);
             $feedUrl  = $groupUrl . '/feed.rss';
 
