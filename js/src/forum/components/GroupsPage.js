@@ -7,10 +7,11 @@ import CreateGroupModal from './CreateGroupModal';
 export default class GroupsPage extends Page {
   oninit(vnode) {
     super.oninit(vnode);
-    this.allGroups   = null; // full list from server
+    this.allGroups   = null; // current result set from server
     this.loading     = true;
     this.searchValue = '';
     this.error       = null;
+    this._searchTimer = null;
   }
 
   oncreate(vnode) {
@@ -19,15 +20,25 @@ export default class GroupsPage extends Page {
     this.loadGroups();
   }
 
+  onremove(vnode) {
+    if (this._searchTimer) clearTimeout(this._searchTimer);
+    super.onremove(vnode);
+  }
+
   loadGroups() {
     this.loading = true;
     m.redraw();
 
-    // Flarum 2's filter[*] param triggers the searcher system which throws
-    // for resources that don't implement AbstractSearcher. We load all groups
-    // once and filter client-side — instant feedback, no round-trip per keystroke.
+    // Server-side search: SocialGroupResource.scope() honors filter[q]
+    // and pushes a LIKE into SQL. The previous approach (page[limit]=200
+    // + JS filter) silently dropped matches past row 200 and shipped the
+    // whole list on every page load.
+    const params = { 'page[limit]': 60 };
+    const q = this.searchValue.trim();
+    if (q) params['filter[q]'] = q;
+
     app.store
-      .find('social-groups', { 'page[limit]': 200 })
+      .find('social-groups', params)
       .then((groups) => {
         this.allGroups = groups;
         this.loading   = false;
@@ -41,12 +52,8 @@ export default class GroupsPage extends Page {
   }
 
   get filteredGroups() {
-    const q = this.searchValue.trim().toLowerCase();
-    if (!q || !this.allGroups) return this.allGroups;
-    return this.allGroups.filter((g) =>
-      (g.name()        || '').toLowerCase().includes(q) ||
-      (g.description() || '').toLowerCase().includes(q)
-    );
+    // Filtering happens server-side now — just expose what we loaded.
+    return this.allGroups;
   }
 
   toggleFeature(group) {
@@ -73,6 +80,13 @@ export default class GroupsPage extends Page {
   onSearch(value) {
     this.searchValue = value;
     m.redraw();
+
+    // Debounce the server request — 280 ms is short enough to feel
+    // live while still merging keystrokes into a single query.
+    if (this._searchTimer) clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => {
+      this.loadGroups();
+    }, 280);
   }
 
   view() {

@@ -168,6 +168,22 @@ class SocialGroupResource extends AbstractDatabaseResource
             });
         }
 
+        // Server-side search. The GroupsPage frontend used to pull every
+        // group (page[limit]=200) and filter in JS — that silently
+        // dropped matches past row 200 and shipped the full payload on
+        // every page load. Honor a `filter[q]` query param and push the
+        // LIKE into SQL. User wildcards (`%`, `_`) are escaped so they
+        // don't broaden the search beyond what was typed.
+        $rawFilter = $context->request->getQueryParams()['filter'] ?? [];
+        $q = is_array($rawFilter) ? trim((string) ($rawFilter['q'] ?? '')) : '';
+        if ($q !== '') {
+            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $query->where(function ($w) use ($like) {
+                $w->where('name', 'like', $like)
+                  ->orWhere('description', 'like', $like);
+            });
+        }
+
         $query->orderByDesc('is_featured')->orderByDesc('member_count');
     }
 
