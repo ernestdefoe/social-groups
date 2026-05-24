@@ -1,4 +1,8 @@
-import { apiPost, apiPatch, apiUpload, listThreadPosts } from '../utils/api';
+import {
+  apiPost, apiPatch, apiUpload,
+  listThreadPosts,
+  createPost, updatePost, deletePost as apiDeletePost,
+} from '../utils/api';
 import { pastedImages } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
 import app from 'flarum/forum/app';
@@ -344,7 +348,7 @@ export default class GroupDiscussionThread extends Page {
     this.submitting = true;
     this.replyError = null;
 
-    apiPost('/sg-posts', {
+    createPost({
       discussionId: this.discussion.id,
       content,
       linkPreview:  this.linkPreview || null,
@@ -393,7 +397,7 @@ export default class GroupDiscussionThread extends Page {
     const content = this.editText.trim();
     if (!content) return;
 
-    apiPatch(`/sg-posts/${post.id}`, { content })
+    updatePost(post.id, { content })
       .then((updated) => {
         const idx = this.posts.findIndex((p) => p.id === post.id);
         if (idx !== -1) this.posts[idx] = { ...this.posts[idx], ...updated };
@@ -458,7 +462,7 @@ export default class GroupDiscussionThread extends Page {
     this.deletingId = post.id;
     this.openMenuId = null;
 
-    apiPost(`/sg-posts/${post.id}/delete`)
+    apiDeletePost(post.id)
       .then(() => {
         // Also remove any child replies (DB cascade handles the data side)
         const removed = new Set([post.id]);
@@ -488,7 +492,7 @@ export default class GroupDiscussionThread extends Page {
 
     this.inlineReplySubmitting = true;
 
-    apiPost('/sg-posts', {
+    createPost({
       discussionId: this.discussion.id,
       content,
       parentPostId: this.replyingToId,

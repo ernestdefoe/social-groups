@@ -15,14 +15,11 @@ use Ernestdefoe\SocialGroups\Api\Controller\InviteUserController;
 use Ernestdefoe\SocialGroups\Api\Controller\JoinGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\LeaveGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListJoinRequestsController;
-use Ernestdefoe\SocialGroups\Api\Controller\Post\CreateGroupPostController;
-use Ernestdefoe\SocialGroups\Api\Controller\Post\DeleteGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\PinGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TogglePostReactionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TypingStatusController;
 use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Listener\BroadcastGroupPost;
-use Ernestdefoe\SocialGroups\Api\Controller\Post\UpdateGroupPostController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListUserGroupsController;
 use Ernestdefoe\SocialGroups\Api\Controller\SetPrimaryGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\StoreGroupMediaPostController;
@@ -35,8 +32,10 @@ use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupPostResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupResource;
 use Ernestdefoe\SocialGroups\Access\SocialGroupDiscussionPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupPolicy;
+use Ernestdefoe\SocialGroups\Access\SocialGroupPostPolicy;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
+use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\SocialGroupsServiceProvider;
@@ -85,11 +84,8 @@ return [
         ->patch('/sg-discussions/{discussionId}/pin',   'sg-discussions.pin',   PinGroupDiscussionController::class)
         ->post('/sg-discussions/{discussionId}/share',  'sg-discussions.share', ShareGroupDiscussionController::class)
         // Posts
-        // List served by SocialGroupPostResource at /api/social-group-posts?filter[discussion]=N.
-        ->post('/sg-posts',                      'sg-posts.create', CreateGroupPostController::class)
-        ->patch('/sg-posts/{postId}',             'sg-posts.update', UpdateGroupPostController::class)
+        // List/Create/Update/Delete served by SocialGroupPostResource at /api/social-group-posts.
         ->patch('/sg-posts/{postId}/pin',        'sg-posts.pin',    PinGroupPostController::class)
-        ->post('/sg-posts/{postId}/delete',      'sg-posts.delete', DeleteGroupPostController::class)
         ->post('/sg-posts/{postId}/react',   'sg-posts.react',   TogglePostReactionController::class)
         ->post('/sg-posts/{postId}/unreact', 'sg-posts.unreact', TogglePostReactionController::class)
         // Join requests
@@ -117,7 +113,8 @@ return [
 
     (new Extend\Policy())
         ->modelPolicy(SocialGroup::class, SocialGroupPolicy::class)
-        ->modelPolicy(SocialGroupDiscussion::class, SocialGroupDiscussionPolicy::class),
+        ->modelPolicy(SocialGroupDiscussion::class, SocialGroupDiscussionPolicy::class)
+        ->modelPolicy(SocialGroupPost::class, SocialGroupPostPolicy::class),
 
     (new Extend\Notification())
         ->type(SocialGroupNewPostBlueprint::class,  ['alert'])

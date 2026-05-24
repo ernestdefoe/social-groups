@@ -2,6 +2,7 @@ import {
   apiGet, apiPost, apiPatch,
   listDiscussions, listThreadPosts,
   createDiscussion, deleteDiscussion as apiDeleteDiscussion,
+  createPost,
 } from '../utils/api';
 import { pastedImages, handleFiles, removeUpload, revokeAll } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview } from '../utils/linkPreview';
@@ -285,7 +286,7 @@ export default class GroupFeed extends Component {
 
     this.replySubmitting[d.id] = true;
 
-    apiPost('/sg-posts', { discussionId: d.id, content })
+    createPost({ discussionId: d.id, content })
       .then((post) => {
         d.commentCount = (d.commentCount || 0) + 1;
         this.replyTexts[d.id]      = '';

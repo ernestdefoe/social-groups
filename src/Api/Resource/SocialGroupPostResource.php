@@ -3,8 +3,12 @@
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Ernestdefoe\SocialGroups\Access\GroupVisibility;
+use Ernestdefoe\SocialGroups\Api\Concern\SanitizesLinkPreview;
+use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
@@ -12,9 +16,14 @@ use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
+use Flarum\Notification\NotificationSyncer;
 use Flarum\User\Exception\PermissionDeniedException;
+use Flarum\User\User;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Eloquent\Builder;
+use Psr\Log\LoggerInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
+use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
  * Recurso JSON:API para SocialGroupPost.
@@ -39,9 +48,14 @@ use Tobyz\JsonApiServer\Context as BaseContext;
  */
 class SocialGroupPostResource extends AbstractDatabaseResource
 {
+    use SanitizesLinkPreview;
+
     public function __construct(
         protected Formatter $formatter,
         protected SchemaCapabilities $capabilities,
+        protected NotificationSyncer $notifications,
+        protected Dispatcher $events,
+        protected LoggerInterface $log,
     ) {
     }
 
@@ -128,7 +142,192 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             Endpoint\Index::make()
                 ->paginate()
                 ->defaultInclude(['user', 'discussion']),
+
+            Endpoint\Create::make()
+                ->authenticated(),
+
+            Endpoint\Update::make()
+                ->authenticated()
+                ->can('edit'),
+
+            Endpoint\Delete::make()
+                ->authenticated()
+                ->can('delete'),
         ];
+    }
+
+    public function creating(object $model, BaseContext $context): ?object
+    {
+        /** @var Context $context */
+        $actor = $context->getActor();
+
+        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $attrs = (array) ($body['data']['attributes'] ?? []);
+
+        $discussionId = (int) ($attrs['discussionId'] ?? 0);
+        $content      = trim((string) ($attrs['content'] ?? ''));
+        $parentPostId = isset($attrs['parentPostId']) ? (int) $attrs['parentPostId'] : null;
+
+        if ($discussionId <= 0 || $content === '') {
+            throw new BadRequestException('discussionId and content are required.');
+        }
+        if (mb_strlen($content) > 20000) {
+            throw new BadRequestException('Post content may not exceed 20 000 characters.');
+        }
+
+        $discussion = SocialGroupDiscussion::with('group')->find($discussionId);
+        if ($discussion === null || $discussion->group === null) {
+            throw new BadRequestException('Discussion not found.');
+        }
+        if ($discussion->is_locked) {
+            throw new PermissionDeniedException();
+        }
+
+        $group = $discussion->group;
+        $isMember = $group->members()->where('user_id', $actor->id)->exists();
+        if (! $isMember) {
+            throw new PermissionDeniedException();
+        }
+
+        // Flatten one level: replying to a reply attaches to its parent.
+        if ($parentPostId !== null && $parentPostId > 0) {
+            $parent = SocialGroupPost::where('id', $parentPostId)
+                ->where('discussion_id', $discussion->id)
+                ->first();
+            if ($parent === null) {
+                throw new BadRequestException('Parent post not found.');
+            }
+            $parentPostId = $parent->parent_post_id ?? $parent->id;
+        } else {
+            $parentPostId = null;
+        }
+
+        $linkPreview = is_array($attrs['linkPreview'] ?? null)
+            ? $this->sanitizeLinkPreview($attrs['linkPreview'])
+            : null;
+
+        $model->discussion_id  = $discussion->id;
+        $model->group_id       = $discussion->group_id;
+        $model->user_id        = $actor->id;
+        $model->content        = $content;
+        $model->content_parsed = $this->formatter->parse($content);
+        $model->parent_post_id = $parentPostId;
+        $model->link_preview   = $linkPreview;
+
+        $model->_sgDiscussionRef = $discussion;
+
+        return null;
+    }
+
+    public function created(object $model, BaseContext $context): ?object
+    {
+        /** @var SocialGroupPost $model */
+        $actor      = $context->getActor();
+        $discussion = $model->_sgDiscussionRef ?? SocialGroupDiscussion::find($model->discussion_id);
+        if ($discussion === null) {
+            return null;
+        }
+
+        $discussion->increment('comment_count');
+        $discussion->last_posted_at      = \Carbon\Carbon::now();
+        $discussion->last_posted_user_id = $actor->id;
+        $discussion->save();
+
+        try {
+            $this->events->dispatch(new SocialGroupPostWasCreated($model, $actor, $discussion));
+        } catch (\Throwable $e) {
+            $this->log->error('[social-groups] Realtime event dispatch failed: ' . $e->getMessage());
+        }
+
+        try {
+            if ($model->parent_post_id === null) {
+                $recipients = $this->discussionParticipants($discussion, (int) $actor->id);
+                if ($recipients) {
+                    $this->notifications->sync(
+                        new SocialGroupNewPostBlueprint($model, $actor, $discussion),
+                        $recipients
+                    );
+                }
+            } else {
+                $parentPost = SocialGroupPost::find($model->parent_post_id);
+                if ($parentPost !== null
+                    && $parentPost->user_id
+                    && (int) $parentPost->user_id !== (int) $actor->id
+                ) {
+                    $recipient = User::find($parentPost->user_id);
+                    if ($recipient !== null) {
+                        $this->notifications->sync(
+                            new SocialGroupNewReplyBlueprint($model, $actor, $parentPost, $discussion),
+                            [$recipient]
+                        );
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $this->log->error('[social-groups] Notification failed: ' . $e->getMessage(), ['exception' => $e]);
+        }
+
+        return null;
+    }
+
+    public function updating(object $model, BaseContext $context): ?object
+    {
+        /** @var SocialGroupPost $model */
+        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $attrs = (array) ($body['data']['attributes'] ?? []);
+
+        if (! array_key_exists('content', $attrs)) {
+            return null;
+        }
+        $content = trim((string) $attrs['content']);
+        if ($content === '') {
+            throw new BadRequestException('Content cannot be empty.');
+        }
+        if (mb_strlen($content) > 20000) {
+            throw new BadRequestException('Post content may not exceed 20 000 characters.');
+        }
+
+        $model->content        = $content;
+        $model->content_parsed = $this->formatter->parse($content);
+
+        return null;
+    }
+
+    public function deleting(object $model, BaseContext $context): ?object
+    {
+        /** @var SocialGroupPost $model */
+        $model->_sgDeletedDiscussionId = $model->discussion_id;
+        return null;
+    }
+
+    public function deleted(object $model, BaseContext $context): ?object
+    {
+        /** @var SocialGroupPost $model */
+        $discussionId = $model->_sgDeletedDiscussionId ?? $model->discussion_id;
+        if ($discussionId) {
+            SocialGroupDiscussion::where('id', $discussionId)
+                ->where('comment_count', '>', 0)
+                ->decrement('comment_count');
+        }
+        return null;
+    }
+
+    /**
+     * Discussion participants minus the actor — same shape the
+     * legacy CreateGroupPostController used for top-level notifications.
+     */
+    protected function discussionParticipants(SocialGroupDiscussion $discussion, int $actorId): array
+    {
+        $ids = SocialGroupPost::where('discussion_id', $discussion->id)
+            ->where('user_id', '!=', $actorId)
+            ->pluck('user_id')
+            ->push($discussion->user_id)
+            ->unique()
+            ->filter(fn ($id) => $id && (int) $id !== $actorId)
+            ->values()
+            ->all();
+
+        return $ids ? User::whereIn('id', $ids)->get()->all() : [];
     }
 
     public function fields(): array
