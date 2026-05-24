@@ -2,6 +2,9 @@ import { apiGet, apiPost, apiPatch, apiDelete } from '../utils/api';
 import { pastedImages, handleFiles, removeUpload, revokeAll, viewUploadChips } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
 import ShareDiscussionModal from './ShareDiscussionModal';
+import { REACTIONS, ReactionPicker, ReactionButton, ReactionStat } from './feed/reactions';
+import { MentionDropdown } from './feed/MentionDropdown';
+import { PollComposer } from './feed/PollComposer';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -156,15 +159,6 @@ export default class GroupFeed extends Component {
         m.redraw();
       });
   }
-
-  static REACTIONS = [
-    { key: 'like',  emoji: '👍', label: 'Like' },
-    { key: 'heart', emoji: '❤️', label: 'Love' },
-    { key: 'haha',  emoji: '😂', label: 'Haha' },
-    { key: 'wow',   emoji: '😮', label: 'Wow' },
-    { key: 'sad',   emoji: '😢', label: 'Sad' },
-    { key: 'angry', emoji: '😡', label: 'Angry' },
-  ];
 
   // ── Reaction picker ───────────────────────────────────────────────────────
 
@@ -439,38 +433,14 @@ export default class GroupFeed extends Component {
   }
 
   viewMentionDropdown(discId) {
-    if (this.mentionDiscId !== discId || this.mentionQuery === null) return null;
+    if (this.mentionDiscId !== discId) return null;
 
-    const query   = this.mentionQuery.toLowerCase();
-    const members = (this.members || [])
-      .filter((mbr) =>
-        mbr.displayName.toLowerCase().includes(query) ||
-        (mbr.slug || '').toLowerCase().includes(query)
-      )
-      .slice(0, 7);
-
-    if (!members.length && !this.membersLoading) return null;
-
-    return m('.SGFeed-mentionDropdown', [
-      this.membersLoading && !this.members
-        ? m('.SGFeed-mentionLoading', m('i.fa-solid.fa-spinner.fa-spin'))
-        : members.map((mbr) =>
-            m('button.SGFeed-mentionItem', {
-              key:         mbr.userId,
-              type:        'button',
-              // onmousedown prevents blurring the textarea before the click registers.
-              onmousedown: (e) => { e.preventDefault(); this.insertMention(mbr); },
-            }, [
-              mbr.avatarUrl
-                ? m('img.SGFeed-mentionAvatar', { src: mbr.avatarUrl, alt: '' })
-                : m('span.SGFeed-mentionInitial', (mbr.displayName || '?')[0].toUpperCase()),
-              m('span.SGFeed-mentionName', mbr.displayName),
-              mbr.role && mbr.role !== 'member'
-                ? m('span.SGFeed-mentionRole', mbr.role)
-                : null,
-            ])
-          ),
-    ]);
+    return MentionDropdown({
+      members:  this.members,
+      loading:  this.membersLoading,
+      query:    this.mentionQuery,
+      onSelect: (member) => this.insertMention(member),
+    });
   }
 
   toggleComments(d) {
@@ -517,17 +487,10 @@ export default class GroupFeed extends Component {
         : null,
       shown.map((post) => {
         const user        = post.user;
-        const reactions   = post.reactions || {};
-        const totalReact  = Object.values(reactions).reduce((s, c) => s + Number(c), 0);
         const actorReact  = post.actorReaction || null;
         const pickerOpen  = this.pickerCommentId === post.id;
-        const activeEmoji = actorReact ? GroupFeed.REACTIONS.find((r) => r.key === actorReact) : null;
-
-        const topEmojis = Object.entries(reactions)
-          .filter(([, c]) => Number(c) > 0)
-          .sort(([, a], [, b]) => Number(b) - Number(a))
-          .slice(0, 3)
-          .map(([key]) => GroupFeed.REACTIONS.find((r) => r.key === key)?.emoji || '👍');
+        const stat        = ReactionStat(post.reactions);
+        const activeEmoji = actorReact ? REACTIONS.find((r) => r.key === actorReact) : null;
 
         return m('.SGFeed-comment', { key: post.id }, [
           // Avatar
@@ -553,22 +516,17 @@ export default class GroupFeed extends Component {
               actor
                 ? m('.SGFeed-commentReactWrap', [
                     pickerOpen
-                      ? m('.SGFeed-commentPicker',
-                          GroupFeed.REACTIONS.map((r) =>
-                            m('button.SGFeed-pickerBtn', {
-                              key:     r.key,
-                              title:   r.label,
-                              class:   actorReact === r.key ? 'is-active' : '',
-                              onclick: (e) => {
-                                e.stopPropagation();
-                                this.toggleCommentReaction(post, r.key);
-                              },
-                            }, [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)])
-                          ))
+                      ? ReactionPicker({
+                          actorReaction: actorReact,
+                          wrapperClass:  'SGFeed-commentPicker',
+                          onPick:        (key) => this.toggleCommentReaction(post, key),
+                        })
                       : null,
                     m('button.SGFeed-commentReactBtn', {
                       class:   activeEmoji ? 'is-active' : '',
-                      title:   activeEmoji ? app.translator.trans('ernestdefoe-social-groups.forum.discussions.remove_reaction', { emoji: activeEmoji.label }) : app.translator.trans('ernestdefoe-social-groups.forum.discussions.react'),
+                      title:   activeEmoji
+                                 ? app.translator.trans('ernestdefoe-social-groups.forum.discussions.remove_reaction', { emoji: activeEmoji.label })
+                                 : app.translator.trans('ernestdefoe-social-groups.forum.discussions.react'),
                       onclick: (e) => {
                         e.stopPropagation();
                         if (activeEmoji) {
@@ -585,11 +543,11 @@ export default class GroupFeed extends Component {
                 : null,
 
               // Reaction stat bubble (emoji stack + total count)
-              totalReact > 0
+              stat.total > 0
                 ? m('span.SGFeed-commentReactStat', [
-                    topEmojis.map((emoji) => m('span.SGFeed-commentReactEmoji', emoji)),
+                    stat.topEmojis.map((emoji) => m('span.SGFeed-commentReactEmoji', emoji)),
                     ' ',
-                    totalReact,
+                    stat.total,
                   ])
                 : null,
             ]),
@@ -716,7 +674,7 @@ export default class GroupFeed extends Component {
         }),
         viewUploadChips(this.postUploads, (id) => removeUpload(this, id, 'postUploads', 'postText')),
         viewComposerLinkPreview(this),
-        this.poll ? this.viewPollComposer() : null,
+        this.poll ? PollComposer({ poll: this.poll, onChange: () => m.redraw() }) : null,
         this.viewMentionDropdown('feed'),
         expanded
           ? m('.SGFeed-composerActions', [
@@ -765,50 +723,6 @@ export default class GroupFeed extends Component {
             ])
           : null,
       ]),
-    ]);
-  }
-
-  viewPollComposer() {
-    const p = this.poll;
-    return m('.SGFeed-pollComposer', [
-      m('.SGFeed-pollComposer-header', [
-        m('span', [m('i.fa-solid.fa-square-poll-vertical'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.poll_label')]),
-        m('label.SGFeed-pollComposer-multiToggle', [
-          m('input[type=checkbox]', {
-            checked:  p.isMultiSelect,
-            onchange: (e) => { p.isMultiSelect = e.target.checked; m.redraw(); },
-          }),
-          ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.poll_allow_multiple'),
-        ]),
-      ]),
-      m('input.FormControl.SGFeed-pollComposer-question', {
-        type:        'text',
-        placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.poll_question_placeholder'),
-        value:       p.question,
-        maxlength:   500,
-        oninput:     (e) => { p.question = e.target.value; },
-      }),
-      p.options.map((opt, i) =>
-        m('.SGFeed-pollComposer-optRow', { key: i }, [
-          m('input.FormControl.SGFeed-pollComposer-opt', {
-            type:        'text',
-            placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.poll_option_placeholder', { number: i + 1 }),
-            value:       opt,
-            maxlength:   255,
-            oninput:     (e) => { p.options[i] = e.target.value; },
-          }),
-          p.options.length > 2
-            ? m('button.SGFeed-pollComposer-removeOpt', {
-                onclick: () => { p.options.splice(i, 1); m.redraw(); },
-              }, m('i.fa-solid.fa-xmark'))
-            : null,
-        ])
-      ),
-      p.options.length < 6
-        ? m('button.SGFeed-pollComposer-addOpt', {
-            onclick: () => { p.options.push(''); m.redraw(); },
-          }, [m('i.fa-solid.fa-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.poll_add_option')])
-        : null,
     ]);
   }
 
@@ -987,25 +901,18 @@ export default class GroupFeed extends Component {
 
       // Reaction count + comment count stat bar
       (() => {
-        const reactions  = fp?.reactions || {};
-        const totalReact = Object.values(reactions).reduce((s, c) => s + Number(c), 0);
+        const stat        = ReactionStat(fp?.reactions);
         const hasComments = d.commentCount > 1;
-        if (!totalReact && !hasComments) return null;
-
-        const topEmojis = Object.entries(reactions)
-          .filter(([, c]) => Number(c) > 0)
-          .sort(([, a], [, b]) => Number(b) - Number(a))
-          .slice(0, 3)
-          .map(([key]) => GroupFeed.REACTIONS.find((r) => r.key === key)?.emoji || '👍');
+        if (!stat.total && !hasComments) return null;
 
         return m('.SGFeed-postStatBar', [
-          totalReact > 0
+          stat.total > 0
             ? m('span.SGFeed-statLikes', [
-                topEmojis.map((emoji) => m('span.SGFeed-reactionEmoji', emoji)),
-                ' ', totalReact,
+                stat.topEmojis.map((emoji) => m('span.SGFeed-reactionEmoji', emoji)),
+                ' ', stat.total,
               ])
             : null,
-          totalReact > 0 && hasComments ? m('span.SGFeed-statDot', '·') : null,
+          stat.total > 0 && hasComments ? m('span.SGFeed-statDot', '·') : null,
           hasComments
             ? m('button.SGFeed-statComments', { onclick: () => this.toggleComments(d) },
                 app.translator.trans('ernestdefoe-social-groups.forum.discussions.comments_count', { count: d.commentCount - 1 }))
@@ -1018,34 +925,16 @@ export default class GroupFeed extends Component {
         actor && fp
           ? m('.SGFeed-reactWrap', [
               this.pickerDiscId === d.id
-                ? m('.SGFeed-reactionPicker',
-                    GroupFeed.REACTIONS.map((r) =>
-                      m('button.SGFeed-pickerBtn', {
-                        key:     r.key,
-                        title:   r.label,
-                        class:   fp.actorReaction === r.key ? 'is-active' : '',
-                        onclick: (e) => { e.stopPropagation(); this.pickerDiscId = null; this.toggleReaction(d, r.key); },
-                      }, [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)])
-                    ))
+                ? ReactionPicker({
+                    actorReaction: fp.actorReaction,
+                    onPick:        (key) => { this.pickerDiscId = null; this.toggleReaction(d, key); },
+                  })
                 : null,
-              (() => {
-                const active = fp.actorReaction
-                  ? GroupFeed.REACTIONS.find((r) => r.key === fp.actorReaction)
-                  : null;
-                return m('button.SGFeed-reactBtn', {
-                  class:   active ? 'SGFeed-reactBtn--active' : '',
-                  onclick: (e) => {
-                    e.stopPropagation();
-                    if (active) {
-                      this.toggleReaction(d, fp.actorReaction);
-                    } else {
-                      this.togglePicker(d.id);
-                    }
-                  },
-                }, active
-                    ? [active.emoji, ' ', active.label]
-                    : [m('i.fa-solid.fa-face-grin-beam'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.react')]);
-              })(),
+              ReactionButton({
+                actorReaction: fp.actorReaction,
+                onClear:       () => this.toggleReaction(d, fp.actorReaction),
+                onOpen:        () => this.togglePicker(d.id),
+              }),
             ])
           : null,
         m('button.SGFeed-commentBtn', {
