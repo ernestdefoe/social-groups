@@ -1,4 +1,4 @@
-import { apiBase } from '../utils/api';
+import { apiPost } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
@@ -66,30 +66,18 @@ export default class InviteUserModal extends Modal {
     this.error   = null;
     this.success = null;
 
-    fetch(`${apiBase()}/social-groups/${this.attrs.groupId}/invite`, {
-      method:      'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': app.session.csrfToken || '',
-      },
-      body: JSON.stringify({ username }),
-    })
-      .then((r) => r.json().then((data) => ({ ok: r.ok, data })))
-      .then(({ ok, data }) => {
-        this.loading = false;
-        if (!ok) {
-          this.error = data.error || app.translator.trans('ernestdefoe-social-groups.forum.invite.error_generic');
-        } else {
-          this.success  = app.translator.trans('ernestdefoe-social-groups.forum.invite.success', { username: data.displayName });
-          this.username('');
-          if (this.attrs.onInvited) this.attrs.onInvited(data);
-        }
+    apiPost(`/social-groups/${this.attrs.groupId}/invite`, { username })
+      .then((data) => {
+        this.loading  = false;
+        this.success  = app.translator.trans('ernestdefoe-social-groups.forum.invite.success', { username: data.displayName });
+        this.username('');
+        if (this.attrs.onInvited) this.attrs.onInvited(data);
         m.redraw();
       })
-      .catch(() => {
+      .catch((err) => {
         this.loading = false;
-        this.error   = app.translator.trans('ernestdefoe-social-groups.forum.invite.error_generic');
+        this.error   = err.response?.error
+          || app.translator.trans('ernestdefoe-social-groups.forum.invite.error_generic');
         m.redraw();
       });
   }

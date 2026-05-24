@@ -1,4 +1,4 @@
-import { apiBase } from '../utils/api';
+import { apiPost } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -98,22 +98,10 @@ export default class ShareDiscussionModal extends Modal {
     this.error      = null;
     m.redraw();
 
-    fetch(`${apiBase()}/sg-discussions/${this.attrs.discussionId}/share`, {
-      method:      'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': app.session.csrfToken || '',
-      },
-      body: JSON.stringify({
-        targetGroupId: this.selectedGroupId,
-        content:       this.comment.trim(),
-      }),
+    apiPost(`/sg-discussions/${this.attrs.discussionId}/share`, {
+      targetGroupId: this.selectedGroupId,
+      content:       this.comment.trim(),
     })
-      .then((r) => {
-        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
-        return r.json();
-      })
       .then((data) => {
         this.submitting = false;
         app.modal.close();
@@ -121,7 +109,7 @@ export default class ShareDiscussionModal extends Modal {
         m.redraw();
       })
       .catch((err) => {
-        this.error      = err.message;
+        this.error      = err.response?.error || err.message || 'Error';
         this.submitting = false;
         m.redraw();
       });

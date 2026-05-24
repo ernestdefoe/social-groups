@@ -1,4 +1,4 @@
-import { apiBase } from '../utils/api';
+import { apiUpload } from '../utils/api';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import Switch from 'flarum/common/components/Switch';
@@ -234,15 +234,7 @@ export default class CreateGroupModal extends Modal {
     formData.append('file', file);
     const endpoint = type === 'banner' ? 'banner' : 'image';
 
-    return fetch(`${apiBase()}/social-groups/${groupId}/${endpoint}`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'X-CSRF-Token': app.session.csrfToken,
-      },
-      body: formData,
-    })
-      .then((res) => res.json())
+    return apiUpload(`/social-groups/${groupId}/${endpoint}`, formData)
       .then((data) => ({ type, url: data.url }));
   }
 }

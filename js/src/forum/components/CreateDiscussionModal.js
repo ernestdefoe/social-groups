@@ -1,4 +1,4 @@
-import { apiBase } from '../utils/api';
+import { apiPost } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
@@ -69,29 +69,14 @@ export default class CreateDiscussionModal extends Modal {
     this.loading = true;
     this.error   = null;
 
-    fetch(`${apiBase()}/sg-discussions`, {
-      method:  'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': app.session.csrfToken || '',
-      },
-      body: JSON.stringify({
-        groupId: this.attrs.groupId,
-        title,
-        content,
-      }),
-    })
-      .then((r) => {
-        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Error'); });
-        return r.json();
-      })
+    apiPost('/sg-discussions', { groupId: this.attrs.groupId, title, content })
       .then((discussion) => {
         this.loading = false;
         if (this.attrs.onCreated) this.attrs.onCreated(discussion);
         app.modal.close();
       })
       .catch((err) => {
-        this.error   = err.message;
+        this.error   = err.response?.error || err.message || 'Error';
         this.loading = false;
         m.redraw();
       });
