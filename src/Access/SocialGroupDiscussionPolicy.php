@@ -7,12 +7,11 @@ use Flarum\User\Access\AbstractPolicy;
 use Flarum\User\User;
 
 /**
- * Política do modelo `SocialGroupDiscussion`. Espelha as checagens
- * inline que o `ListGroupDiscussionsController` e o
- * `DeleteGroupDiscussionController` faziam imperativamente, expostas
- * agora como verbs de policy para que o `SocialGroupDiscussionResource`
- * e seus `Endpoint\*->can()` consultem o pipeline padrão de
- * autorização do Flarum 2.
+ * Política do modelo `SocialGroupDiscussion`. Os verbs aqui são
+ * consultados pelo `SocialGroupDiscussionResource` (Endpoint\*->can())
+ * e pelos controllers de ação que sobreviveram à migração JSON:API
+ * (Pin, Delete, Share). O check inline duplicado que existia no antigo
+ * `ListGroupDiscussionsController` saiu junto com o controller.
  *
  * Retornar `null` deixa o pipeline continuar — não use `deny()` aqui
  * sem motivo, senão um cenário onde outra extensão deveria liberar

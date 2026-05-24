@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch, apiDelete } from '../utils/api';
+import { apiGet, apiPost, apiPatch, apiDelete, listDiscussions } from '../utils/api';
 import { pastedImages, handleFiles, removeUpload, revokeAll } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview } from '../utils/linkPreview';
 import { MentionDropdown } from './feed/MentionDropdown';
@@ -136,7 +136,7 @@ export default class GroupFeed extends Component {
     this.loadedComments  = {};
     this.commentsLoading = {};
 
-    apiGet(`/sg-discussions/${groupId}`, { page, ...(q ? { q } : {}) })
+    listDiscussions(groupId, { page, q })
       .then((data) => {
         this.discussions = data.data || [];
         this.total       = data.total || 0;

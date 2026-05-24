@@ -11,7 +11,6 @@ use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMembersController;
 use Ernestdefoe\SocialGroups\Api\Controller\DemoteMemberController;
 use Ernestdefoe\SocialGroups\Api\Controller\Discussion\CreateGroupDiscussionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Discussion\DeleteGroupDiscussionController;
-use Ernestdefoe\SocialGroups\Api\Controller\Discussion\ListGroupDiscussionsController;
 use Ernestdefoe\SocialGroups\Api\Controller\Discussion\PinGroupDiscussionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Discussion\ShareGroupDiscussionController;
 use Ernestdefoe\SocialGroups\Api\Controller\InviteUserController;
@@ -85,7 +84,7 @@ return [
         ->get('/sg-media/{groupId}',   'sg-media.list',   ListGroupMediaController::class)
         ->post('/sg-media-post/{groupId}', 'sg-media-post.store', StoreGroupMediaPostController::class)
         // Discussions
-        ->get('/sg-discussions/{groupId}',           'sg-discussions.list',   ListGroupDiscussionsController::class)
+        // List served by SocialGroupDiscussionResource at /api/social-group-discussions.
         ->post('/sg-discussions',                    'sg-discussions.create', CreateGroupDiscussionController::class)
         ->delete('/sg-discussions/{discussionId}',   'sg-discussions.delete', DeleteGroupDiscussionController::class)
         ->patch('/sg-discussions/{discussionId}/pin',   'sg-discussions.pin',   PinGroupDiscussionController::class)

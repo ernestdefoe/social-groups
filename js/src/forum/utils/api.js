@@ -77,3 +77,102 @@ export function apiUpload(path, formData) {
     serialize: (x) => x,
   });
 }
+
+// ── JSON:API → legacy-shape projection ────────────────────────────────────
+//
+// SocialGroupDiscussionResource (Phase 1 of audit #4) lives at
+// /api/social-group-discussions. Its response is standard JSON:API
+// — { data: [...], included: [...], meta: {...} } — while the rest of
+// the feed UI was written against the legacy /sg-discussions/{groupId}
+// shape (plain objects with denormalised user/firstPost). The helpers
+// below project the JSON:API response into the legacy shape so the
+// JS UI code doesn't change. Once every consumer is on this helper,
+// the legacy controller can go.
+
+function findIncluded(included, type, id) {
+  if (!included || id == null) return null;
+  const idStr = String(id);
+  for (const r of included) {
+    if (r.type === type && String(r.id) === idStr) return r;
+  }
+  return null;
+}
+
+function projectUser(included, ref) {
+  if (!ref) return null;
+  const r = findIncluded(included, 'users', ref.id);
+  if (!r) return null;
+  return {
+    id:          Number(r.id),
+    displayName: r.attributes.displayName || r.attributes.username || '',
+    avatarUrl:   r.attributes.avatarUrl || null,
+  };
+}
+
+function projectFirstPost(included, ref) {
+  if (!ref) return null;
+  const r = findIncluded(included, 'social-group-posts', ref.id);
+  if (!r) return null;
+  const a = r.attributes || {};
+  return {
+    id:            Number(r.id),
+    content:       a.content || '',
+    contentParsed: a.contentParsed || '',
+    reactions:     a.reactions || {},
+    actorReaction: a.actorReaction || null,
+    linkPreview:   a.linkPreview || null,
+    canEdit:       !!a.canEdit,
+    createdAt:     a.createdAt || null,
+    user:          projectUser(included, r.relationships?.user?.data),
+  };
+}
+
+function mapDiscussion(d, included) {
+  const a   = d.attributes || {};
+  const rel = d.relationships || {};
+  return {
+    id:             Number(d.id),
+    groupId:        Number(a.groupId),
+    title:          a.title || '',
+    commentCount:   Number(a.commentCount) || 0,
+    isLocked:       !!a.isLocked,
+    isPinned:       !!a.isPinned,
+    canPin:         !!a.canPin,
+    lastPostedAt:   a.lastPostedAt || null,
+    createdAt:      a.createdAt || null,
+    canDelete:      !!a.canDelete,
+    canShare:       !!a.canShare,
+    sharedFrom:     a.sharedFrom || null,
+    poll:           a.poll || null,
+    firstPost:      projectFirstPost(included, rel.firstPost?.data),
+    user:           projectUser(included, rel.user?.data),
+    lastPostedUser: projectUser(included, rel.lastPostedUser?.data),
+  };
+}
+
+/**
+ * Lists discussions in a group via the new JSON:API endpoint and
+ * returns the legacy `{ data, total, pages }` shape so call sites
+ * don't need to touch every property access. Page size is fixed at
+ * 20 to match the legacy controller's hardcoded limit.
+ *
+ *   listDiscussions(groupId, { page: 1, q: 'foo' })
+ *     -> { data: [...legacy discussion objects], total, pages }
+ */
+export function listDiscussions(groupId, { page = 1, q = '' } = {}) {
+  const params = {
+    'filter[group]': groupId,
+    'page[number]':  page,
+    'page[size]':    20,
+    include:         'firstPost,firstPost.user,user,lastPostedUser',
+  };
+  const trimmed = (q || '').trim();
+  if (trimmed) params['filter[q]'] = trimmed;
+
+  return apiGet('/social-group-discussions', params).then((body) => ({
+    data:  (body.data || []).map((d) => mapDiscussion(d, body.included || [])),
+    total: body.meta?.page?.total ?? body.data?.length ?? 0,
+    pages: body.meta?.page?.lastPage ?? 1,
+    q:    trimmed || null,
+  }));
+}

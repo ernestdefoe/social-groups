@@ -18,10 +18,11 @@ use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
- * Recurso JSON:API para discussões em grupos sociais. Convive com o
- * `ListGroupDiscussionsController` legado em /sg-discussions/{groupId}
- * durante a migração — o JS muda na fase 2 e o controller velho
- * desaparece junto.
+ * Recurso JSON:API para discussões em grupos sociais. Substituiu o
+ * antigo `ListGroupDiscussionsController` (removido em Phase 2b do
+ * audit #4); o JS chama via `listDiscussions()` em utils/api.js, que
+ * projeta a resposta JSON:API no shape legado para que o restante do
+ * pipeline de feed não precise mudar.
  *
  * Index requer `?filter[group]=<id>` (sem ele responde vazio). A
  * checagem de privacidade do grupo roda em scope(); o policy gate em

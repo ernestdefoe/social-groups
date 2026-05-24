@@ -1,4 +1,4 @@
-import { apiGet, apiDelete } from '../utils/api';
+import { apiDelete, listDiscussions } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -37,7 +37,7 @@ export default class GroupDiscussionList extends Component {
     this.loading  = true;
     this.page     = page;
 
-    apiGet(`/sg-discussions/${groupId}`, { page })
+    listDiscussions(groupId, { page })
       .then((data) => {
         this.discussions = data.data || [];
         this.total       = data.total || 0;
