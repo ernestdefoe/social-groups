@@ -159,7 +159,114 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
             Endpoint\Delete::make()
                 ->can('delete'),
+
+            // ── Action endpoints ─────────────────────────────────────────
+            // pin/share don't fit pure JSON:API CRUD but are scoped to a
+            // single discussion. Endpoint\Endpoint::make wires them into
+            // the same /api/social-group-discussions/{id}/... prefix
+            // with the standard auth pipeline. Replaces the legacy
+            // PinGroupDiscussionController + ShareGroupDiscussionController.
+            Endpoint\Endpoint::make('social-groups.pin')
+                ->route('PATCH', '/{id}/pin')
+                ->authenticated()
+                ->can('pin')
+                ->action(fn (Context $context) => $this->doPin($context)),
+
+            Endpoint\Endpoint::make('social-groups.share')
+                ->route('POST', '/{id}/share')
+                ->authenticated()
+                ->action(fn (Context $context) => $this->doShare($context)),
         ];
+    }
+
+    /**
+     * Pin/unpin action — flips is_pinned and persists. The
+     * authorisation already ran via ->can('pin') (SocialGroupDiscussionPolicy::pin).
+     */
+    protected function doPin(Context $context): SocialGroupDiscussion
+    {
+        /** @var SocialGroupDiscussion $d */
+        $d = $context->model;
+        if (! $this->capabilities->isPinned) {
+            throw new BadRequestException('Pinning not available on this install.');
+        }
+        $d->is_pinned = ! $d->is_pinned;
+        $d->save();
+        return $d;
+    }
+
+    /**
+     * Share action — creates a NEW discussion in the target group that
+     * references the source via shared_from_discussion_id. The body
+     * carries targetGroupId + optional content. Mirrors the legacy
+     * ShareGroupDiscussionController's auth (member of target group)
+     * and side effects (auto-title, first post creation).
+     */
+    protected function doShare(Context $context): SocialGroupDiscussion
+    {
+        $actor = $context->getActor();
+        /** @var SocialGroupDiscussion $source */
+        $source = $context->model;
+
+        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $targetGroupId = (int) ($body['targetGroupId'] ?? 0);
+        $content       = trim((string) ($body['content'] ?? ''));
+
+        if ($targetGroupId <= 0) {
+            throw new BadRequestException('targetGroupId is required.');
+        }
+        if (! $this->capabilities->sharedFrom) {
+            throw new BadRequestException('Sharing not available on this install.');
+        }
+
+        $target = SocialGroup::find($targetGroupId);
+        if ($target === null) {
+            throw new BadRequestException('Target group not found.');
+        }
+
+        $isMember = $target->members()
+            ->where('user_id', $actor->id)
+            ->whereNull('banned_at')
+            ->exists();
+        if (! $isMember) {
+            throw new PermissionDeniedException();
+        }
+
+        if ($content === '') {
+            $content = 'Shared from ' . ($source->group?->name ?? 'another group');
+        }
+        if (mb_strlen($content) > 20000) {
+            throw new BadRequestException('Content may not exceed 20 000 characters.');
+        }
+
+        $now           = \Carbon\Carbon::now();
+        $contentParsed = $this->formatter->parse($content);
+
+        $discussion = SocialGroupDiscussion::create([
+            'group_id'                  => $target->id,
+            'user_id'                   => $actor->id,
+            'title'                     => mb_substr('Shared: ' . $source->title, 0, 255),
+            'comment_count'             => 1,
+            'last_posted_at'            => $now,
+            'last_posted_user_id'       => $actor->id,
+            'is_locked'                 => false,
+            'shared_from_discussion_id' => $source->id,
+        ]);
+
+        SocialGroupPost::create([
+            'discussion_id'  => $discussion->id,
+            'group_id'       => $target->id,
+            'user_id'        => $actor->id,
+            'content'        => $content,
+            'content_parsed' => $contentParsed,
+        ]);
+
+        // Hand the new discussion to the response pipeline so it
+        // re-serialises through the standard Resource fields,
+        // matching what GET /api/social-group-discussions/{id}
+        // would return.
+        $context->model = $discussion;
+        return $discussion;
     }
 
     public function fields(): array

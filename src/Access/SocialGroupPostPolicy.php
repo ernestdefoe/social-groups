@@ -62,4 +62,45 @@ class SocialGroupPostPolicy extends AbstractPolicy
             ->exists();
         return $isMod ? $this->allow() : null;
     }
+
+    /**
+     * Pin: ação de moderação. Autor sozinho NÃO pode pinnar o próprio
+     * post — só admin global, moderador global da extensão, ou
+     * creator/moderator do grupo onde o post mora.
+     */
+    public function pin(User $actor, SocialGroupPost $post)
+    {
+        if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
+            return $this->allow();
+        }
+        $group = $post->group;
+        if ($group === null) {
+            return null;
+        }
+        $isMod = $group->members()
+            ->where('user_id', $actor->id)
+            ->whereIn('role', ['creator', 'moderator'])
+            ->exists();
+        return $isMod ? $this->allow() : null;
+    }
+
+    /**
+     * React: qualquer membro ativo do grupo (não banido) pode reagir.
+     * Bloqueia enumeração de IDs sequenciais por estranhos.
+     */
+    public function react(User $actor, SocialGroupPost $post)
+    {
+        if ($actor->isAdmin()) {
+            return $this->allow();
+        }
+        $group = $post->group;
+        if ($group === null) {
+            return null;
+        }
+        $active = $group->members()
+            ->where('user_id', $actor->id)
+            ->whereNull('banned_at')
+            ->exists();
+        return $active ? $this->allow() : null;
+    }
 }

@@ -1,4 +1,4 @@
-import { apiPost } from '../utils/api';
+import { shareDiscussion } from '../utils/api';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -98,7 +98,7 @@ export default class ShareDiscussionModal extends Modal {
     this.error      = null;
     m.redraw();
 
-    apiPost(`/sg-discussions/${this.attrs.discussionId}/share`, {
+    shareDiscussion(this.attrs.discussionId, {
       targetGroupId: this.selectedGroupId,
       content:       this.comment.trim(),
     })

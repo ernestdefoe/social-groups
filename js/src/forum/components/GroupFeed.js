@@ -1,8 +1,10 @@
 import {
-  apiGet, apiPost, apiPatch,
+  apiGet, apiPost,
   listDiscussions, listThreadPosts,
   createDiscussion, deleteDiscussion as apiDeleteDiscussion,
   createPost,
+  pinDiscussion as apiPinDiscussion,
+  reactToPost, unreactToPost,
 } from '../utils/api';
 import { pastedImages, handleFiles, removeUpload, revokeAll } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview } from '../utils/linkPreview';
@@ -188,10 +190,8 @@ export default class GroupFeed extends Component {
     this.pickerDiscId = null;
     m.redraw();
 
-    const reactionRequest = nextReaction
-      ? apiPost(`/sg-posts/${fp.id}/react`, { reaction: nextReaction })
-      : apiPost(`/sg-posts/${fp.id}/unreact`);
-    reactionRequest
+    const req = nextReaction ? reactToPost(fp.id, nextReaction) : unreactToPost(fp.id);
+    req
       .then((data) => {
         fp.reactions     = data.reactions || {};
         fp.actorReaction = data.actorReaction || null;
@@ -222,10 +222,8 @@ export default class GroupFeed extends Component {
     this.pickerCommentId = null;
     m.redraw();
 
-    const reactionRequest = nextReaction
-      ? apiPost(`/sg-posts/${post.id}/react`, { reaction: nextReaction })
-      : apiPost(`/sg-posts/${post.id}/unreact`);
-    reactionRequest
+    const req = nextReaction ? reactToPost(post.id, nextReaction) : unreactToPost(post.id);
+    req
       .then((data) => {
         post.reactions     = data.reactions || {};
         post.actorReaction = data.actorReaction || null;
@@ -332,7 +330,7 @@ export default class GroupFeed extends Component {
     this.openMenuId = null;
     m.redraw();
 
-    apiPatch(`/sg-discussions/${d.id}/pin`)
+    apiPinDiscussion(d.id)
       .then((data) => {
         d.isPinned = data.isPinned;
         // Re-sort: pinned items first

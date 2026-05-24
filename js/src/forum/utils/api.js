@@ -264,6 +264,47 @@ export function deletePost(id) {
   return apiDelete(`/social-group-posts/${id}`);
 }
 
+// ── Action endpoints on resources (pin/share/react/unreact) ───────────────
+//
+// These return JSON:API resources. Callers want the post-action attrs
+// (e.g. {isPinned: bool} or {reactions: {...}, actorReaction: ...}),
+// so the helpers project the response down to that shape.
+
+export function pinDiscussion(id) {
+  return app.request({
+    method: 'PATCH',
+    url:    resolveUrl(`/social-group-discussions/${id}/pin`),
+  }).then((body) => ({ isPinned: !!body.data?.attributes?.isPinned }));
+}
+
+export function shareDiscussion(id, payload) {
+  return apiPost(`/social-group-discussions/${id}/share`, payload)
+    .then((body) => mapDiscussion(body.data, body.included || []));
+}
+
+export function pinPost(id) {
+  return app.request({
+    method: 'PATCH',
+    url:    resolveUrl(`/social-group-posts/${id}/pin`),
+  }).then((body) => ({ isPinned: !!body.data?.attributes?.isPinned }));
+}
+
+export function reactToPost(id, reaction) {
+  return apiPost(`/social-group-posts/${id}/react`, { reaction })
+    .then((body) => ({
+      reactions:     body.data?.attributes?.reactions || {},
+      actorReaction: body.data?.attributes?.actorReaction || null,
+    }));
+}
+
+export function unreactToPost(id) {
+  return apiPost(`/social-group-posts/${id}/unreact`)
+    .then((body) => ({
+      reactions:     body.data?.attributes?.reactions || {},
+      actorReaction: body.data?.attributes?.actorReaction || null,
+    }));
+}
+
 export function listThreadPosts(discussionId) {
   const params = {
     'filter[discussion]': discussionId,

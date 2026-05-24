@@ -7,6 +7,7 @@ use Ernestdefoe\SocialGroups\Api\Concern\SanitizesLinkPreview;
 use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Model\SocialGroupPostReaction;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
@@ -153,8 +154,79 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             Endpoint\Delete::make()
                 ->authenticated()
                 ->can('delete'),
+
+            // ── Action endpoints ─────────────────────────────────────────
+            Endpoint\Endpoint::make('social-group-posts.pin')
+                ->route('PATCH', '/{id}/pin')
+                ->authenticated()
+                ->can('pin')
+                ->action(fn (Context $context) => $this->doPin($context)),
+
+            Endpoint\Endpoint::make('social-group-posts.react')
+                ->route('POST', '/{id}/react')
+                ->authenticated()
+                ->can('react')
+                ->action(fn (Context $context) => $this->doReact($context, false)),
+
+            Endpoint\Endpoint::make('social-group-posts.unreact')
+                ->route('POST', '/{id}/unreact')
+                ->authenticated()
+                ->can('react')
+                ->action(fn (Context $context) => $this->doReact($context, true)),
         ];
     }
+
+    /**
+     * Pin/unpin. Authorisation already ran via ->can('pin').
+     */
+    protected function doPin(Context $context): SocialGroupPost
+    {
+        if (! $this->capabilities->isPinned) {
+            throw new BadRequestException('Pinning not available on this install.');
+        }
+        /** @var SocialGroupPost $p */
+        $p = $context->model;
+        $p->is_pinned = ! $p->is_pinned;
+        $p->save();
+        return $p;
+    }
+
+    /**
+     * React / unreact. `$clear=true` removes the actor's reaction;
+     * otherwise reads `reaction` from the body and upserts. Allowed
+     * reaction list is enforced in the same Schema set the JS picker
+     * uses.
+     */
+    protected function doReact(Context $context, bool $clear): SocialGroupPost
+    {
+        /** @var SocialGroupPost $p */
+        $p = $context->model;
+        $actor = $context->getActor();
+
+        if ($clear) {
+            SocialGroupPostReaction::where('post_id', $p->id)
+                ->where('user_id', $actor->id)
+                ->delete();
+        } else {
+            $body     = (array) ($context->request->getParsedBody() ?? []);
+            $reaction = trim((string) ($body['reaction'] ?? 'like'));
+            if (! in_array($reaction, self::REACTIONS, true)) {
+                throw new BadRequestException('Invalid reaction type.');
+            }
+            SocialGroupPostReaction::updateOrInsert(
+                ['post_id' => $p->id, 'user_id' => $actor->id],
+                ['reaction' => $reaction]
+            );
+        }
+
+        // Re-load reactions so the response's Schema getters see the
+        // new state; without this the serializer reads the cached
+        // collection from before the mutation.
+        $p->load('reactions');
+        return $p;
+    }
+
+    public const REACTIONS = ['like', 'heart', 'haha', 'wow', 'sad', 'angry'];
 
     public function creating(object $model, BaseContext $context): ?object
     {

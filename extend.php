@@ -9,14 +9,10 @@ use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMediaController;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMembersController;
 use Ernestdefoe\SocialGroups\Api\Controller\DemoteMemberController;
-use Ernestdefoe\SocialGroups\Api\Controller\Discussion\PinGroupDiscussionController;
-use Ernestdefoe\SocialGroups\Api\Controller\Discussion\ShareGroupDiscussionController;
 use Ernestdefoe\SocialGroups\Api\Controller\InviteUserController;
 use Ernestdefoe\SocialGroups\Api\Controller\JoinGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\LeaveGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListJoinRequestsController;
-use Ernestdefoe\SocialGroups\Api\Controller\Post\PinGroupPostController;
-use Ernestdefoe\SocialGroups\Api\Controller\Post\TogglePostReactionController;
 use Ernestdefoe\SocialGroups\Api\Controller\Post\TypingStatusController;
 use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Listener\BroadcastGroupPost;
@@ -79,15 +75,9 @@ return [
         ->post('/sg-primary-group',     'sg.primary-group.set', SetPrimaryGroupController::class)
         ->get('/sg-media/{groupId}',   'sg-media.list',   ListGroupMediaController::class)
         ->post('/sg-media-post/{groupId}', 'sg-media-post.store', StoreGroupMediaPostController::class)
-        // Discussions
-        // List/Create/Delete served by SocialGroupDiscussionResource at /api/social-group-discussions.
-        ->patch('/sg-discussions/{discussionId}/pin',   'sg-discussions.pin',   PinGroupDiscussionController::class)
-        ->post('/sg-discussions/{discussionId}/share',  'sg-discussions.share', ShareGroupDiscussionController::class)
-        // Posts
-        // List/Create/Update/Delete served by SocialGroupPostResource at /api/social-group-posts.
-        ->patch('/sg-posts/{postId}/pin',        'sg-posts.pin',    PinGroupPostController::class)
-        ->post('/sg-posts/{postId}/react',   'sg-posts.react',   TogglePostReactionController::class)
-        ->post('/sg-posts/{postId}/unreact', 'sg-posts.unreact', TogglePostReactionController::class)
+        // Discussions and Posts are fully served by their Resources:
+        //   /api/social-group-discussions (Index/Show/Create/Delete + pin/share actions)
+        //   /api/social-group-posts       (Index/Show/Create/Update/Delete + pin/react/unreact actions)
         // Join requests
         ->get('/social-groups/{id}/requests',                        'sg.join-requests.list',    ListJoinRequestsController::class)
         ->post('/social-groups/{id}/requests/{requestId}/approve',   'sg.join-requests.approve', ApproveJoinRequestController::class)

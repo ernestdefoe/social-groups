@@ -1,7 +1,8 @@
 import {
-  apiPost, apiPatch, apiUpload,
+  apiUpload,
   listThreadPosts,
   createPost, updatePost, deletePost as apiDeletePost,
+  pinPost as apiPinPost, reactToPost, unreactToPost,
 } from '../utils/api';
 import { pastedImages } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
@@ -323,10 +324,8 @@ export default class GroupDiscussionThread extends Page {
     this.pickerPostId = null;
     m.redraw();
 
-    const reactionRequest = nextReaction
-      ? apiPost(`/sg-posts/${post.id}/react`, { reaction: nextReaction })
-      : apiPost(`/sg-posts/${post.id}/unreact`);
-    reactionRequest
+    const req = nextReaction ? reactToPost(post.id, nextReaction) : unreactToPost(post.id);
+    req
       .then((data) => {
         post.reactions     = data.reactions || {};
         post.actorReaction = data.actorReaction || null;
@@ -425,7 +424,7 @@ export default class GroupDiscussionThread extends Page {
     this._resortPinned();
     m.redraw();
 
-    apiPatch(`/sg-posts/${post.id}/pin`)
+    apiPinPost(post.id)
       .then((data) => {
         if (typeof data.isPinned === 'boolean') {
           post.isPinned = data.isPinned;
