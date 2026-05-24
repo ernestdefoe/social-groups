@@ -1,6 +1,5 @@
 <?php
 
-use Ernestdefoe\SocialGroups\Api\Controller\FeatureGroupController;
 use Ernestdefoe\SocialGroups\Api\Controller\GroupAnalyticsController;
 use Ernestdefoe\SocialGroups\Api\Controller\GroupRssFeedController;
 use Ernestdefoe\SocialGroups\Api\Controller\ListGroupMediaController;
@@ -62,7 +61,6 @@ return [
 
     (new Extend\Routes('api'))
         // Groups
-        ->patch('/social-groups/{id}/feature',    'social-groups.feature',    FeatureGroupController::class)
         ->get('/sg-analytics/{groupId}',         'social-groups.analytics',  GroupAnalyticsController::class)
         ->post('/social-groups/{id}/join',    'social-groups.join',  JoinGroupController::class)
         ->post('/social-groups/{id}/leave',   'social-groups.leave', LeaveGroupController::class)

@@ -3,7 +3,7 @@ import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import GroupCard from './GroupCard';
 import CreateGroupModal from './CreateGroupModal';
-import { apiPatch } from '../utils/api';
+import app from 'flarum/forum/app';
 
 export default class GroupsPage extends Page {
   oninit(vnode) {
@@ -62,11 +62,11 @@ export default class GroupsPage extends Page {
     group.pushData({ attributes: { isFeatured: !was } });
     m.redraw();
 
-    apiPatch(`/social-groups/${group.id()}/feature`)
-      .then((data) => {
-        group.pushData({ attributes: { isFeatured: data.isFeatured } });
-        m.redraw();
-      })
+    // Toggle via the standard Update endpoint on SocialGroupResource:
+    // PATCH /api/social-groups/{id} with { isFeatured: !was }. The
+    // Schema field gates write to admin actors.
+    group.save({ isFeatured: !was })
+      .then(() => m.redraw())
       .catch(() => {
         group.pushData({ attributes: { isFeatured: was } });
         m.redraw();

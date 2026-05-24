@@ -290,7 +290,10 @@ class SocialGroupResource extends AbstractDatabaseResource
                 }),
 
             Schema\Boolean::make('isFeatured')
-                ->get(fn ($group) => (bool) $group->is_featured),
+                ->property('is_featured')
+                ->get(fn ($group) => (bool) $group->is_featured)
+                ->set(fn ($model, $value) => $model->is_featured = (bool) $value)
+                ->writable(fn ($model, Context $context) => $context->getActor()->isAdmin()),
 
             Schema\Boolean::make('canFeature')
                 ->get(fn ($group, Context $context) => $context->getActor()->isAdmin()),
