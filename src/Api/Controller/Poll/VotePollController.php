@@ -8,7 +8,6 @@ use Ernestdefoe\SocialGroups\Model\SgPoll;
 use Ernestdefoe\SocialGroups\Model\SgPollVote;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Flarum\Http\RequestUtil;
-use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -22,7 +21,6 @@ class VotePollController implements RequestHandlerInterface
 
     public function __construct(
         private LoggerInterface $log,
-        private ConnectionInterface $db,
     ) {}
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -80,7 +78,7 @@ class VotePollController implements RequestHandlerInterface
              * and a failure on insert leaves the actor with no votes at
              * all even though they had votes before the request.
              */
-            $this->db->transaction(function () use ($pollId, $optionIds, $actor) {
+            $poll->getConnection()->transaction(function () use ($pollId, $optionIds, $actor) {
                 SgPollVote::where('poll_id', $pollId)
                     ->where('user_id', $actor->id)
                     ->delete();

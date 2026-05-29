@@ -29,7 +29,6 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         $this->http = $http ?? new Client([
             'timeout'         => 8,
             'connect_timeout' => 5,
-            'allow_redirects' => ['max' => 5],
         ]);
     }
 

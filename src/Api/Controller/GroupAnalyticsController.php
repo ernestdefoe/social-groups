@@ -73,6 +73,7 @@ class GroupAnalyticsController implements RequestHandlerInterface
 
             $postCreatedAtList = SocialGroupPost::where('group_id', $groupId)
                 ->where('created_at', '>=', $earliestWeekStart)
+                ->take(10000)
                 ->pluck('created_at');
 
             $postsByDay = [];
