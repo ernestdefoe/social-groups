@@ -54,16 +54,29 @@ class InviteUserController implements RequestHandlerInterface
                 return new JsonResponse(['error' => 'User not found.'], 404);
             }
 
-            // Already a member?
-            if ($group->members()->where('user_id', $targetUser->id)->exists()) {
+            // An existing row may be an active member or a kicked one whose
+            // banned_at is still set (kick is soft — the row persists). Only an
+            // active member blocks the invite; re-inviting a kicked user must
+            // REINSTATE that row, not INSERT a second one, since the
+            // (group_id, user_id) unique index would reject the duplicate.
+            $existing = $group->members()->where('user_id', $targetUser->id)->first();
+
+            if ($existing && $existing->banned_at === null) {
                 return new JsonResponse(['error' => 'That user is already a member of this group.'], 422);
             }
 
-            $group->members()->create([
-                'user_id'   => $targetUser->id,
-                'role'      => 'member',
-                'joined_at' => \Carbon\Carbon::now(),
-            ]);
+            if ($existing) {
+                $existing->banned_at = null;
+                $existing->role      = 'member';
+                $existing->joined_at = \Carbon\Carbon::now();
+                $existing->save();
+            } else {
+                $group->members()->create([
+                    'user_id'   => $targetUser->id,
+                    'role'      => 'member',
+                    'joined_at' => \Carbon\Carbon::now(),
+                ]);
+            }
             $group->increment('member_count');
 
             return new JsonResponse([
