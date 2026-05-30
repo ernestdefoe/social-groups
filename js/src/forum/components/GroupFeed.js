@@ -2,7 +2,7 @@ import {
   apiPost,
   listDiscussions, listThreadPosts,
   createDiscussion, deleteDiscussion as apiDeleteDiscussion,
-  createPost,
+  createPost, deletePost as apiDeletePost,
   pinDiscussion as apiPinDiscussion,
   reactToPost, unreactToPost,
 } from '../utils/api';
@@ -328,6 +328,18 @@ export default class GroupFeed extends Component {
       });
   }
 
+  deleteComment(d, post) {
+    if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_post_confirm'))) return;
+
+    apiDeletePost(post.id)
+      .then(() => {
+        this.loadedComments[d.id] = (this.loadedComments[d.id] || []).filter((c) => c.id !== post.id);
+        if (typeof d.commentCount === 'number') d.commentCount = Math.max(0, d.commentCount - 1);
+        m.redraw();
+      })
+      .catch(() => {});
+  }
+
   pinDiscussion(d) {
     const wasPinned = d.isPinned;
     d.isPinned = !wasPinned;
@@ -399,6 +411,7 @@ export default class GroupFeed extends Component {
       onPickReaction:  (post, key) => this.toggleCommentReaction(post, key),
       onTogglePicker:  (id) => { this.pickerCommentId = id; m.redraw(); },
       onOpenThread:    () => this.openThread(d),
+      onDeleteComment: (post) => this.deleteComment(d, post),
     });
   }
 

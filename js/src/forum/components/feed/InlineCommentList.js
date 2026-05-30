@@ -60,6 +60,10 @@ function renderComment(post, attrs, actor, t) {
   const pickerOpen  = attrs.pickerCommentId === post.id;
   const stat        = ReactionStat(post.reactions);
   const activeEmoji = actorReact ? REACTIONS.find((r) => r.key === actorReact) : null;
+  // Author can always delete their own; moderators/admins get canDelete from
+  // the server. (Same gate as the thread view's reply menu.)
+  const isOwn       = actor && user && String(user.id) === String(actor.id());
+  const canDelete   = !!post.canDelete || isOwn;
 
   return m('.SGFeed-comment', { key: post.id }, [
     m('.SGFeed-commentAvatar', [
@@ -111,6 +115,16 @@ function renderComment(post, attrs, actor, t) {
               ' ',
               stat.total,
             ])
+          : null,
+
+        canDelete && attrs.onDeleteComment
+          ? m('button.SGFeed-commentDeleteBtn', {
+              title:   t('delete_post'),
+              onclick: (e) => {
+                e.stopPropagation();
+                attrs.onDeleteComment(post);
+              },
+            }, m('i.fa-solid.fa-trash'))
           : null,
       ]),
     ]),
