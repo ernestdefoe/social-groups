@@ -30,7 +30,8 @@ class ListUserGroupsController implements RequestHandlerInterface
                 return new JsonResponse(['error' => 'User not found.'], 404);
             }
 
-            $primaryGroupId = $profileUser->sg_primary_group_id;
+            $primaryGroupId = $profileUser->socialGroupPrimary?->group_id;
+            $primaryGroupId = $primaryGroupId !== null ? (int) $primaryGroupId : null;
 
             $memberships = SocialGroupMember::where('user_id', $userId)
                 ->whereNull('banned_at')
@@ -66,7 +67,7 @@ class ListUserGroupsController implements RequestHandlerInterface
                     'color'       => $group->color,
                     'memberCount' => (int) $group->member_count,
                     'role'        => $membership->role,
-                    'isPrimary'   => $primaryGroupId && $group->id === $primaryGroupId,
+                    'isPrimary'   => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
                 ];
             })->filter()->values();
 

@@ -3,6 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
 use Flarum\Http\RequestUtil;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -20,9 +21,8 @@ class SetPrimaryGroupController implements RequestHandlerInterface
         $groupId = $body['groupId'] ?? null;
 
         if ($groupId === null) {
-            // Clear primary group
-            $actor->sg_primary_group_id = null;
-            $actor->save();
+            // Clear primary group — drop the companion row entirely.
+            SocialGroupUserPrimary::where('user_id', $actor->id)->delete();
             return new JsonResponse(['primaryGroupId' => null]);
         }
 
@@ -39,8 +39,10 @@ class SetPrimaryGroupController implements RequestHandlerInterface
             return new JsonResponse(['error' => 'You are not a member of this group'], 403);
         }
 
-        $actor->sg_primary_group_id = $group->id;
-        $actor->save();
+        SocialGroupUserPrimary::updateOrCreate(
+            ['user_id' => $actor->id],
+            ['group_id' => $group->id]
+        );
 
         return new JsonResponse([
             'primaryGroupId'    => $group->id,

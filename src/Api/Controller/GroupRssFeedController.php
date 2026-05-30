@@ -45,6 +45,7 @@ class GroupRssFeedController implements RequestHandlerInterface
             // discussion instead of hydrating every post across all 20
             // discussions just to keep the first of each.
             $discussions = SocialGroupDiscussion::where('group_id', $group->id)
+                ->where('is_gallery', false)
                 ->with(['user', 'firstPost.user'])
                 ->orderByDesc('last_posted_at')
                 ->take(20)

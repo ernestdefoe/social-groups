@@ -30,12 +30,14 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\SocialGroupsServiceProvider;
 use Flarum\Extend;
 use Flarum\Frontend\Document;
 use Flarum\Http\RequestUtil;
+use Flarum\User\User;
 use Psr\Http\Message\ServerRequestInterface;
 
 return [
@@ -93,6 +95,9 @@ return [
 
     (new Extend\Event())
         ->listen(SocialGroupPostWasCreated::class, BroadcastGroupPost::class),
+
+    (new Extend\Model(User::class))
+        ->hasOne('socialGroupPrimary', SocialGroupUserPrimary::class, 'user_id'),
 
     (new Extend\ApiResource(SocialGroupResource::class)),
     (new Extend\ApiResource(SocialGroupPostResource::class)),
