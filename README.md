@@ -129,6 +129,13 @@ php flarum cache:clear
 
 ---
 
+## Support
+
+Questions, bug reports, and feature requests:
+
+- **Support forum:** https://ernestdefoe.online
+- **Issues:** https://github.com/ernestdefoe/social-groups/issues
+
 ## License
 
 Released under the [MIT License](LICENSE). © Ernestdefoe
