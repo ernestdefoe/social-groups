@@ -145,10 +145,6 @@ ernestdefoe-social-groups:
       unmute_member: Unmute
       muted_badge: Muted
       muted_notice: You have been muted in this group — you can read everything, but you can't post until a group moderator unmutes you.
-
-    profile_groups:
-      nav: Groups
-      empty: Not a member of any groups yet.
       load_error: Failed to load group.
       not_found: Group not found.
       members_load_error: Could not load members.
@@ -156,6 +152,10 @@ ernestdefoe-social-groups:
       rss_feed: RSS feed
       tab_posts: Posts
       tab_media: Media
+
+    profile_groups:
+      nav: Groups
+      empty: Not a member of any groups yet.
 
     requests:
       title: Join Requests

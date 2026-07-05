@@ -38,6 +38,27 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
   app.notificationComponents.socialGroupNewReply = SocialGroupNewReplyNotification;
   app.notificationComponents.socialGroupJoinRequest = SocialGroupJoinRequestNotification;
 
+  // Settings-page notification grid rows (per-user toggles). String-path
+  // extend: NotificationGrid ships in an async chunk, so a prototype extend
+  // at init time would be a silent no-op.
+  flarumExtend('flarum/forum/components/NotificationGrid', 'notificationTypes', function (items) {
+    items.add('socialGroupNewPost', {
+      name: 'socialGroupNewPost',
+      icon: 'fa-solid fa-comment',
+      label: app.translator.trans('ernestdefoe-social-groups.forum.settings.notify_social_group_new_post_label'),
+    });
+    items.add('socialGroupNewReply', {
+      name: 'socialGroupNewReply',
+      icon: 'fa-solid fa-reply',
+      label: app.translator.trans('ernestdefoe-social-groups.forum.settings.notify_social_group_new_reply_label'),
+    });
+    items.add('socialGroupJoinRequest', {
+      name: 'socialGroupJoinRequest',
+      icon: 'fa-solid fa-user-plus',
+      label: app.translator.trans('ernestdefoe-social-groups.forum.settings.notify_social_group_join_request_label'),
+    });
+  });
+
   // Routes
   app.routes['ernestdefoe-social-groups.index'] = {
     path: '/groups',

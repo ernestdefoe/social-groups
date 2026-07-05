@@ -2,6 +2,10 @@ import app from 'flarum/forum/app';
 import Notification from 'flarum/forum/components/Notification';
 
 export default class SocialGroupJoinRequestNotification extends Notification {
+  excerpt() {
+    return null;
+  }
+
   icon() {
     return 'fa-solid fa-user-plus';
   }

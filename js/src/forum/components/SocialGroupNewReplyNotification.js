@@ -2,6 +2,10 @@ import app from 'flarum/forum/app';
 import Notification from 'flarum/forum/components/Notification';
 
 export default class SocialGroupNewReplyNotification extends Notification {
+  excerpt() {
+    return null;
+  }
+
   icon() {
     return 'fa-solid fa-reply';
   }
