@@ -81,6 +81,7 @@ export default class GroupPage extends Page {
 
     const group      = this.group;
     const isMember   = group.isMember();
+    const isMuted    = !!group.actorIsMuted();
     const isCreator  = group.isCreator();
     const canEdit    = group.canEdit();
     const isApproval = group.membershipType() === 'approval';
@@ -121,6 +122,7 @@ export default class GroupPage extends Page {
                 groupId:   group.id(),
                 groupSlug: group.slug(),
                 isMember,
+                isMuted,
               }),
         ]),
 

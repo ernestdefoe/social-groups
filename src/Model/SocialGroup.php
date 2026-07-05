@@ -58,6 +58,16 @@ class SocialGroup extends AbstractModel
             ->whereNull('banned_at');
     }
 
+    /**
+     * Muting is softer than a kick: the member stays in the group and can
+     * read everything, but cannot post. Every WRITE gate (new discussion,
+     * reply) routes through here; read gates keep using activeMembership.
+     */
+    public function postingMembership(int $userId)
+    {
+        return $this->activeMembership($userId)->whereNull('muted_at');
+    }
+
     public function users()
     {
         return $this->belongsToMany(User::class, 'social_group_members', 'group_id', 'user_id')

@@ -84,6 +84,23 @@ export default class GroupCard extends Component {
             ? m('div.GroupCard-description', description)
             : m('div.GroupCard-description.GroupCard-description--empty', ''),
 
+          // Latest activity teaser — promotes the conversations inside the
+          // group right on the directory, instead of making visitors open
+          // each group to discover whether anything is happening.
+          (group.attribute('recentDiscussions') || []).length
+            ? m('div.GroupCard-recent',
+                group.attribute('recentDiscussions').slice(0, 2).map((d) =>
+                  m('a.GroupCard-recentItem', {
+                    key: d.id,
+                    href: app.route('ernestdefoe-social-groups.discussion', { slug: group.slug(), discussionId: d.id }),
+                    onclick: (e) => {
+                      e.stopPropagation();
+                      m.route.set(app.route('ernestdefoe-social-groups.discussion', { slug: group.slug(), discussionId: d.id }));
+                    },
+                  }, [m('i.fa-solid.fa-message'), ' ', m('span.GroupCard-recentTitle', d.title)])
+                ))
+            : null,
+
           // Pending join requests — discoverability fix. The
           // pendingRequestCount attribute was already exposed by the
           // SocialGroupResource Schema (gated server-side to the

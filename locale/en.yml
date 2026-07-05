@@ -141,6 +141,14 @@ ernestdefoe-social-groups:
       role_admin: Moderator
       remove_member: Remove
       remove_member_confirm: "Remove {displayName} from this group? They will not be able to rejoin."
+      mute_member: Mute (member can read but not post)
+      unmute_member: Unmute
+      muted_badge: Muted
+      muted_notice: You have been muted in this group — you can read everything, but you can't post until a group moderator unmutes you.
+
+    profile_groups:
+      nav: Groups
+      empty: Not a member of any groups yet.
       load_error: Failed to load group.
       not_found: Group not found.
       members_load_error: Could not load members.
@@ -217,6 +225,12 @@ ernestdefoe-social-groups:
     notifications:
       new_post: "posted in {discussionTitle}"
       new_reply: "replied to your comment in {discussionTitle}"
+      join_request: "wants to join {groupName}"
+
+    settings:
+      notify_social_group_new_post_label: New posts in group discussions I participate in
+      notify_social_group_new_reply_label: Replies to my group comments
+      notify_social_group_join_request_label: Join requests for groups I manage
 
   lib:
     shared_from: "Shared from {name}"

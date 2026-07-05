@@ -298,7 +298,9 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         $group = $discussion->group;
         $privileged = $actor->isAdmin()
             || $actor->hasPermission('ernestdefoe-social-groups.moderate');
-        if (! $privileged && ! $group->activeMembership($actor->id)->exists()) {
+        if (! $privileged && ! $group->postingMembership($actor->id)->exists()) {
+            // Muted members stay members (they can read) — the composer is
+            // hidden for them via canReply, so this is a backstop only.
             throw new PermissionDeniedException();
         }
 

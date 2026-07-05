@@ -24,6 +24,7 @@ class SocialGroupMember extends AbstractModel
     protected $casts = [
         'joined_at' => 'datetime',
         'banned_at' => 'datetime',
+        'muted_at' => 'datetime',
     ];
 
     public function group()

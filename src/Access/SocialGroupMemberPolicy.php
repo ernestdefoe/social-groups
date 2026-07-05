@@ -65,6 +65,16 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         return $isMod ? $this->allow() : null;
     }
 
+    /**
+     * Mute/unmute: same circle as kick — admin, global moderator, group
+     * creator, or in-group moderator. The group's creator can never be
+     * muted, and neither can the actor mute themselves.
+     */
+    public function mute(User $actor, SocialGroupMember $member)
+    {
+        return $this->delete($actor, $member);
+    }
+
     protected function isGroupCreator(User $actor, SocialGroupMember $member): bool
     {
         $group = $member->group;

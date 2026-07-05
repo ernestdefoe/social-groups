@@ -370,6 +370,8 @@ function projectMember(r) {
     joinedAt: r.attribute('joinedAt') || null,
     canModerate: !!r.attribute('canModerate'),
     canRemove: !!r.attribute('canRemove'),
+    mutedAt: r.attribute('mutedAt') || null,
+    canMute: !!r.attribute('canMute'),
   };
 }
 
@@ -395,6 +397,18 @@ export function kickMember(memberId) {
   const record = app.store.getById('social-group-members', memberId);
   if (record) return record.delete();
   return apiDelete(`/social-group-members/${memberId}`);
+}
+
+export function muteMember(memberId) {
+  return apiPost(`/social-group-members/${memberId}/mute`).then((body) => ({
+    mutedAt: body.data?.attributes?.mutedAt || null,
+  }));
+}
+
+export function unmuteMember(memberId) {
+  return apiPost(`/social-group-members/${memberId}/unmute`).then((body) => ({
+    mutedAt: body.data?.attributes?.mutedAt || null,
+  }));
 }
 
 // ── Join requests (social-group-join-requests) ────────────────────────────

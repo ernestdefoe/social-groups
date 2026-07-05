@@ -31,6 +31,7 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupJoinRequestBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\SocialGroupsServiceProvider;
@@ -99,6 +100,49 @@ return [
     (new Extend\Model(User::class))
         ->hasOne('socialGroupPrimary', SocialGroupUserPrimary::class, 'user_id'),
 
+    // The author's primary social group, exposed on every serialized user so
+    // post headers can show the group chip without any extra requests.
+    // Private groups are only revealed to their own members and admins —
+    // everyone else reads null, mirroring ListUserGroupsController's gate.
+    (new Extend\ApiResource(\Flarum\Api\Resource\UserResource::class))
+        ->fields(fn () => [
+            \Flarum\Api\Schema\Arr::make('sgPrimaryGroup')
+                ->nullable()
+                ->get(function (User $user, \Flarum\Api\Context $context) {
+                    $primary = $user->socialGroupPrimary;
+                    $group = $primary?->group;
+                    if ($group === null) {
+                        return null;
+                    }
+
+                    $membershipActive = SocialGroupMember::query()
+                        ->where('group_id', $group->id)
+                        ->where('user_id', $user->id)
+                        ->whereNull('banned_at')
+                        ->exists();
+                    if (! $membershipActive) {
+                        return null;
+                    }
+
+                    if ($group->is_private) {
+                        $actor = $context->getActor();
+                        if (! $actor->exists) {
+                            return null;
+                        }
+                        if (! $actor->isAdmin() && ! $group->activeMembership($actor->id)->exists()) {
+                            return null;
+                        }
+                    }
+
+                    return [
+                        'name' => $group->name,
+                        'slug' => $group->slug,
+                        'imageUrl' => resolve(\Ernestdefoe\SocialGroups\Support\GroupAssetUrl::class)->resolve($group->image_url),
+                        'color' => $group->color,
+                    ];
+                }),
+        ]),
+
     (new Extend\ApiResource(SocialGroupResource::class)),
     (new Extend\ApiResource(SocialGroupPostResource::class)),
     (new Extend\ApiResource(SocialGroupDiscussionResource::class)),
@@ -114,7 +158,8 @@ return [
 
     (new Extend\Notification())
         ->type(SocialGroupNewPostBlueprint::class,  ['alert'])
-        ->type(SocialGroupNewReplyBlueprint::class, ['alert']),
+        ->type(SocialGroupNewReplyBlueprint::class, ['alert'])
+        ->type(SocialGroupJoinRequestBlueprint::class, ['alert']),
 
     (new Extend\Settings())
         ->default('ernestdefoe-social-groups.create_permission', 'member'),

@@ -4,10 +4,11 @@ namespace Ernestdefoe\SocialGroups\Notification;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Flarum\Notification\AlertableInterface;
 use Flarum\Notification\Blueprint\BlueprintInterface;
 use Flarum\User\User;
 
-class SocialGroupNewPostBlueprint implements BlueprintInterface
+class SocialGroupNewPostBlueprint implements BlueprintInterface, AlertableInterface
 {
     public function __construct(
         private SocialGroupPost       $post,

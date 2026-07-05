@@ -502,6 +502,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             $result = $group->members()
                 ->where('user_id', $actorId)
                 ->whereNull('banned_at')
+                ->whereNull('muted_at')
                 ->exists();
         } else {
             $result = SocialGroup::query()
@@ -509,6 +510,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 ->whereHas('members', fn ($q) =>
                     $q->where('user_id', $actorId)
                       ->whereNull('banned_at')
+                      ->whereNull('muted_at')
                 )
                 ->exists();
         }
@@ -552,7 +554,9 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found'));
         }
 
-        $isMember = $group->activeMembership($actor->id)->exists();
+        // postingMembership excludes kicked AND muted members — a muted
+        // member remains in the group but cannot start discussions.
+        $isMember = $group->postingMembership($actor->id)->exists();
         $isOwner  = (int) $actor->id === (int) $group->user_id;
         $isMod    = $actor->isAdmin()
                   || $actor->hasPermission('ernestdefoe-social-groups.moderate');

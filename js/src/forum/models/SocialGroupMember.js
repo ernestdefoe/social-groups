@@ -43,6 +43,14 @@ export default class SocialGroupMember extends Model {
     return this.attribute('canRemove');
   }
 
+  mutedAt() {
+    return this.attribute('mutedAt', Model.transformDate);
+  }
+
+  canMute() {
+    return this.attribute('canMute');
+  }
+
   user() {
     return Model.hasOne('user').call(this);
   }

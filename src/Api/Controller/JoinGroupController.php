@@ -4,7 +4,10 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Notification\SocialGroupJoinRequestBlueprint;
 use Flarum\Http\RequestUtil;
+use Flarum\Notification\NotificationSyncer;
+use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -15,8 +18,10 @@ class JoinGroupController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private TranslatorInterface $translator)
-    {
+    public function __construct(
+        private TranslatorInterface $translator,
+        private NotificationSyncer $notifications,
+    ) {
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -45,12 +50,26 @@ class JoinGroupController implements RequestHandlerInterface
             ]);
         }
 
-        // If approval required, create a join request instead
+        // If approval required, create a join request instead. Only a live
+        // PENDING row counts — a stale approved/denied row from a previous
+        // membership used to suppress the new request entirely, so a member
+        // who left and asked to rejoin saw "pending review" while no request
+        // (and no notification) ever reached the managers.
         if ($group->membership_type === 'approval') {
-            $pendingRequest = $group->joinRequests()->where('user_id', $actor->id)->first();
-            if (! $pendingRequest) {
+            $existing = $group->joinRequests()->where('user_id', $actor->id)->first();
+
+            if ($existing && $existing->status === 'pending') {
+                return new JsonResponse(['status' => 'pending', 'memberCount' => $group->member_count]);
+            }
+
+            if ($existing) {
+                $existing->update(['status' => 'pending', 'created_at' => \Carbon\Carbon::now()]);
+            } else {
                 $group->joinRequests()->create(['user_id' => $actor->id, 'status' => 'pending']);
             }
+
+            $this->notifyManagers($group, $actor);
+
             return new JsonResponse(['status' => 'pending', 'memberCount' => $group->member_count]);
         }
 
@@ -75,5 +94,27 @@ class JoinGroupController implements RequestHandlerInterface
             'memberCount' => $group->fresh()->member_count,
             'isMember'    => true,
         ]);
+    }
+
+    /**
+     * Alert the group's creator + moderators about a pending join request.
+     * Recipients are resolved from active (non-kicked) manager memberships,
+     * plus the owning user; the requester is excluded in case they somehow
+     * hold a manager role themselves.
+     */
+    private function notifyManagers(SocialGroup $group, User $requester): void
+    {
+        $managerIds = $group->members()
+            ->whereIn('role', ['creator', 'moderator'])
+            ->whereNull('banned_at')
+            ->pluck('user_id')
+            ->push($group->user_id)
+            ->unique()
+            ->reject(fn ($id) => (int) $id === (int) $requester->id);
+
+        $recipients = User::query()->whereIn('id', $managerIds)->get()->all();
+        if ($recipients !== []) {
+            $this->notifications->sync(new SocialGroupJoinRequestBlueprint($group, $requester), $recipients);
+        }
     }
 }

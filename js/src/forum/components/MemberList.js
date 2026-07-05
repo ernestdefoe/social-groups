@@ -1,4 +1,4 @@
-import { listMembers, promoteMember, demoteMember, kickMember } from '../utils/api';
+import { listMembers, promoteMember, demoteMember, kickMember, muteMember, unmuteMember } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
@@ -60,6 +60,24 @@ export default class MemberList extends Component {
       .then((data) => {
         const idx = this.members.findIndex((m) => m.userId === member.userId);
         if (idx !== -1) this.members[idx] = { ...this.members[idx], role: data.role || 'member' };
+        delete this.actioning[member.userId];
+        m.redraw();
+      })
+      .catch(() => {
+        delete this.actioning[member.userId];
+        m.redraw();
+      });
+  }
+
+  toggleMute(member) {
+    const muted = !!member.mutedAt;
+    this.actioning[member.userId] = 'mute';
+    m.redraw();
+
+    (muted ? unmuteMember(member.id) : muteMember(member.id))
+      .then((data) => {
+        const idx = this.members.findIndex((m) => m.userId === member.userId);
+        if (idx !== -1) this.members[idx] = { ...this.members[idx], mutedAt: data.mutedAt };
         delete this.actioning[member.userId];
         m.redraw();
       })
@@ -154,11 +172,15 @@ export default class MemberList extends Component {
                 ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
                 : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin'))
             : null,
+          member.mutedAt && member.canMute
+            ? m('span.MemberList-role.MemberList-role--muted',
+                app.translator.trans('ernestdefoe-social-groups.forum.group.muted_badge'))
+            : null,
         ]),
       ]),
 
       // Moderation buttons
-      canModerate || canRemove
+      canModerate || canRemove || member.canMute
         ? m('div.MemberList-actions', [
             canModerate
               ? (member.role === 'member'
@@ -176,6 +198,20 @@ export default class MemberList extends Component {
                       disabled:    !!acting,
                       onclick:     () => this.demote(member),
                     }, m('i.fa-solid.fa-user')))
+              : null,
+            member.canMute
+              ? m(Button, {
+                  class:       'Button Button--sm MemberList-muteBtn',
+                  'aria-label': app.translator.trans(member.mutedAt
+                    ? 'ernestdefoe-social-groups.forum.group.unmute_member'
+                    : 'ernestdefoe-social-groups.forum.group.mute_member'),
+                  title:        app.translator.trans(member.mutedAt
+                    ? 'ernestdefoe-social-groups.forum.group.unmute_member'
+                    : 'ernestdefoe-social-groups.forum.group.mute_member'),
+                  loading:      acting === 'mute',
+                  disabled:     !!acting,
+                  onclick:      () => this.toggleMute(member),
+                }, m(member.mutedAt ? 'i.fa-solid.fa-volume-high' : 'i.fa-solid.fa-volume-xmark'))
               : null,
             canRemove
               ? m(Button, {

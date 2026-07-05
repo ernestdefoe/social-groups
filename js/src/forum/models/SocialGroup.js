@@ -45,6 +45,10 @@ export default class SocialGroup extends Model {
     return this.attribute('isMember');
   }
 
+  actorIsMuted() {
+    return this.attribute('actorIsMuted');
+  }
+
   isCreator() {
     return this.attribute('isCreator');
   }

@@ -2,6 +2,9 @@ import app from 'flarum/forum/app';
 import { extend as flarumExtend } from 'flarum/common/extend';
 import IndexSidebar from 'flarum/forum/components/IndexSidebar';
 import UserCard from 'flarum/forum/components/UserCard';
+import CommentPost from 'flarum/forum/components/CommentPost';
+import UserPage from 'flarum/forum/components/UserPage';
+import Link from 'flarum/common/components/Link';
 import LinkButton from 'flarum/common/components/LinkButton';
 import SocialGroup from './forum/models/SocialGroup';
 import SocialGroupDiscussion from './forum/models/SocialGroupDiscussion';
@@ -13,8 +16,10 @@ import GroupPage from './forum/components/GroupPage';
 import GroupDiscussionThread from './forum/components/GroupDiscussionThread';
 import SocialGroupNewPostNotification from './forum/components/SocialGroupNewPostNotification';
 import SocialGroupNewReplyNotification from './forum/components/SocialGroupNewReplyNotification';
+import SocialGroupJoinRequestNotification from './forum/components/SocialGroupJoinRequestNotification';
 import UserGroupBadges from './forum/components/UserGroupBadges';
 import PrimaryGroupSelector from './forum/components/PrimaryGroupSelector';
+import GroupsUserPage from './forum/components/GroupsUserPage';
 
 app.initializers.add('ernestdefoe-social-groups', (app) => {
   // flarum/realtime integration is per-discussion now: GroupDiscussionThread
@@ -31,6 +36,7 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
   // Notification components
   app.notificationComponents.socialGroupNewPost  = SocialGroupNewPostNotification;
   app.notificationComponents.socialGroupNewReply = SocialGroupNewReplyNotification;
+  app.notificationComponents.socialGroupJoinRequest = SocialGroupJoinRequestNotification;
 
   // Routes
   app.routes['ernestdefoe-social-groups.index'] = {
@@ -47,6 +53,24 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
     path: '/groups/:slug/d/:discussionId',
     component: GroupDiscussionThread,
   };
+
+  app.routes['user.socialGroups'] = {
+    path: '/u/:username/groups',
+    component: GroupsUserPage,
+  };
+
+  // Groups item in the profile sidebar (below Posts/Discussions).
+  flarumExtend(UserPage.prototype, 'navItems', function (items) {
+    if (!this.user) return;
+    items.add(
+      'socialGroups',
+      m(LinkButton, {
+        href: app.route('user.socialGroups', { username: this.user.slug() }),
+        icon: 'fa-solid fa-users',
+      }, app.translator.trans('ernestdefoe-social-groups.forum.profile_groups.nav')),
+      70
+    );
+  });
 
   // ── User card group badges + primary group selector ───────────────────────
   flarumExtend(UserCard.prototype, 'profileItems', function (items) {
@@ -77,6 +101,34 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
     }
   } catch (_) {
     // SettingsPage not available in this Flarum build — selector is on the profile card instead
+  }
+
+  // ── Primary group chip on posts (fof/badges forums) ──────────────────────
+  // Forums running fof/badges show badge art beside post authors; the
+  // author's primary social group joins that row as a small image chip.
+  // Data rides on the serialized user (sgPrimaryGroup), so no extra
+  // requests — and forums without fof/badges are untouched.
+  if ('fof-badges' in flarum.extensions) {
+    flarumExtend(CommentPost.prototype, 'headerItems', function (items) {
+      const user = this.attrs.post?.user?.();
+      const g = user?.attribute?.('sgPrimaryGroup');
+      if (!g || !g.slug) return;
+
+      items.add(
+        'sgPrimaryGroup',
+        m(Link, {
+          href: app.route('ernestdefoe-social-groups.show', { slug: g.slug }),
+          className: 'SG-PostGroupChip',
+          title: g.name,
+        }, [
+          g.imageUrl
+            ? m('img.SG-PostGroupChip-img', { src: g.imageUrl, alt: '' })
+            : m('span.SG-PostGroupChip-disc', { style: `background:${g.color || '#4A90E2'}` }, (g.name || '?')[0].toUpperCase()),
+          m('span.SG-PostGroupChip-name', g.name),
+        ]),
+        -5
+      );
+    });
   }
 
   // ── Sidebar navigation link ────────────────────────────────────────────────

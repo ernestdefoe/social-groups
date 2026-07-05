@@ -481,12 +481,20 @@ export default class GroupFeed extends Component {
   // ── Views ─────────────────────────────────────────────────────────────────
 
   view() {
-    const { isMember } = this.attrs;
+    const { isMember, isMuted } = this.attrs;
     const actor        = app.session.user;
 
     return m('.SGFeed', [
-      // Composer
-      actor && isMember ? this.viewComposer(actor) : null,
+      // Composer — muted members keep reading but get a notice instead of a
+      // composer that would 403 on submit.
+      actor && isMember && isMuted
+        ? m('.SGFeed-mutedNotice', [
+            m('i.fa-solid.fa-volume-xmark'),
+            ' ',
+            app.translator.trans('ernestdefoe-social-groups.forum.group.muted_notice'),
+          ])
+        : null,
+      actor && isMember && !isMuted ? this.viewComposer(actor) : null,
 
       // Search bar
       m('.SGFeed-search', [
@@ -660,7 +668,10 @@ export default class GroupFeed extends Component {
       discussion:  d,
       groupId:     this.attrs.groupId,
       groupSlug:   this.attrs.groupSlug,
-      isMember:    this.attrs.isMember,
+      // Muted members are members for reading, not for the reply UI —
+      // per-discussion canReply (already mute-aware) can still grant it
+      // for privileged actors.
+      isMember:    this.attrs.isMember && !this.attrs.isMuted,
 
       menuOpen:         this.openMenuId === d.id,
       pickerOpen:       this.pickerDiscId === d.id,

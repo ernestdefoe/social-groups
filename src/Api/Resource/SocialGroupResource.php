@@ -93,6 +93,7 @@ class SocialGroupResource extends AbstractDatabaseResource
                 // attributes instead of issuing a fresh per-field query.
                 $group->loadCount([
                     'members as actor_is_member'       => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at'),
+                    'members as actor_is_muted'        => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at')->whereNotNull('muted_at'),
                     'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
                     'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
                 ]);
@@ -135,6 +136,7 @@ class SocialGroupResource extends AbstractDatabaseResource
             // main SELECT so the Index endpoint never issues O(n) extra queries.
             $query->withCount([
                 'members as actor_is_member'       => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at'),
+                'members as actor_is_muted'        => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at')->whereNotNull('muted_at'),
                 'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
                 'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
             ]);
@@ -278,6 +280,40 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
                     return $actor->id === $group->user_id;
+                }),
+
+            // Directory teasers: the two most recently active discussions,
+            // so group cards promote real conversations instead of bare
+            // counts. Only computed on the Index (the group page has the
+            // full feed); one LIMIT-2 index scan per card, bounded by the
+            // directory page size. Visibility rides on the row itself —
+            // any group the scope lets you list, you may see titles for.
+            Schema\Arr::make('recentDiscussions')
+                ->get(function ($group, Context $context) {
+                    if (! ($context->endpoint instanceof Endpoint\Index)) {
+                        return [];
+                    }
+
+                    return \Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion::query()
+                        ->where('group_id', $group->id)
+                        ->orderByDesc('last_posted_at')
+                        ->limit(2)
+                        ->get(['id', 'title'])
+                        ->map(fn ($d) => ['id' => (int) $d->id, 'title' => (string) $d->title])
+                        ->all();
+                }),
+
+            // Drives the feed composer for muted members: still a member,
+            // still reads everything, but the composer is replaced with a
+            // notice instead of 403ing on submit.
+            Schema\Boolean::make('actorIsMuted')
+                ->get(function ($group, Context $context) {
+                    $actor = $context->getActor();
+                    if (! $actor->exists) return false;
+                    $pre = $group->actor_is_muted;
+                    return $pre !== null
+                        ? (bool) $pre
+                        : $group->activeMembership($actor->id)->whereNotNull('muted_at')->exists();
                 }),
 
             Schema\Str::make('membershipType')

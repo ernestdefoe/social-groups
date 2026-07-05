@@ -119,6 +119,20 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                 ->authenticated()
                 ->can('demote')
                 ->action(fn (Context $context) => $this->doSetRole($context, 'member')),
+
+            // Mute is the soft moderation tier below kick: the member keeps
+            // reading, but every write gate (new discussion, reply) refuses.
+            Endpoint\Endpoint::make('social-group-members.mute')
+                ->route('POST', '/{id}/mute')
+                ->authenticated()
+                ->can('mute')
+                ->action(fn (Context $context) => $this->doSetMuted($context, true)),
+
+            Endpoint\Endpoint::make('social-group-members.unmute')
+                ->route('POST', '/{id}/unmute')
+                ->authenticated()
+                ->can('mute')
+                ->action(fn (Context $context) => $this->doSetMuted($context, false)),
         ];
     }
 
@@ -147,6 +161,13 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             Schema\DateTime::make('joinedAt')
                 ->property('joined_at')
                 ->nullable(),
+
+            Schema\DateTime::make('mutedAt')
+                ->property('muted_at')
+                ->nullable(),
+
+            Schema\Boolean::make('canMute')
+                ->get(fn (SocialGroupMember $m, Context $context) => $context->getActor()->can('mute', $m)),
 
             Schema\Boolean::make('canModerate')
                 ->get(function (SocialGroupMember $m, Context $context) {
@@ -186,6 +207,19 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
         }
         $target->role = $role;
         $target->save();
+        return $target;
+    }
+
+    protected function doSetMuted(Context $context, bool $muted): SocialGroupMember
+    {
+        /** @var SocialGroupMember $target */
+        $target = $context->model;
+        if ($target->banned_at !== null) {
+            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.not_active_member'));
+        }
+        $target->muted_at = $muted ? \Carbon\Carbon::now() : null;
+        $target->save();
+
         return $target;
     }
 

@@ -32,6 +32,11 @@ class LeaveGroupController implements RequestHandlerInterface
             $group->decrement('member_count');
         }
 
+        // Clear the member's join-request history so a future rejoin on an
+        // approval-gated group files a FRESH request (a lingering approved
+        // row used to silently swallow it — managers never got notified).
+        $group->joinRequests()->where('user_id', $actor->id)->delete();
+
         return new JsonResponse([
             'memberCount' => $group->fresh()->member_count,
             'isMember'    => false,
