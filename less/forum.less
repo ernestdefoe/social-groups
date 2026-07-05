@@ -86,7 +86,11 @@
     .helpText {
       display: block;
       font-size: 0.85rem;
-      color: var(--muted-color);
+      // Renders on the user-card hero (contrast-colored text) as well as the
+      // settings page — inherit whatever text color the context uses instead
+      // of a muted gray that vanishes against a colored hero.
+      color: inherit;
+      opacity: 0.75;
     }
   }
 
@@ -106,6 +110,10 @@
     border-radius: @sg-radius-sm;
     border: 2px solid var(--control-bg);
     background: var(--body-bg);
+    // Tiles paint their own opaque body-bg, so they must also set their own
+    // text color — inheriting from the user-card hero left white-on-white
+    // labels on stock Flarum.
+    color: var(--text-color);
     cursor: pointer;
     text-align: center;
     transition: border-color @sg-transition, background @sg-transition;
@@ -116,7 +124,9 @@
 
     &.active {
       border-color: var(--primary-color, @sg-primary-hex);
-      background: rgba(74, 144, 226, 0.08);
+      // Layer the blue tint OVER an opaque body-bg — a bare rgba() background
+      // let the hero color bleed through the selected tile.
+      background: linear-gradient(rgba(74, 144, 226, 0.08), rgba(74, 144, 226, 0.08)) var(--body-bg);
     }
   }
 
@@ -162,7 +172,8 @@
 
   &-empty {
     font-size: 0.85rem;
-    color: var(--muted-color);
+    color: inherit;
+    opacity: 0.75;
     font-style: italic;
   }
 
@@ -170,7 +181,8 @@
     display: block;
     margin-top: 8px;
     font-size: 0.8rem;
-    color: var(--muted-color);
+    color: inherit;
+    opacity: 0.75;
   }
 }
 
@@ -3248,7 +3260,10 @@
   &-label {
     font-size: 0.75em;
     font-weight: 600;
-    color: var(--muted-color, #9ca3af);
+    // Sits directly on the user-card hero — inherit its contrast color
+    // (muted gray was illegible over saturated profile colors).
+    color: inherit;
+    opacity: 0.8;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-bottom: 6px;
