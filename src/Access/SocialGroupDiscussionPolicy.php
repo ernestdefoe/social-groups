@@ -39,18 +39,20 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
     }
 
     /**
-     * Can create a discussion in the group if member, owner, admin or
-     * global moderator. Endpoint\Create passes the model being created
-     * via `$arguments`, but at gate time `group_id` may not be
-     * populated yet — we prefer to check via the global permission +
-     * inline verification in the resource's creating().
+     * Gate for Endpoint\Create. The group isn't resolvable here
+     * (`group_id` isn't populated at gate time), so this only requires a
+     * registered actor and MUST return allow() — the real membership
+     * check (member / owner / global moderator of the target group) runs
+     * in the resource's creating() and throws PermissionDenied there.
+     *
+     * Returning null instead of allow() broke discussion creation for
+     * every non-admin: when all policies abstain, Flarum's gate falls
+     * back to "admin allows, everyone else denies", so ->can('create')
+     * 403'd members and group creators before creating() ever ran.
      */
     public function create(User $actor)
     {
-        if (! $actor->exists) {
-            return $this->deny();
-        }
-        return null;
+        return $actor->exists ? $this->allow() : $this->deny();
     }
 
     /**

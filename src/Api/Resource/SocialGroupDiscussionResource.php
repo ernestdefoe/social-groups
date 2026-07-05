@@ -251,9 +251,14 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             Endpoint\Show::make()
                 ->can('view'),
 
+            // No ->can('create') here: at create time there is no model for
+            // the gate to hand to SocialGroupDiscussionPolicy — core calls
+            // assertCan('create', null), which skips model policies entirely
+            // and falls back to "admins only". That 403'd every member and
+            // group creator. The real member/owner/moderator gate runs in
+            // creating() below, same as SocialGroupPostResource.
             Endpoint\Create::make()
                 ->authenticated()
-                ->can('create')
                 // Without firstPost in the create response the freshly-posted
                 // card has no parsed content to render, so it shows the bare
                 // title (and no embeds/formatting) until a reload pulls the
