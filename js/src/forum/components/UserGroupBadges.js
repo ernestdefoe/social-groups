@@ -45,7 +45,7 @@ export default class UserGroupBadges extends Component {
     const display = primary ? [primary] : this.groups;
 
     return m('.UserGroupBadges', [
-      m('.UserGroupBadges-label', [m('i.fa-solid.fa-users'), ' Groups']),
+      m('.UserGroupBadges-label', [m('i.fa-solid.fa-users'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.title')]),
       m('.UserGroupBadges-list',
         display.map((group) =>
           m(Link, {
