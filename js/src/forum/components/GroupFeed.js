@@ -18,6 +18,7 @@ import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
+import LogInModal from 'flarum/forum/components/LogInModal';
 
 export default class GroupFeed extends Component {
   oninit(vnode) {
@@ -160,6 +161,7 @@ export default class GroupFeed extends Component {
         this.total       = data.total || 0;
         this.pages       = data.pages || 1;
         this.loadError   = false;
+        this.loadDenied  = false;
         this.loading     = false;
 
         // Comments are loaded lazily when the user clicks the Comments
@@ -174,6 +176,7 @@ export default class GroupFeed extends Component {
         console.error('[social-groups] Failed to load group feed', err);
         this.discussions = [];
         this.loadError   = true;
+        this.loadDenied  = err?.status === 403 || err?.status === 401;
         this.loading     = false;
         m.redraw();
       });
@@ -511,6 +514,17 @@ export default class GroupFeed extends Component {
       // Feed
       this.loading
         ? m('.SGFeed-loading', m(LoadingIndicator, { display: 'block' }))
+        : this.loadDenied
+        ? m('.SGFeed-empty', [
+            m('i.fa-solid.fa-lock'),
+            m('p', app.translator.trans('ernestdefoe-social-groups.forum.discussions.no_permission')),
+            !app.session.user
+              ? m(Button, {
+                  class: 'Button Button--primary',
+                  onclick: () => app.modal.show(LogInModal),
+                }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.log_in_button'))
+              : null,
+          ])
         : this.loadError
         ? m('.SGFeed-empty', [
             m('i.fa-solid.fa-circle-exclamation'),
@@ -520,7 +534,7 @@ export default class GroupFeed extends Component {
         ? m('.SGFeed-empty', [
             m('i.fa-solid.fa-magnifying-glass'),
             m('p', this.searchQuery
-                ? `No posts found for "${this.searchQuery}".`
+                ? app.translator.trans('ernestdefoe-social-groups.forum.discussions.search_empty', { query: this.searchQuery })
                 : app.translator.trans('ernestdefoe-social-groups.forum.discussions.empty')),
           ])
         : [

@@ -18,15 +18,15 @@
 
 // ── Dark-mode compatibility ──────────────────────────────────────────────────
 // Flarum themes implement dark mode in two ways:
-//   (a) redefining CSS custom properties  — var(--body-color) picks this up
+//   (a) redefining core CSS custom properties (--text-color etc.)
 //   (b) changing `color` on <body> directly — only `inherit` picks this up
 //
 // Our components use `color: inherit` for primary content text so BOTH
-// mechanisms work. --text-color is kept as a convenience alias for the
-// few places that genuinely need a variable (e.g. input placeholders).
-:root {
-  --text-color: var(--body-color);
-}
+// mechanisms work, and read core's --text-color directly where a variable
+// is genuinely needed. NEVER redefine core variables at :root here — aliasing
+// --text-color to a theme-only variable (--body-color) made every core
+// `color: var(--text-color)` invalid on stock Flarum, so text fell back to
+// inheritance and the user-card Controls dropdown rendered white-on-white.
 
 // ============================================================
 // Group Badge (shown on posts)

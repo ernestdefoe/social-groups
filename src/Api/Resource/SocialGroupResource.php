@@ -153,6 +153,16 @@ class SocialGroupResource extends AbstractDatabaseResource
         $canSeePrivate = $actor->isAdmin()
             || $actor->hasPermission('ernestdefoe-social-groups.moderate');
 
+        // Mirror GroupVisibility::canSee's viewForum gate. Without it, a
+        // login-restricted forum (guest viewForum revoked) still listed
+        // public groups' names and descriptions to guests via this Index —
+        // and then the discussions endpoint 403'd, leaving a broken group
+        // page with a raw permission toast.
+        if (! $canSeePrivate && ! $actor->hasPermission('viewForum')) {
+            $query->whereRaw('1 = 0');
+            return;
+        }
+
         if (! $canSeePrivate) {
             $query->where(function ($q) use ($actorId) {
                 $q->where('is_private', false);
