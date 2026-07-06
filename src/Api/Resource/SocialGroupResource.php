@@ -294,12 +294,13 @@ class SocialGroupResource extends AbstractDatabaseResource
                         return [];
                     }
 
-                    return \Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion::query()
-                        ->where('group_id', $group->id)
-                        ->orderByDesc('last_posted_at')
-                        ->limit(2)
-                        ->get(['id', 'title'])
+                    // Eager-loaded on the Index endpoint (extend.php), so the
+                    // whole directory page batches into one load instead of a
+                    // LIMIT query per group card.
+                    return $group->recentDiscussions
+                        ->take(2)
                         ->map(fn ($d) => ['id' => (int) $d->id, 'title' => (string) $d->title])
+                        ->values()
                         ->all();
                 }),
 

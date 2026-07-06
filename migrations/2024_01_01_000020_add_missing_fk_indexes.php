@@ -3,6 +3,14 @@
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Builder;
 
+/**
+ * Adds FK-column indexes to existing tables. The raw ['up' => fn, 'down' => fn]
+ * closure form is intentional here: Flarum\Database\Migration has no helper for
+ * adding an index to an already-created table (addColumns/createTable only), so
+ * the Schema Builder is the correct tool. Idempotency is handled by the
+ * hasTable/hasColumn guards plus the try/catch around each addIndex, so a
+ * re-run on an install that already has the index is a safe no-op.
+ */
 return [
     'up' => function (Builder $schema) {
         if ($schema->hasTable('social_group_discussions')) {

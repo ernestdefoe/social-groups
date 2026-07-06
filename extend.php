@@ -20,6 +20,7 @@ use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupJoinRequestResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupMemberResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupPostResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupResource;
+use Ernestdefoe\SocialGroups\Api\Resource\UserResourceFields;
 use Ernestdefoe\SocialGroups\Access\SocialGroupDiscussionPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupJoinRequestPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupMemberPolicy;
@@ -35,6 +36,7 @@ use Ernestdefoe\SocialGroups\Notification\SocialGroupJoinRequestBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
 use Ernestdefoe\SocialGroups\SocialGroupsServiceProvider;
+use Flarum\Api\Endpoint;
 use Flarum\Extend;
 use Flarum\Frontend\Document;
 use Flarum\Http\RequestUtil;
@@ -98,52 +100,55 @@ return [
         ->listen(SocialGroupPostWasCreated::class, BroadcastGroupPost::class),
 
     (new Extend\Model(User::class))
-        ->hasOne('socialGroupPrimary', SocialGroupUserPrimary::class, 'user_id'),
+        ->hasOne('socialGroupPrimary', SocialGroupUserPrimary::class, 'user_id')
+        ->hasMany('socialGroupMemberships', SocialGroupMember::class, 'user_id'),
 
     // The author's primary social group, exposed on every serialized user so
-    // post headers can show the group chip without any extra requests.
-    // Private groups are only revealed to their own members and admins —
-    // everyone else reads null, mirroring ListUserGroupsController's gate.
+    // post headers can show the group chip without any extra requests. The
+    // relations the field reads are eager-loaded on the endpoints below
+    // (mirroring core's `user.groups`), so it issues no per-user queries.
+    // Private groups stay gated to their own members/admins inside the field.
     (new Extend\ApiResource(\Flarum\Api\Resource\UserResource::class))
-        ->fields(fn () => [
-            \Flarum\Api\Schema\Arr::make('sgPrimaryGroup')
-                ->nullable()
-                ->get(function (User $user, \Flarum\Api\Context $context) {
-                    $primary = $user->socialGroupPrimary;
-                    $group = $primary?->group;
-                    if ($group === null) {
-                        return null;
-                    }
+        ->fields(UserResourceFields::class)
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn ($endpoint) => $endpoint->eagerLoad([
+                'socialGroupPrimary.group',
+                'socialGroupMemberships',
+            ])
+        ),
 
-                    $membershipActive = SocialGroupMember::query()
-                        ->where('group_id', $group->id)
-                        ->where('user_id', $user->id)
-                        ->whereNull('banned_at')
-                        ->exists();
-                    if (! $membershipActive) {
-                        return null;
-                    }
+    // Post/discussion authors render the same chip on their headers, so the
+    // primary-group relations must be eager-loaded through the include path —
+    // exactly how core eager-loads `user.groups` for the same avatars.
+    (new Extend\ApiResource(\Flarum\Api\Resource\PostResource::class))
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn ($endpoint) => $endpoint->eagerLoad([
+                'user.socialGroupPrimary.group',
+                'user.socialGroupMemberships',
+            ])
+        ),
 
-                    if ($group->is_private) {
-                        $actor = $context->getActor();
-                        if (! $actor->exists) {
-                            return null;
-                        }
-                        if (! $actor->isAdmin() && ! $group->activeMembership($actor->id)->exists()) {
-                            return null;
-                        }
-                    }
+    (new Extend\ApiResource(\Flarum\Api\Resource\DiscussionResource::class))
+        ->endpoint(
+            [Endpoint\Index::class, Endpoint\Show::class],
+            fn ($endpoint) => $endpoint->eagerLoad([
+                'user.socialGroupPrimary.group',
+                'user.socialGroupMemberships',
+                'lastPostedUser.socialGroupPrimary.group',
+                'lastPostedUser.socialGroupMemberships',
+            ])
+        ),
 
-                    return [
-                        'name' => $group->name,
-                        'slug' => $group->slug,
-                        'imageUrl' => resolve(\Ernestdefoe\SocialGroups\Support\GroupAssetUrl::class)->resolve($group->image_url),
-                        'color' => $group->color,
-                    ];
-                }),
-        ]),
-
-    (new Extend\ApiResource(SocialGroupResource::class)),
+    // The directory teaser fields (recentDiscussions) read a hasMany relation
+    // that is eager-loaded on Index, collapsing a per-group LIMIT query into a
+    // single batched load for the whole page.
+    (new Extend\ApiResource(SocialGroupResource::class))
+        ->endpoint(
+            Endpoint\Index::class,
+            fn ($endpoint) => $endpoint->eagerLoad(['recentDiscussions'])
+        ),
     (new Extend\ApiResource(SocialGroupPostResource::class)),
     (new Extend\ApiResource(SocialGroupDiscussionResource::class)),
     (new Extend\ApiResource(SocialGroupMemberResource::class)),

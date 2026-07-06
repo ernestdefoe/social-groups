@@ -31,6 +31,17 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  */
 class SocialGroupMemberResource extends AbstractDatabaseResource
 {
+    /**
+     * "Is (actor, group) a group creator/moderator?" memo. canMute and
+     * canRemove resolve the same moderator gate for every member row; a
+     * 20-member page shares one group, so caching by (actor_id, group_id)
+     * collapses what was 40 correlated subqueries into one. Reset on each
+     * scope() call in case the Resource is container-cached (CLAUDE.md §44.2).
+     *
+     * @var array<string, bool>
+     */
+    protected array $moderatorCheckCache = [];
+
     public function __construct(protected TranslatorInterface $translator)
     {
     }
@@ -47,6 +58,8 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
+        $this->moderatorCheckCache = [];
+
         $actor  = RequestUtil::getActor($context->request);
         $params = $context->request->getQueryParams();
 
@@ -167,7 +180,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                 ->nullable(),
 
             Schema\Boolean::make('canMute')
-                ->get(fn (SocialGroupMember $m, Context $context) => $context->getActor()->can('mute', $m)),
+                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManageMember($m, $context->getActor())),
 
             Schema\Boolean::make('canModerate')
                 ->get(function (SocialGroupMember $m, Context $context) {
@@ -180,15 +193,66 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                 }),
 
             Schema\Boolean::make('canRemove')
-                ->get(function (SocialGroupMember $m, Context $context) {
-                    $actor = $context->getActor();
-                    return $actor->can('delete', $m);
-                }),
+                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManageMember($m, $context->getActor())),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
                 ->includable(),
         ];
+    }
+
+    /**
+     * UI gate mirroring SocialGroupMemberPolicy::delete/mute (both share the
+     * same circle). Kept in the Resource — rather than a per-row
+     * $actor->can() — so the expensive moderator lookup memoizes across the
+     * page. The endpoints still enforce the policy via ->can('delete'|'mute').
+     */
+    protected function canManageMember(SocialGroupMember $m, $actor): bool
+    {
+        if (! $actor->exists) {
+            return false;
+        }
+        if ($m->role === 'creator') {
+            return false;
+        }
+        if ((int) $m->user_id === (int) $actor->id) {
+            return false;
+        }
+        if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
+            return true;
+        }
+
+        return $this->isInGroupModerator($actor, (int) $m->group_id);
+    }
+
+    /**
+     * "Is the actor a non-banned creator/moderator of this group?" Memoized on
+     * $this->moderatorCheckCache so a page of members in the same group runs
+     * the correlated subquery once (was once per row × 2 gates).
+     */
+    protected function isInGroupModerator($actor, int $groupId): bool
+    {
+        if (! $actor->exists || $groupId <= 0) {
+            return false;
+        }
+
+        $key = ((int) $actor->id) . ':' . $groupId;
+        if (isset($this->moderatorCheckCache[$key])) {
+            return $this->moderatorCheckCache[$key];
+        }
+
+        $result = SocialGroup::query()
+            ->where('id', $groupId)
+            ->whereExists(function ($sub) use ($actor) {
+                $sub->from('social_group_members')
+                    ->whereColumn('social_group_members.group_id', 'social_groups.id')
+                    ->where('user_id', $actor->id)
+                    ->whereNull('banned_at')
+                    ->whereIn('role', ['creator', 'moderator']);
+            })
+            ->exists();
+
+        return $this->moderatorCheckCache[$key] = $result;
     }
 
     protected function doSetRole(Context $context, string $role): SocialGroupMember

@@ -46,6 +46,17 @@ class SocialGroup extends AbstractModel
     }
 
     /**
+     * Discussions ordered most-recently-active first. Eager-loaded on the
+     * directory Index so the `recentDiscussions` teaser field reads the top
+     * two from memory instead of firing one LIMIT query per group card.
+     */
+    public function recentDiscussions()
+    {
+        return $this->hasMany(SocialGroupDiscussion::class, 'group_id')
+            ->orderByDesc('last_posted_at');
+    }
+
+    /**
      * Membership query scoped to one actor, excluding kicked users.
      * Kick is a soft action that sets `banned_at` without deleting the row,
      * so every write-gating check must filter it out — route them through

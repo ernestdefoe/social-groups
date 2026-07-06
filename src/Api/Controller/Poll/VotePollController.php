@@ -40,8 +40,10 @@ class VotePollController implements RequestHandlerInterface
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.poll_not_found')], 404);
             }
 
-            // Actor must be a member of the group that owns the discussion
-            $discussion = SocialGroupDiscussion::find($poll->discussion_id);
+            // Actor must be a member of the group that owns the discussion.
+            // Eager-load `group` so the membership check below reads it from
+            // the loaded relation instead of a second SELECT.
+            $discussion = SocialGroupDiscussion::with('group')->find($poll->discussion_id);
             if (! $discussion) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.discussion_not_found')], 404);
             }
