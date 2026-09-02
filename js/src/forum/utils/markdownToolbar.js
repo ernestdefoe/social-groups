@@ -13,15 +13,62 @@ import app from 'flarum/forum/app';
  * helper stays decoupled from any single component's DOM (and never reaches
  * across the page to the wrong textarea — see CLAUDE.md §40.3).
  */
-const ACTIONS = [
-  { key: 'bold',    icon: 'fa-bold',          before: '**',  after: '**',          ph: 'bold text' },
-  { key: 'italic',  icon: 'fa-italic',        before: '_',   after: '_',           ph: 'italic text' },
-  { key: 'strike',  icon: 'fa-strikethrough', before: '~~',  after: '~~',          ph: 'strikethrough' },
-  { key: 'link',    icon: 'fa-link',          before: '[',   after: '](https://)', ph: 'link text' },
-  { key: 'quote',   icon: 'fa-quote-right',   before: '> ',  after: '',            ph: 'quote', line: true },
-  { key: 'list',    icon: 'fa-list-ul',       before: '- ',  after: '',            ph: 'list item', line: true },
-  { key: 'code',    icon: 'fa-code',          before: '`',   after: '`',           ph: 'code' },
-];
+/*
+ * 🚨 Two dialects, chosen at runtime — not Markdown unconditionally.
+ *
+ * This toolbar used to emit Markdown always, on the assumption in the comment
+ * above that content "renders identically to a normal post". That is only true
+ * while flarum/markdown is installed. On a forum running a WYSIWYG editor
+ * instead there is no Markdown parser, so every button inserted syntax nothing
+ * would ever parse and bold produced literal asterisks.
+ *
+ * flarum/bbcode is a separate extension and supplies B, I, S, URL, CODE, LIST
+ * and QUOTE — every action here — so it covers the same ground wherever
+ * Markdown is absent. The server tells us which is available via the
+ * `socialGroupsMarkup` forum attribute; where neither exists the toolbar does
+ * not render at all, because a formatting button that cannot format is worse
+ * than no button.
+ */
+const DIALECTS = {
+  markdown: [
+    { key: 'bold',    icon: 'fa-bold',          before: '**',  after: '**',          ph: 'bold text' },
+    { key: 'italic',  icon: 'fa-italic',        before: '_',   after: '_',           ph: 'italic text' },
+    { key: 'strike',  icon: 'fa-strikethrough', before: '~~',  after: '~~',          ph: 'strikethrough' },
+    { key: 'link',    icon: 'fa-link',          before: '[',   after: '](https://)', ph: 'link text' },
+    { key: 'quote',   icon: 'fa-quote-right',   before: '> ',  after: '',            ph: 'quote', line: true },
+    { key: 'list',    icon: 'fa-list-ul',       before: '- ',  after: '',            ph: 'list item', line: true },
+    { key: 'code',    icon: 'fa-code',          before: '`',   after: '`',           ph: 'code' },
+  ],
+  bbcode: [
+    { key: 'bold',    icon: 'fa-bold',          before: '[b]', after: '[/b]',        ph: 'bold text' },
+    { key: 'italic',  icon: 'fa-italic',        before: '[i]', after: '[/i]',        ph: 'italic text' },
+    { key: 'strike',  icon: 'fa-strikethrough', before: '[s]', after: '[/s]',        ph: 'strikethrough' },
+    { key: 'link',    icon: 'fa-link',          before: '[url=https://]', after: '[/url]', ph: 'link text' },
+    // 🚨 Not line-prefixed. BBCode quotes and lists WRAP a block rather than
+    // marking each line, so reusing the markdown `line: true` path here would
+    // emit [quote] on every line and produce nested quotes.
+    { key: 'quote',   icon: 'fa-quote-right',   before: '[quote]', after: '[/quote]', ph: 'quote' },
+    { key: 'list',    icon: 'fa-list-ul',       before: '[list]\n[*]', after: '\n[/list]', ph: 'list item' },
+    { key: 'code',    icon: 'fa-code',          before: '[code]', after: '[/code]',  ph: 'code' },
+  ],
+};
+
+/** Which dialect this forum can actually render. */
+export function markupDialect() {
+  const app = window.app;
+  const declared = app?.forum?.attribute?.('socialGroupsMarkup');
+
+  // An older backend that does not send the attribute is, by definition, a
+  // forum from before this mattered — keep the previous behaviour there.
+  if (!declared) return 'markdown';
+
+  return declared;
+}
+
+/** The actions this forum can actually render, or [] if it can render none. */
+function actions() {
+  return DIALECTS[markupDialect()] || [];
+}
 
 /**
  * Wraps (or line-prefixes) the textarea's current selection with the action's
@@ -67,7 +114,17 @@ export function applyMarkdown(el, action, onChange) {
  *   disabled                 — greys the toolbar out while submitting.
  */
 export function MarkdownToolbar({ onChange, disabled = false }) {
-  return m('.SGMd-toolbar', ACTIONS.map((a) =>
+  const available = actions();
+
+  /*
+   * 🚨 No formatter, no toolbar. With neither Markdown nor BBCode installed
+   * every one of these buttons would insert characters that render as
+   * themselves — the exact "control that does nothing" this codebase keeps
+   * warning about. Rendering nothing is the honest answer.
+   */
+  if (!available.length) return null;
+
+  return m('.SGMd-toolbar', available.map((a) =>
     m('button.SGMd-btn', {
       type:     'button',
       title:    app.translator.trans('ernestdefoe-social-groups.forum.composer.md_' + a.key),

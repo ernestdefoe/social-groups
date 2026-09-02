@@ -108,6 +108,13 @@ return [
     // relations the field reads are eager-loaded on the endpoints below
     // (mirroring core's `user.groups`), so it issues no per-user queries.
     // Private groups stay gated to their own members/admins inside the field.
+    /*
+     * Which markup the group composers may emit — see ForumMarkupFields. The
+     * toolbar reads this instead of assuming Markdown is installed.
+     */
+    (new Extend\ApiResource(\Flarum\Api\Resource\ForumResource::class))
+        ->fields(\Ernestdefoe\SocialGroups\Api\ForumMarkupFields::class),
+
     (new Extend\ApiResource(\Flarum\Api\Resource\UserResource::class))
         ->fields(UserResourceFields::class)
         ->endpoint(
