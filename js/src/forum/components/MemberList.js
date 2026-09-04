@@ -5,6 +5,7 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
 import InviteUserModal from './InviteUserModal';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class MemberList extends Component {
   oninit(vnode) {
@@ -134,7 +135,7 @@ export default class MemberList extends Component {
       ]),
 
       this.loading
-        ? m('div.MemberList-loading', m(LoadingIndicator, { size: 'small', display: 'block' }))
+        ? m(SGSkeleton, { surface: 'members', fallback: 240, rows: 5, variant: 'rows' })
         : this.error
         ? m('div.MemberList-error', app.translator.trans('ernestdefoe-social-groups.forum.group.members_load_error'))
         : this.members.length === 0

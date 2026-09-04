@@ -5,6 +5,7 @@ import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import CreateDiscussionModal from './CreateDiscussionModal';
 import humanTime from 'flarum/common/utils/humanTime';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupDiscussionList extends Component {
   oninit(vnode) {
@@ -100,7 +101,7 @@ export default class GroupDiscussionList extends Component {
 
       // Body
       this.loading
-        ? m('.SGDiscussionList-loading', m(LoadingIndicator, { display: 'block' }))
+        ? m(SGSkeleton, { surface: 'discussions', fallback: 320, rows: 5, variant: 'rows' })
         : !this.discussions || this.discussions.length === 0
         ? m('.SGDiscussionList-empty', [
             m('i.fa-solid.fa-comments'),

@@ -19,6 +19,7 @@ import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
 import LogInModal from 'flarum/forum/components/LogInModal';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupFeed extends Component {
   oninit(vnode) {
@@ -521,7 +522,7 @@ export default class GroupFeed extends Component {
 
       // Feed
       this.loading
-        ? m('.SGFeed-loading', m(LoadingIndicator, { display: 'block' }))
+        ? m(SGSkeleton, { surface: 'feed', fallback: 460, rows: 4 })
         : this.loadDenied
         ? m('.SGFeed-empty', [
             m('i.fa-solid.fa-lock'),

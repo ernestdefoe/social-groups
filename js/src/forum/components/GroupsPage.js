@@ -4,6 +4,7 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import GroupCard from './GroupCard';
 import CreateGroupModal from './CreateGroupModal';
 import app from 'flarum/forum/app';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupsPage extends Page {
   oninit(vnode) {
@@ -120,7 +121,7 @@ export default class GroupsPage extends Page {
 
         // Content
         this.loading
-          ? m('div.GroupsPage-loading', m(LoadingIndicator, { display: 'block' }))
+          ? m(SGSkeleton, { surface: 'index', fallback: 318, rows: 3, variant: 'cards' })
           : this.error
           ? m('div.GroupsPage-error', app.translator.trans('ernestdefoe-social-groups.forum.groups.load_error'))
           : !this.filteredGroups || this.filteredGroups.length === 0
@@ -164,7 +165,7 @@ export default class GroupsPage extends Page {
                     ])
                   : null,
                 regular.length
-                  ? m('div.GroupsPage-grid',
+                  ? m('div.GroupsPage-grid', measure('index'),
                       regular.map((group) => m(GroupCard, {
                         group,
                         key:           group.id(),

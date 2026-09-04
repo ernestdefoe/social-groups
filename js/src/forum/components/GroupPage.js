@@ -8,6 +8,7 @@ import GroupAnalyticsPanel from './GroupAnalyticsPanel';
 import MemberList from './MemberList';
 import JoinRequestsPanel from './JoinRequestsPanel';
 import EditGroupModal from './EditGroupModal';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupPage extends Page {
   oninit(vnode) {
@@ -72,7 +73,7 @@ export default class GroupPage extends Page {
 
   view() {
     if (this.loading) {
-      return m('.GroupPage', m('.GroupPage-loading', m(LoadingIndicator, { display: 'block' })));
+      return m('.GroupPage', m(SGSkeleton, { surface: 'group', fallback: 520, rows: 5 }));
     }
 
     if (this.error || !this.group) {

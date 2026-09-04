@@ -2,6 +2,7 @@ import { apiGet } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupAnalyticsPanel extends Component {
   oninit(vnode) {
@@ -51,7 +52,7 @@ export default class GroupAnalyticsPanel extends Component {
   }
 
   viewBody() {
-    if (this.loading) return m('.SGAnalytics-body', m(LoadingIndicator, { display: 'block' }));
+    if (this.loading) return m('.SGAnalytics-body', m(SGSkeleton, { surface: 'analytics', fallback: 260, rows: 3 }));
     if (this.error)   return m('.SGAnalytics-body.SGAnalytics-error', app.translator.trans('ernestdefoe-social-groups.forum.analytics.error'));
     if (!this.data)   return null;
 

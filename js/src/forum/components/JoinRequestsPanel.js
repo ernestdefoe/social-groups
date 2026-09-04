@@ -3,6 +3,7 @@ import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 /**
  * Shown inside the group sidebar for the creator/admins when there are
@@ -75,7 +76,7 @@ export default class JoinRequestsPanel extends Component {
 
   view() {
     if (this.loading) {
-      return m('.SGJoinRequests', m(LoadingIndicator, { size: 'small' }));
+      return m('.SGJoinRequests', m(SGSkeleton, { surface: 'joinRequests', fallback: 120, rows: 2, variant: 'rows' }));
     }
 
     if (!this.requests || this.requests.length === 0) return null;

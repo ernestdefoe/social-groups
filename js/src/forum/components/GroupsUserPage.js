@@ -3,6 +3,7 @@ import UserPage from 'flarum/forum/components/UserPage';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
 import { apiGet } from '../utils/api';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 /**
  * /u/{username}/groups — every group the member created or joined, reachable
@@ -32,7 +33,7 @@ export default class GroupsUserPage extends UserPage {
 
   content() {
     if (this.groups === null) {
-      return m('div.GroupsUserPage-loading', m(LoadingIndicator, { display: 'block' }));
+      return m(SGSkeleton, { surface: 'userGroups', fallback: 318, rows: 2, variant: 'cards' });
     }
 
     if (this.groups.length === 0) {

@@ -3960,3 +3960,58 @@
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ── loading skeletons ─────────────────────────────────────────────────────
+ *
+ * 🚨 Colours come from the theme's own tokens. A literal grey is invisible on
+ * half the forums this ships to.
+ *
+ * Height is set inline from the remembered size and the bars are allowed to
+ * overshoot and clip, so the space reserved is exactly what came back last
+ * time rather than whatever a whole number of bars happens to add up to.
+ */
+.SGSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.SGSkeleton-bar {
+  display: block;
+  flex: none;
+  height: 64px;
+  border-radius: 10px;
+  background: var(--control-bg);
+  background-image: linear-gradient(
+    90deg,
+    var(--control-bg) 0%,
+    var(--body-bg) 40%,
+    var(--control-bg) 80%
+  );
+  background-size: 300% 100%;
+  animation: SGSkeletonSheen 1.4s ease-in-out infinite;
+}
+
+/* The groups index is a card grid, not a stack — matches .GroupsPage-grid so
+ * swapping one for the other does not move the page. */
+.SGSkeleton--cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.SGSkeleton--cards .SGSkeleton-bar { height: 100%; }
+
+/* A member list is short rows with an avatar, not full-width blocks. */
+.SGSkeleton--rows { gap: 8px; }
+.SGSkeleton--rows .SGSkeleton-bar { height: 40px; border-radius: 8px; }
+
+@keyframes SGSkeletonSheen {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .SGSkeleton-bar { animation: none; }
+}

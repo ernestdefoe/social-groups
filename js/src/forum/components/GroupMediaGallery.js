@@ -4,6 +4,7 @@ import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
+import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupMediaGallery extends Component {
   oninit(vnode) {
@@ -188,7 +189,7 @@ export default class GroupMediaGallery extends Component {
         : null,
 
       this.loading
-        ? m('.SGMedia-loading', m(LoadingIndicator, { display: 'block' }))
+        ? m(SGSkeleton, { surface: 'media', fallback: 300, rows: 3, variant: 'cards' })
         : !this.items || this.items.length === 0
         ? m('.SGMedia-empty', [
             m('i.fa-solid.fa-photo-film'),
