@@ -121,7 +121,7 @@ return [
             [Endpoint\Index::class, Endpoint\Show::class],
             fn ($endpoint) => $endpoint->eagerLoad([
                 'socialGroupPrimary.group',
-                'socialGroupMemberships',
+                'socialGroupMemberships.group',
             ])
         ),
 
@@ -133,7 +133,7 @@ return [
             [Endpoint\Index::class, Endpoint\Show::class],
             fn ($endpoint) => $endpoint->eagerLoad([
                 'user.socialGroupPrimary.group',
-                'user.socialGroupMemberships',
+                'user.socialGroupMemberships.group',
             ])
         ),
 
@@ -142,9 +142,9 @@ return [
             [Endpoint\Index::class, Endpoint\Show::class],
             fn ($endpoint) => $endpoint->eagerLoad([
                 'user.socialGroupPrimary.group',
-                'user.socialGroupMemberships',
+                'user.socialGroupMemberships.group',
                 'lastPostedUser.socialGroupPrimary.group',
-                'lastPostedUser.socialGroupMemberships',
+                'lastPostedUser.socialGroupMemberships.group',
             ])
         ),
 

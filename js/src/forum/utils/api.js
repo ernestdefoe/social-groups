@@ -34,10 +34,11 @@ function buildQueryString(params) {
  * `{ response: <parsed body>, status: <code> }`. Call sites destructure
  * via `.catch(err => err.response?.error)`.
  */
-export function apiGet(path, params) {
+export function apiGet(path, params, options) {
   return app.request({
     method: 'GET',
     url: resolveUrl(path) + buildQueryString(params),
+    ...(options || {}),
   });
 }
 

@@ -10,14 +10,28 @@ use Flarum\Api\Schema;
 use Flarum\User\User;
 
 /**
- * Appends `sgPrimaryGroup` to the core UserResource — the author's chosen
- * primary-group chip rendered in post headers and profile cards without any
- * extra request.
+ * Appends the social-group fields to the core UserResource:
  *
- * The relations this getter reads (socialGroupPrimary.group,
- * socialGroupMemberships) are eager-loaded on the User/Post/Discussion
+ *   • `sgPrimaryGroup` — the author's chosen primary-group chip rendered in
+ *     post headers.
+ *   • `sgGroups` — every group the user is visibly a member of, which is what
+ *     the user-card badges render.
+ *
+ * Both ride on the serialized user so the UI needs NO extra requests. That is
+ * the whole point of `sgGroups`: the badge component used to fire one
+ * `GET /api/sg-user-groups/{id}` per rendered user card, so a page listing 28
+ * users (a follower list, a member list, a user index) fired 28 separate HTTP
+ * requests, each booting Flarum and opening its own DB connection. On shared
+ * hosts that cap new connections per second that burst exhausts the pool and
+ * every request on the forum starts failing with
+ * `SQLSTATE[HY000] [2002] Operation not permitted` — the 500s look like they
+ * come from this extension's endpoint, but the endpoint is just the victim of
+ * its own fan-out.
+ *
+ * The relations these getters read (socialGroupPrimary.group,
+ * socialGroupMemberships.group) are eager-loaded on the User/Post/Discussion
  * endpoints in extend.php, mirroring how core eager-loads `user.groups` for
- * the same author avatars, so the field issues zero per-user queries: a
+ * the same author avatars, so the fields issue zero per-user queries: a
  * 20-author page no longer fires ~60 correlated lookups. Private groups stay
  * gated to their own members and admins.
  *
@@ -57,6 +71,45 @@ class UserResourceFields
                         'imageUrl' => $this->assetUrl->resolve($group->image_url),
                         'color'    => $group->color,
                     ];
+                }),
+
+            /*
+             * The user-card badge list. Same shape, same visibility gate and
+             * same `isPrimary` flag as GET /api/sg-user-groups/{userId}, so the
+             * component renders identically from either source — the endpoint
+             * stays for callers that hold only a user id.
+             */
+            Schema\Arr::make('sgGroups')
+                ->get(function (User $user, Context $context) {
+                    $primaryGroupId = $user->socialGroupPrimary?->group_id;
+                    $primaryGroupId = $primaryGroupId !== null ? (int) $primaryGroupId : null;
+
+                    return $user->socialGroupMemberships
+                        ->filter(fn (SocialGroupMember $m) => $m->banned_at === null)
+                        ->map(function (SocialGroupMember $membership) use ($context, $primaryGroupId) {
+                            $group = $membership->group;
+                            if ($group === null) {
+                                return null;
+                            }
+
+                            if ($group->is_private && ! $this->actorMaySeePrivate($group, $context)) {
+                                return null;
+                            }
+
+                            return [
+                                'id'          => (int) $group->id,
+                                'name'        => $group->name,
+                                'slug'        => $group->slug,
+                                'imageUrl'    => $this->assetUrl->resolve($group->image_url),
+                                'color'       => $group->color,
+                                'memberCount' => (int) $group->member_count,
+                                'role'        => $membership->role,
+                                'isPrimary'   => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
+                            ];
+                        })
+                        ->filter()
+                        ->values()
+                        ->all();
                 }),
         ];
     }

@@ -99,7 +99,7 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
     if (!user || !user.id() || !items || typeof items.add !== 'function') return;
 
     // Always show group badges on every profile card
-    items.add('social-group-badges', m(UserGroupBadges, { userId: user.id() }), -10);
+    items.add('social-group-badges', m(UserGroupBadges, { user, userId: user.id() }), -10);
 
     // Show the primary group selector only on the current user's own card
     if (app.session.user && String(app.session.user.id()) === String(user.id())) {
