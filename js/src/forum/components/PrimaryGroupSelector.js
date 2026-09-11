@@ -1,4 +1,5 @@
-import { apiGet, apiPost } from '../utils/api';
+import { apiPost } from '../utils/api';
+import { fetchUserGroups, invalidateUserGroups } from '../utils/userGroups';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
@@ -26,20 +27,19 @@ export default class PrimaryGroupSelector extends Component {
   loadGroups() {
     if (!app.session.user) { this.loading = false; return; }
 
-    apiGet(`/sg-user-groups/${app.session.user.id()}`)
-      .then((data) => {
-        this.groups = data.data || [];
-        // Restore saved selection from isPrimary flag returned by the API
-        const primary = this.groups.find((g) => g.isPrimary);
-        this.selected = primary ? String(primary.id) : '';
-        this.loading  = false;
-        m.redraw();
-      })
-      .catch(() => {
-        this.groups  = [];
-        this.loading = false;
-        m.redraw();
-      });
+    /*
+     * Shared with the card badges and the profile Groups tab, which render on
+     * the same page — read through the cache or the profile fetches the same
+     * list twice. Copy the rows: `selected` is edited in place below.
+     */
+    fetchUserGroups(app.session.user.id()).then((groups) => {
+      this.groups = groups.map((g) => ({ ...g }));
+      // Restore saved selection from isPrimary flag returned by the API
+      const primary = this.groups.find((g) => g.isPrimary);
+      this.selected = primary ? String(primary.id) : '';
+      this.loading  = false;
+      m.redraw();
+    });
   }
 
   save(groupId) {
@@ -53,6 +53,15 @@ export default class PrimaryGroupSelector extends Component {
         // Reflect new isPrimary state locally so the badge updates without a reload
         if (this.groups) {
           this.groups.forEach((g) => { g.isPrimary = String(g.id) === this.selected; });
+        }
+        // The cached list (and the sgGroups already on the serialized user)
+        // still carry the OLD isPrimary, so drop them — otherwise the next
+        // reader shows the previous badge until a full reload.
+        if (app.session.user) {
+          invalidateUserGroups(app.session.user.id());
+          app.session.user.pushAttributes({
+            sgGroups: this.groups.map((g) => ({ ...g })),
+          });
         }
         this.saving = false;
         m.redraw();

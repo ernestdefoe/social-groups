@@ -2,7 +2,7 @@ import app from 'flarum/forum/app';
 import UserPage from 'flarum/forum/components/UserPage';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
-import { apiGet } from '../utils/api';
+import { fetchUserGroups } from '../utils/userGroups';
 import SGSkeleton, { measure } from './SGSkeleton';
 
 /**
@@ -20,15 +20,10 @@ export default class GroupsUserPage extends UserPage {
 
   show(user) {
     super.show(user);
-    apiGet(`/sg-user-groups/${user.id()}`)
-      .then((data) => {
-        this.groups = data.data || [];
-        m.redraw();
-      })
-      .catch(() => {
-        this.groups = [];
-        m.redraw();
-      });
+    fetchUserGroups(user.id()).then((groups) => {
+      this.groups = groups;
+      m.redraw();
+    });
   }
 
   content() {
