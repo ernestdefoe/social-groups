@@ -168,9 +168,62 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         if ($this->capabilities->isPinned) {
             $query->orderByDesc('social_group_discussions.is_pinned');
         }
-        $query->orderByDesc('social_group_discussions.last_posted_at');
+
+        $this->applySort($query, isset($params['sortBy']) ? (string) $params['sortBy'] : 'latest');
 
         $this->applyEagerLoads($query, $actor);
+    }
+
+    /**
+     * The feed's three orders (SOCI-4). Pinned posts stay on top in all of
+     * them; that is what pinning means.
+     *
+     *   latest   — most recent reply first (the default, as before)
+     *   newest   — most recently started first
+     *   trending — most activity in the last week: new comments, and
+     *              reactions to any post in the thread
+     *
+     * 🚨 Trending's counts are query-builder subqueries, never raw SQL with
+     * table names in it: raw SQL skips the forum's table prefix, so it would
+     * work here and break on every customer forum that has one. toSql() on a
+     * builder has the prefix applied, which is why it is safe to splice.
+     *
+     * `sortBy`, not `sort`: core's Index endpoint owns `sort` and rejects any
+     * field the resource has not declared sortable.
+     */
+    private function applySort(Builder $query, string $sort): void
+    {
+        if ($sort === 'newest') {
+            $query->orderByDesc('social_group_discussions.created_at');
+            $query->orderByDesc('social_group_discussions.id');
+
+            return;
+        }
+
+        if ($sort === 'trending') {
+            $since = \Carbon\Carbon::now()->subDays(7);
+            $connection = $query->getQuery()->getConnection();
+
+            $comments = $connection->table('social_group_posts')
+                ->selectRaw('count(*)')
+                ->whereColumn('social_group_posts.discussion_id', 'social_group_discussions.id')
+                ->where('social_group_posts.created_at', '>=', $since);
+
+            $reactions = $connection->table('social_group_post_reactions')
+                ->join('social_group_posts', 'social_group_posts.id', '=', 'social_group_post_reactions.post_id')
+                ->selectRaw('count(*)')
+                ->whereColumn('social_group_posts.discussion_id', 'social_group_discussions.id')
+                ->where('social_group_post_reactions.created_at', '>=', $since);
+
+            // A comment is worth two reactions: it is somebody joining in, not
+            // only passing by.
+            $query->orderByRaw(
+                '((' . $comments->toSql() . ') * 2 + (' . $reactions->toSql() . ')) desc',
+                array_merge($comments->getBindings(), $reactions->getBindings())
+            );
+        }
+
+        $query->orderByDesc('social_group_discussions.last_posted_at');
     }
 
     /**

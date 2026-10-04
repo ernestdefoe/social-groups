@@ -60,6 +60,7 @@ export default class GroupFeed extends Component {
 
     this.searchQuery  = '';
     this._searchTimer = null;
+    this.sort         = GroupFeed.rememberedSort();
 
     // Poll composer state
     this.poll = null; // null = no poll; object = { question, options: ['', ''], isMultiSelect: false }
@@ -145,6 +146,40 @@ export default class GroupFeed extends Component {
     clearTimeout(this._searchTimer);
   }
 
+  /** Latest reply, newest, or trending — a segmented switch, so all three are visible at once. */
+  viewSort() {
+    const options = ['latest', 'newest', 'trending'];
+
+    return m('.SGFeed-sort', { role: 'radiogroup', 'aria-label': extractText(app.translator.trans('ernestdefoe-social-groups.forum.discussions.sort_label')) },
+      options.map((key) =>
+        m('button.SGFeed-sortOption', {
+          type: 'button',
+          role: 'radio',
+          'aria-checked': this.sort === key ? 'true' : 'false',
+          className: this.sort === key ? 'is-active' : '',
+          onclick: () => this.setSort(key),
+        }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.sort_' + key))
+      )
+    );
+  }
+
+  setSort(key) {
+    if (this.sort === key) return;
+    this.sort = key;
+    try { localStorage.setItem('sg-feed-sort', key); } catch (e) { /* private mode */ }
+    this.load(1);
+  }
+
+  /** The order a member last chose, kept across groups and visits on this device. */
+  static rememberedSort() {
+    try {
+      const saved = localStorage.getItem('sg-feed-sort');
+      return ['latest', 'newest', 'trending'].includes(saved) ? saved : 'latest';
+    } catch (e) {
+      return 'latest';
+    }
+  }
+
   load(page = 1, q = this.searchQuery) {
     const groupId = this.attrs.groupId;
     this.loading  = true;
@@ -156,7 +191,7 @@ export default class GroupFeed extends Component {
     this.loadedComments  = {};
     this.commentsLoading = {};
 
-    listDiscussions(groupId, { page, q })
+    listDiscussions(groupId, { page, q, sort: this.sort })
       .then((data) => {
         this.discussions = data.data || [];
         this.total       = data.total || 0;
@@ -497,7 +532,8 @@ export default class GroupFeed extends Component {
         : null,
       actor && isMember && !isMuted ? this.viewComposer(actor) : null,
 
-      // Search bar
+      // Search, and the feed's order beside it
+      m('.SGFeed-toolbar', [
       m('.SGFeed-search', [
         m('i.fa-solid.fa-magnifying-glass.SGFeed-searchIcon'),
         m('input.SGFeed-searchInput', {
@@ -518,6 +554,8 @@ export default class GroupFeed extends Component {
               },
             }, m('i.fa-solid.fa-xmark'))
           : null,
+      ]),
+      this.viewSort(),
       ]),
 
       // Feed

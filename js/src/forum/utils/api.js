@@ -177,10 +177,10 @@ function projectDiscussionFromResource(d) {
  * firstPost/user relations so projection reads them without extra calls,
  * and a repeat navigation to the same page is served from cache.
  *
- *   listDiscussions(groupId, { page: 1, q: 'foo' })
+ *   listDiscussions(groupId, { page: 1, q: 'foo', sort: 'trending' })
  *     -> { data: [...legacy discussion objects], total, pages }
  */
-export function listDiscussions(groupId, { page = 1, q = '' } = {}) {
+export function listDiscussions(groupId, { page = 1, q = '', sort = 'latest' } = {}) {
   const trimmed = (q || '').trim();
   const params = {
     groupId,
@@ -188,6 +188,7 @@ export function listDiscussions(groupId, { page = 1, q = '' } = {}) {
     include: 'firstPost,firstPost.user,user,lastPostedUser',
   };
   if (trimmed) params.q = trimmed;
+  if (sort && sort !== 'latest') params.sortBy = sort;
 
   return app.store.find('social-group-discussions', params).then((results) => {
     const meta = results.payload?.meta?.page || {};
