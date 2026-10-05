@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups;
 
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
+use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Foundation\AbstractServiceProvider;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
@@ -22,6 +23,8 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
     public function register(): void
     {
         $this->container->singleton(SchemaCapabilities::class);
+
+        $this->container->singleton(UserGroupBatch::class);
 
         // Resolve a concrete schema Builder for SchemaCapabilities so it can
         // type-hint the narrow introspection dependency instead of a whole

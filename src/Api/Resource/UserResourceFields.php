@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Resource;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
+use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Api\Context;
 use Flarum\Api\Schema;
 use Flarum\User\User;
@@ -28,12 +29,12 @@ use Flarum\User\User;
  * come from this extension's endpoint, but the endpoint is just the victim of
  * its own fan-out.
  *
- * The relations these getters read (socialGroupPrimary.group,
- * socialGroupMemberships.group) are eager-loaded on the User/Post/Discussion
- * endpoints in extend.php, mirroring how core eager-loads `user.groups` for
- * the same author avatars, so the fields issue zero per-user queries: a
- * 20-author page no longer fires ~60 correlated lookups. Private groups stay
- * gated to their own members and admins.
+ * Every serialized user's memberships come from UserGroupBatch: each getter
+ * queues its user and returns a deferred value, and the first one resolved
+ * loads every queued user at once. Three queries per request however many
+ * authors the page has, and through however many include paths they arrive.
+ * Private groups stay gated to their own members and admins, and a stale
+ * primary row (set, then the member left or was kicked) shows no chip.
  *
  * GroupAssetUrl is constructor-injected (replacing an in-getter resolve()).
  */
@@ -42,8 +43,10 @@ class UserResourceFields
     /** @var array<int, bool> memo of "actor may see this private group", keyed by group id */
     protected array $actorSeesPrivate = [];
 
-    public function __construct(protected GroupAssetUrl $assetUrl)
-    {
+    public function __construct(
+        protected GroupAssetUrl $assetUrl,
+        protected UserGroupBatch $batch,
+    ) {
     }
 
     public function __invoke(): array
@@ -51,13 +54,12 @@ class UserResourceFields
         return [
             Schema\Arr::make('sgPrimaryGroup')
                 ->nullable()
-                ->get(function (User $user, Context $context) {
-                    $group = $user->socialGroupPrimary?->group;
-                    if ($group === null) {
-                        return null;
-                    }
+                ->get(fn (User $user, Context $context) => $this->deferred($user, $context, function ($primaryGroupId, $memberships) use ($context) {
+                    $group = $primaryGroupId === null ? null : $memberships
+                        ->first(fn (SocialGroupMember $m) => (int) $m->group_id === $primaryGroupId)
+                        ?->group;
 
-                    if (! $this->isActiveMember($user, (int) $group->id)) {
+                    if ($group === null) {
                         return null;
                     }
 
@@ -71,7 +73,7 @@ class UserResourceFields
                         'imageUrl' => $this->assetUrl->resolve($group->image_url),
                         'color'    => $group->color,
                     ];
-                }),
+                })),
 
             /*
              * The user-card badge list. Same shape, same visibility gate and
@@ -80,12 +82,7 @@ class UserResourceFields
              * stays for callers that hold only a user id.
              */
             Schema\Arr::make('sgGroups')
-                ->get(function (User $user, Context $context) {
-                    $primaryGroupId = $user->socialGroupPrimary?->group_id;
-                    $primaryGroupId = $primaryGroupId !== null ? (int) $primaryGroupId : null;
-
-                    return $user->socialGroupMemberships
-                        ->filter(fn (SocialGroupMember $m) => $m->banned_at === null)
+                ->get(fn (User $user, Context $context) => $this->deferred($user, $context, fn ($primaryGroupId, $memberships) => $memberships
                         ->map(function (SocialGroupMember $membership) use ($context, $primaryGroupId) {
                             $group = $membership->group;
                             if ($group === null) {
@@ -109,21 +106,20 @@ class UserResourceFields
                         })
                         ->filter()
                         ->values()
-                        ->all();
-                }),
+                        ->all())),
         ];
     }
 
     /**
-     * Is the profiled user still a non-banned member of their primary group?
-     * Read from the eager-loaded `socialGroupMemberships` collection so a
-     * stale primary row (set, then the user left or was kicked) never shows
-     * the chip — and without issuing a per-user query.
+     * Queue the user now, build their value once the whole page is queued.
+     *
+     * @param callable(int|null, \Illuminate\Support\Collection<int, SocialGroupMember>): mixed $build
      */
-    protected function isActiveMember(User $user, int $groupId): bool
+    protected function deferred(User $user, Context $context, callable $build): \Closure
     {
-        return $user->socialGroupMemberships
-            ->first(fn (SocialGroupMember $m) => (int) $m->group_id === $groupId && $m->banned_at === null) !== null;
+        $this->batch->queue($context->request, (int) $user->id);
+
+        return fn () => $build(...$this->batch->get($context->request, (int) $user->id));
     }
 
     /**

@@ -105,11 +105,6 @@ return [
         ->hasOne('socialGroupPrimary', SocialGroupUserPrimary::class, 'user_id')
         ->hasMany('socialGroupMemberships', SocialGroupMember::class, 'user_id'),
 
-    // The author's primary social group, exposed on every serialized user so
-    // post headers can show the group chip without any extra requests. The
-    // relations the field reads are eager-loaded on the endpoints below
-    // (mirroring core's `user.groups`), so it issues no per-user queries.
-    // Private groups stay gated to their own members/admins inside the field.
     /*
      * Which markup the group composers may emit — see ForumMarkupFields. The
      * toolbar reads this instead of assuming Markdown is installed.
@@ -117,49 +112,13 @@ return [
     (new Extend\ApiResource(\Flarum\Api\Resource\ForumResource::class))
         ->fields(\Ernestdefoe\SocialGroups\Api\ForumMarkupFields::class),
 
+    /*
+     * The primary-group chip and badge list on every serialized user. They
+     * load through UserGroupBatch, once per request for every user on the
+     * page, so no endpoint eager-loads anything for them.
+     */
     (new Extend\ApiResource(\Flarum\Api\Resource\UserResource::class))
-        ->fields(UserResourceFields::class)
-        ->endpoint(
-            [Endpoint\Index::class, Endpoint\Show::class],
-            fn ($endpoint) => $endpoint->eagerLoad([
-                'socialGroupPrimary.group',
-                'socialGroupMemberships.group',
-            ])
-        ),
-
-    // Post/discussion authors render the same chip on their headers, so the
-    // primary-group relations must be eager-loaded through the include path —
-    // exactly how core eager-loads `user.groups` for the same avatars.
-    (new Extend\ApiResource(\Flarum\Api\Resource\PostResource::class))
-        ->endpoint(
-            [Endpoint\Index::class, Endpoint\Show::class],
-            fn ($endpoint) => $endpoint->eagerLoad([
-                'user.socialGroupPrimary.group',
-                'user.socialGroupMemberships.group',
-            ])
-        ),
-
-    (new Extend\ApiResource(\Flarum\Api\Resource\DiscussionResource::class))
-        ->endpoint(
-            [Endpoint\Index::class, Endpoint\Show::class],
-            fn ($endpoint) => $endpoint->eagerLoad([
-                'user.socialGroupPrimary.group',
-                'user.socialGroupMemberships.group',
-                'lastPostedUser.socialGroupPrimary.group',
-                'lastPostedUser.socialGroupMemberships.group',
-            ])
-        )
-        // Core also includes the matching post's author on a search result.
-        // Missing it cost two queries per result on every search (measured:
-        // 16 extra on a 20-result search). The opening post's author needs
-        // nothing: it is the discussion's author, serialized once.
-        ->endpoint(
-            Endpoint\Index::class,
-            fn ($endpoint) => $endpoint->eagerLoad([
-                'mostRelevantPost.user.socialGroupPrimary.group',
-                'mostRelevantPost.user.socialGroupMemberships.group',
-            ])
-        ),
+        ->fields(UserResourceFields::class),
 
     // The directory teaser fields (recentDiscussions) read a hasMany relation
     // that is eager-loaded on Index, collapsing a per-group LIMIT query into a
