@@ -165,7 +165,8 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                           ->orWhereExists(function ($mem) use ($actorId) {
                               $mem->from('social_group_members')
                                   ->whereColumn('social_group_members.group_id', 'social_groups.id')
-                                  ->where('social_group_members.user_id', $actorId);
+                                  ->where('social_group_members.user_id', $actorId)
+                                  ->whereNull('social_group_members.banned_at');
                           });
                     }
                 });

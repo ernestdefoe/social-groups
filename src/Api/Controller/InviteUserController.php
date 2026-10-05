@@ -66,6 +66,13 @@ class InviteUserController implements RequestHandlerInterface
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.already_member')], 422);
             }
 
+            // Re-inviting reverses a ban, so only the group's creator (or a
+            // forum admin) may do it; any moderator could otherwise undo
+            // the creator's ban.
+            if ($existing && ! $actor->isAdmin() && ! ($actorMember && $actorMember->role === 'creator')) {
+                return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.invite_banned')], 403);
+            }
+
             if ($existing) {
                 $existing->banned_at = null;
                 $existing->role      = 'member';

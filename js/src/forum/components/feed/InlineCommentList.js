@@ -75,7 +75,7 @@ function renderComment(post, attrs, actor, t) {
     m('.SGFeed-commentRight', [
       m('.SGFeed-commentBody', [
         m('span.SGFeed-commentAuthor', user?.displayName || ''),
-        m('.SGFeed-commentContent', m.trust(post.contentParsed || post.content || '')),
+        m('.SGFeed-commentContent', post.contentParsed ? m.trust(post.contentParsed) : (post.content || '')),
       ]),
 
       m('.SGFeed-commentFooter', [
