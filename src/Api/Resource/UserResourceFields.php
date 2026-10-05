@@ -40,9 +40,6 @@ use Flarum\User\User;
  */
 class UserResourceFields
 {
-    /** @var array<int, bool> memo of "actor may see this private group", keyed by group id */
-    protected array $actorSeesPrivate = [];
-
     public function __construct(
         protected GroupAssetUrl $assetUrl,
         protected UserGroupBatch $batch,
@@ -124,8 +121,7 @@ class UserResourceFields
 
     /**
      * Private groups only reveal their chip to their own members and admins,
-     * mirroring ListUserGroupsController's gate. Memoized per group id since
-     * the actor is constant across a serialized page.
+     * mirroring ListUserGroupsController's gate.
      */
     protected function actorMaySeePrivate(SocialGroup $group, Context $context): bool
     {
@@ -137,7 +133,6 @@ class UserResourceFields
             return true;
         }
 
-        return $this->actorSeesPrivate[(int) $group->id]
-            ??= $group->activeMembership($actor->id)->exists();
+        return isset($this->batch->actorGroupIds($context->request, (int) $actor->id)[(int) $group->id]);
     }
 }

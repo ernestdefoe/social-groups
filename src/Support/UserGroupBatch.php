@@ -24,7 +24,7 @@ use WeakMap;
  */
 class UserGroupBatch
 {
-    /** @var WeakMap<ServerRequestInterface, array{queued: array<int, true>, primary: array<int, int>, members: array<int, Collection>}> */
+    /** @var WeakMap<ServerRequestInterface, array{queued: array<int, true>, primary: array<int, int>, members: array<int, Collection>, actorGroups?: array<int, true>}> */
     private WeakMap $byRequest;
 
     public function __construct()
@@ -84,4 +84,29 @@ class UserGroupBatch
         return [$state['primary'][$userId] ?? null, $state['members'][$userId]];
     }
 
+    /**
+     * The groups the request's actor is an active member of, for the private
+     * group gate: one query, the first time a private group needs checking.
+     *
+     * 🚨 Per request, so per actor. A memo keyed by group id alone gave the
+     * next actor served by the same process the previous one's answer.
+     *
+     * @return array<int, true>
+     */
+    public function actorGroupIds(ServerRequestInterface $request, int $actorId): array
+    {
+        $state = $this->byRequest[$request] ?? ['queued' => [], 'primary' => [], 'members' => []];
+
+        if (! isset($state['actorGroups'])) {
+            $state['actorGroups'] = SocialGroupMember::query()
+                ->where('user_id', $actorId)
+                ->whereNull('banned_at')
+                ->pluck('group_id')
+                ->mapWithKeys(fn ($id) => [(int) $id => true])
+                ->all();
+            $this->byRequest[$request] = $state;
+        }
+
+        return $state['actorGroups'];
+    }
 }
