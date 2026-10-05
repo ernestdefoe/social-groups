@@ -237,9 +237,12 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->writable()
                 ->maxLength(2000),
 
+            // A hex colour and nothing else: it is spliced into inline styles
+            // on every byline chip, badge and group page.
             Schema\Str::make('color')
                 ->nullable()
-                ->writable(),
+                ->writable()
+                ->regex(SocialGroup::COLOR_PATTERN),
 
             Schema\Str::make('imageUrl')
                 ->nullable()

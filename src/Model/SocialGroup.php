@@ -23,12 +23,25 @@ class SocialGroup extends AbstractModel
 {
     protected $table = 'social_groups';
 
+    /** #rgb, #rgba or #rrggbb (the column holds 7 characters). */
+    public const COLOR_PATTERN = '/^#(?:[0-9a-f]{3,4}|[0-9a-f]{6})$/i';
+
     public $timestamps = true;
 
     protected $casts = [
         'is_private'  => 'boolean',
         'is_featured' => 'boolean',
     ];
+
+    /**
+     * The colour is spliced into inline styles wherever a group is shown, so
+     * anything that is not a plain hex colour reads as no colour at all. That
+     * also defuses a value stored before writes were validated.
+     */
+    public function getColorAttribute($value): ?string
+    {
+        return is_string($value) && preg_match(self::COLOR_PATTERN, $value) ? $value : null;
+    }
 
     public function joinRequests()
     {
