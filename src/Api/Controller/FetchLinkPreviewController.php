@@ -17,6 +17,7 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 {
     private const CACHE_TTL   = 3600;  // 1 hour
     private const MAX_BYTES   = 524288; // 512 KB — enough to find <head> OG tags
+    private const PER_MINUTE  = 20;     // uncached fetches per member per minute
     private const USER_AGENT  = 'flarum-social-groups/1.0 (+https://github.com/ernestdefoe/social-groups)';
 
     public function __construct(
@@ -68,6 +69,19 @@ class FetchLinkPreviewController implements RequestHandlerInterface
             ? (int) $hostParts['port']
             : (($hostParts['scheme'] ?? 'https') === 'http' ? 80 : 443);
 
+        // Web pages only: no probing other services on a public host.
+        if (! in_array($port, [80, 443], true)) {
+            return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.url_host_not_allowed')], 422);
+        }
+
+        // Every uncached preview is an outbound fetch the forum makes for
+        // the member; cap how many one member can start.
+        $rateKey = 'sg-link-preview-rate:' . $actor->id . ':' . intdiv(time(), 60);
+        $this->cache->add($rateKey, 0, 120);
+        if ($this->cache->increment($rateKey) > self::PER_MINUTE) {
+            return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.too_many_previews')], 429);
+        }
+
         // CURLOPT_RESOLVE format: "host:port:ip1,ip2,..." — libcurl
         // skips DNS for this tuple and dials the listed IPs in order.
         $resolveSpec = [sprintf('%s:%d:%s', strtolower($host), $port, implode(',', $publicIps))];
@@ -81,8 +95,12 @@ class FetchLinkPreviewController implements RequestHandlerInterface
                 // built-in redirect follower would re-resolve a NEW
                 // host without our SSRF guard.
                 'allow_redirects' => false,
+                // A slow or silent host must not hold a PHP worker.
+                'timeout'         => 5,
+                'connect_timeout' => 3,
                 'curl'    => [
-                    CURLOPT_RESOLVE => $resolveSpec,
+                    CURLOPT_RESOLVE   => $resolveSpec,
+                    CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 ],
                 'headers' => [
                     'User-Agent' => self::USER_AGENT,
@@ -135,22 +153,29 @@ class FetchLinkPreviewController implements RequestHandlerInterface
             if (is_string($canonical) && $canonical !== '') $host = $canonical;
         }
 
-        $records = @dns_get_record($host, DNS_A + DNS_AAAA);
-        $ips = [];
-        if (is_array($records)) {
-            foreach ($records as $r) {
-                if (! empty($r['ip']))   $ips[] = $r['ip'];
-                if (! empty($r['ipv6'])) $ips[] = $r['ipv6'];
-            }
-        }
-        // Direct-IP URLs and hosts without records that gethostbynamel
-        // can still resolve (e.g. via local /etc/hosts) — make sure
-        // they go through the same screen instead of skipping it.
-        if (empty($ips)) {
-            $literal = gethostbynamel($host);
-            $ips = is_array($literal) ? $literal : [];
-            if (empty($ips) && filter_var($host, FILTER_VALIDATE_IP)) {
-                $ips = [$host];
+        /*
+         * 🚨 An IP literal is taken only in its one canonical spelling.
+         * Resolvers and libcurl disagree about the others: gethostbynamel()
+         * read 0177.0.0.1 as the public 177.0.0.1 while curl dialled octal
+         * 127.0.0.1, so the guard approved a loopback fetch. Anything made
+         * of digits, dots and hex that is not a plain dotted quad (octal,
+         * hex, dword, short forms) is refused outright, and there is no
+         * fallback resolver to read it differently from curl.
+         */
+        $bare = trim($host, '[]');
+        if (filter_var($bare, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            $ips = [$bare];
+        } elseif (preg_match('/^(?:\d+|0x[0-9a-f]*)(?:\.(?:\d*|0x[0-9a-f]*))*$/i', $host)) {
+            if (! self::isCanonicalIpv4($host)) return null;
+            $ips = [$host];
+        } else {
+            $records = @dns_get_record($host, DNS_A + DNS_AAAA);
+            $ips = [];
+            if (is_array($records)) {
+                foreach ($records as $r) {
+                    if (! empty($r['ip']))   $ips[] = $r['ip'];
+                    if (! empty($r['ipv6'])) $ips[] = $r['ipv6'];
+                }
             }
         }
 
@@ -162,9 +187,20 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         return array_values(array_unique($ips));
     }
 
+    /** a.b.c.d, each 0-255 in plain decimal with no leading zero. */
+    private static function isCanonicalIpv4(string $host): bool
+    {
+        return (bool) preg_match('/^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/', $host);
+    }
+
     private function ipIsPublic(string $ip): bool
     {
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+            // 100.64.0.0/10 (carrier-grade NAT) is not covered by PHP's filters.
+            if ((ip2long($ip) & 0xFFC00000) === (ip2long('100.64.0.0') & 0xFFC00000)) {
+                return false;
+            }
+
             return (bool) filter_var(
                 $ip,
                 FILTER_VALIDATE_IP,

@@ -270,6 +270,7 @@ ernestdefoe-social-groups:
       not_member: You are not a member of this group.
       target_group_required: targetGroupId is required.
       sharing_unavailable: Sharing not available on this install.
+      too_many_previews: Too many link previews at once. Try again in a minute.
       target_group_not_found: Target group not found.
       content_too_long: Content may not exceed 20 000 characters.
       post_content_too_long: Post content may not exceed 20 000 characters.
