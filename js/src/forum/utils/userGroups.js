@@ -1,4 +1,4 @@
-import { apiGet } from './api';
+import { apiGet } from './http';
 
 /**
  * Shared read of `GET /api/sg-user-groups/{userId}`.

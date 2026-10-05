@@ -1,5 +1,5 @@
 import {
-  apiUpload,
+  apiPost, apiUpload,
   listThreadPosts,
   createPost, updatePost, deletePost as apiDeletePost,
   pinPost as apiPinPost, reactToPost, unreactToPost,

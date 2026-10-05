@@ -46,6 +46,8 @@ use Psr\Http\Message\ServerRequestInterface;
 return [
     (new Extend\Frontend('forum'))
         ->js(__DIR__ . '/js/dist/forum.js')
+        /** Group pages are lazy chunks; Flarum only publishes them from a declared directory. */
+        ->jsDirectory(__DIR__ . '/js/dist/forum')
         ->css(__DIR__ . '/less/forum.less')
         ->route('/groups', 'ernestdefoe-social-groups.index')
         ->route('/groups/{slug}', 'ernestdefoe-social-groups.show')

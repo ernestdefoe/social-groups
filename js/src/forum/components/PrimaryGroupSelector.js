@@ -1,4 +1,4 @@
-import { apiPost } from '../utils/api';
+import { apiPost } from '../utils/http';
 import { fetchUserGroups, invalidateUserGroups } from '../utils/userGroups';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';

@@ -11,15 +11,11 @@ import SocialGroupDiscussion from './forum/models/SocialGroupDiscussion';
 import SocialGroupPost from './forum/models/SocialGroupPost';
 import SocialGroupMember from './forum/models/SocialGroupMember';
 import SocialGroupJoinRequest from './forum/models/SocialGroupJoinRequest';
-import GroupsPage from './forum/components/GroupsPage';
-import GroupPage from './forum/components/GroupPage';
-import GroupDiscussionThread from './forum/components/GroupDiscussionThread';
 import SocialGroupNewPostNotification from './forum/components/SocialGroupNewPostNotification';
 import SocialGroupNewReplyNotification from './forum/components/SocialGroupNewReplyNotification';
 import SocialGroupJoinRequestNotification from './forum/components/SocialGroupJoinRequestNotification';
 import UserGroupBadges from './forum/components/UserGroupBadges';
 import PrimaryGroupSelector from './forum/components/PrimaryGroupSelector';
-import GroupsUserPage from './forum/components/GroupsUserPage';
 
 app.initializers.add('ernestdefoe-social-groups', (app) => {
   // flarum/realtime integration is per-discussion now: GroupDiscussionThread
@@ -59,25 +55,37 @@ app.initializers.add('ernestdefoe-social-groups', (app) => {
     });
   });
 
-  // Routes
+  // Routes. Each page is its own chunk, fetched when the route is visited,
+  // together with the shared page-styles chunk, so a visitor who never opens
+  // a group pays nothing for the group UI. The styles are injected before the
+  // page resolves, so it never renders unstyled.
+  const page = (load) => () =>
+    Promise.all([
+      load(),
+      import('./forum/pageStyles'),
+    ]).then(([mod, styles]) => {
+      styles.default();
+      return mod;
+    });
+
   app.routes['ernestdefoe-social-groups.index'] = {
     path: '/groups',
-    component: GroupsPage,
+    component: page(() => import('./forum/components/GroupsPage')),
   };
 
   app.routes['ernestdefoe-social-groups.show'] = {
     path: '/groups/:slug',
-    component: GroupPage,
+    component: page(() => import('./forum/components/GroupPage')),
   };
 
   app.routes['ernestdefoe-social-groups.discussion'] = {
     path: '/groups/:slug/d/:discussionId',
-    component: GroupDiscussionThread,
+    component: page(() => import('./forum/components/GroupDiscussionThread')),
   };
 
   app.routes['user.socialGroups'] = {
     path: '/u/:username/groups',
-    component: GroupsUserPage,
+    component: page(() => import('./forum/components/GroupsUserPage')),
   };
 
   // Groups item in the profile sidebar (below Posts/Discussions).
