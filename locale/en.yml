@@ -271,6 +271,7 @@ ernestdefoe-social-groups:
       target_group_required: targetGroupId is required.
       sharing_unavailable: Sharing not available on this install.
       too_many_previews: Too many link previews at once. Try again in a minute.
+      share_private_refused: Posts in a private group can't be shared outside it.
       target_group_not_found: Target group not found.
       content_too_long: Content may not exceed 20 000 characters.
       post_content_too_long: Post content may not exceed 20 000 characters.

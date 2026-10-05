@@ -51,6 +51,16 @@ class ShareDiscussionService
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.sharing_unavailable'));
         }
 
+        /*
+         * 🚨 A private group's thread stays in it. Sharing copies its title
+         * into the target and shows its group, author and opening lines there,
+         * to everyone who can see the target — guests included for a public
+         * one, and members of the target who never joined the private group.
+         */
+        if ($source->group === null || $source->group->is_private) {
+            throw new PermissionDeniedException($this->translator->trans('ernestdefoe-social-groups.lib.errors.share_private_refused'));
+        }
+
         $target = SocialGroup::find($targetGroupId);
         if ($target === null) {
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_not_found'));

@@ -20,6 +20,7 @@ use Flarum\Api\Schema;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\PermissionDeniedException;
+use Flarum\User\User;
 use Illuminate\Database\Eloquent\Builder;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
@@ -417,8 +418,9 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     );
                 }),
 
+            // A private group's threads stay in that group (see ShareDiscussionService).
             Schema\Boolean::make('canShare')
-                ->get(fn ($d, Context $context) => $context->getActor()->exists),
+                ->get(fn ($d, Context $context) => $context->getActor()->exists && ! $d->group?->is_private),
 
             // Mirrors the gate in SocialGroupPostResource::creating(): a
             // reply is only accepted from a privileged actor (admin /
@@ -454,11 +456,11 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
             Schema\Arr::make('sharedFrom')
                 ->visible(fn () => $this->capabilities->sharedFrom)
-                ->get(function (SocialGroupDiscussion $d) {
+                ->get(function (SocialGroupDiscussion $d, Context $context) {
                     if (! $this->capabilities->sharedFrom) {
                         return null;
                     }
-                    return $this->buildSharedFrom($d);
+                    return $this->buildSharedFrom($d, $context->getActor());
                 }),
 
             Schema\Arr::make('poll')
@@ -535,6 +537,16 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         return $this->moderatorCheckCache[$key] = $result;
     }
 
+    /** @var array<string, bool> */
+    private array $groupVisibleCache = [];
+
+    protected function canSeeGroup(User $actor, SocialGroup $group): bool
+    {
+        $key = $actor->id . ':' . $group->id;
+
+        return $this->groupVisibleCache[$key] ??= GroupVisibility::canSee($actor, $group);
+    }
+
     /**
      * Memoized "is the actor an active (non-kicked) member of the group?"
      * check backing the `canReply` field. Mirrors isGroupModerator's
@@ -571,10 +583,20 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         return $this->memberCheckCache[$key] = $result;
     }
 
-    protected function buildSharedFrom(SocialGroupDiscussion $d): ?array
+    protected function buildSharedFrom(SocialGroupDiscussion $d, User $actor): ?array
     {
         $orig = $d->sharedFromDiscussion;
         if ($orig === null) {
+            return null;
+        }
+
+        /*
+         * 🚨 The card names the source group and quotes its first post. A
+         * thread shared out of a private group (or out of one that went
+         * private later) must not show either to someone who cannot see that
+         * group. Memoised per group, so a page of shares costs one check each.
+         */
+        if ($orig->group === null || ($orig->group->is_private && ! $this->canSeeGroup($actor, $orig->group))) {
             return null;
         }
         $fp = $orig->firstPost;
