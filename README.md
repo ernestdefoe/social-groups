@@ -131,10 +131,9 @@ php flarum cache:clear
 
 ## Support
 
-Questions, bug reports, and feature requests:
-
-- **Support forum:** https://ernestdefoe.online
-- **Issues:** https://github.com/ernestdefoe/social-groups/issues
+- **Support forum:** [Social Groups on ernestdefoe.online](https://ernestdefoe.online/d/8)
+- **Flarum community:** [Social Groups on discuss.flarum.org](https://discuss.flarum.org/d/39519-social-groups)
+- **Bug reports:** [GitHub issues](https://github.com/ernestdefoe/social-groups/issues)
 
 ## Discuss
 
