@@ -136,6 +136,10 @@ Questions, bug reports, and feature requests:
 - **Support forum:** https://ernestdefoe.online
 - **Issues:** https://github.com/ernestdefoe/social-groups/issues
 
+## Discuss
+
+Questions, ideas and release notes: [Social Groups on discuss.flarum.org](https://discuss.flarum.org/d/39519-social-groups).
+
 ## License
 
 Released under the [MIT License](LICENSE). © Ernestdefoe
