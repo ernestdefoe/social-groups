@@ -11,6 +11,9 @@
             "email": "ernestdefoe@gmail.com"
         }
     ],
+    "support": {
+        "forum": "https://discuss.flarum.org/d/39519-social-groups"
+    },
     "require": {
         "php": "^8.3",
         "flarum/core": "^2.0"
