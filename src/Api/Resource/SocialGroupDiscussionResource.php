@@ -448,12 +448,31 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     );
                 }),
 
+            // SocialGroupDiscussionPolicy::pin, answered from the per-request
+            // memo: through $actor->can() it ran the same membership query
+            // once for every discussion on the page.
             Schema\Boolean::make('canPin')
                 ->get(function ($d, Context $context) {
                     if (! $this->capabilities->isPinned) {
                         return false;
                     }
-                    return $context->getActor()->can('pin', $d);
+                    $actor = $context->getActor();
+                    if (! $actor->exists) {
+                        return false;
+                    }
+                    if ($actor->isAdmin()
+                        || $actor->hasPermission('ernestdefoe-social-groups.moderate')
+                    ) {
+                        return true;
+                    }
+                    if ($d->group !== null && (int) $actor->id === (int) $d->group->user_id) {
+                        return true;
+                    }
+                    return $this->isGroupModerator(
+                        (int) $actor->id,
+                        (int) $d->group_id,
+                        $d->group,
+                    );
                 }),
 
             Schema\Arr::make('sharedFrom')
@@ -521,9 +540,11 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             return $this->moderatorCheckCache[$key];
         }
 
+        // An active (not kicked) creator or moderator, as the policies have it.
         if ($group !== null) {
             $result = $group->members()
                 ->where('user_id', $actorId)
+                ->whereNull('banned_at')
                 ->whereIn('role', ['creator', 'moderator'])
                 ->exists();
         } else {
@@ -531,6 +552,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 ->where('id', $groupId)
                 ->whereHas('members', fn ($q) =>
                     $q->where('user_id', $actorId)
+                      ->whereNull('banned_at')
                       ->whereIn('role', ['creator', 'moderator'])
                 )
                 ->exists();
