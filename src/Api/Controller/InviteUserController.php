@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Flarum\Http\RequestUtil;
+use Flarum\User\Exception\NotAuthenticatedException;
 use Flarum\User\User;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -97,6 +98,9 @@ class InviteUserController implements RequestHandlerInterface
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
+        } catch (NotAuthenticatedException $e) {
+            // A guest is told to log in (401), not that something broke.
+            throw $e;
         } catch (\Throwable $e) {
             // Internal exception details (raw message, SQL fragments,
             // file paths) go to the server log only.

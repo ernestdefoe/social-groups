@@ -8,6 +8,7 @@ use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPostReaction;
 use Flarum\Http\RequestUtil;
+use Flarum\User\Exception\NotAuthenticatedException;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -131,6 +132,9 @@ class GroupAnalyticsController implements RequestHandlerInterface
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
+        } catch (NotAuthenticatedException $e) {
+            // A guest is told to log in (401), not that something broke.
+            throw $e;
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] GroupAnalyticsController: ' . $e->getMessage(), ['exception' => $e]);
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);

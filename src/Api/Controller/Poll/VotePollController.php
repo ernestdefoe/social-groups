@@ -8,6 +8,7 @@ use Ernestdefoe\SocialGroups\Model\SgPoll;
 use Ernestdefoe\SocialGroups\Model\SgPollVote;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Flarum\Http\RequestUtil;
+use Flarum\User\Exception\NotAuthenticatedException;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -97,6 +98,9 @@ class VotePollController implements RequestHandlerInterface
             });
 
             return new JsonResponse($this->serializePoll($poll, $actor->id));
+        } catch (NotAuthenticatedException $e) {
+            // A guest is told to log in (401), not that something broke.
+            throw $e;
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] VotePollController: ' . $e->getMessage(), ['exception' => $e]);
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);

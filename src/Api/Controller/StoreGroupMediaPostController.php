@@ -6,6 +6,7 @@ use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Service\Media\GalleryPostService;
 use Flarum\Http\RequestUtil;
+use Flarum\User\Exception\NotAuthenticatedException;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -53,6 +54,9 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
             return new JsonResponse(['success' => true, 'postId' => $post->id], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
+        } catch (NotAuthenticatedException $e) {
+            // A guest is told to log in (401), not that something broke.
+            throw $e;
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] StoreGroupMediaPostController: ' . $e->getMessage());
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
