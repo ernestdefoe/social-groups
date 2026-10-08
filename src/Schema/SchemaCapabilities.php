@@ -38,14 +38,13 @@ class SchemaCapabilities
      */
     public function __construct(SchemaBuilder $sb)
     {
-        $this->isGallery   = $sb->hasColumn('social_group_discussions', 'is_gallery');
-        $this->isPinned    = $sb->hasColumn('social_group_discussions', 'is_pinned');
-        $this->sharedFrom  = $sb->hasColumn('social_group_discussions', 'shared_from_discussion_id');
-        $this->polls       = $sb->hasTable('sg_polls')
+        $this->isGallery = $sb->hasColumn('social_group_discussions', 'is_gallery');
+        $this->isPinned = $sb->hasColumn('social_group_discussions', 'is_pinned');
+        $this->sharedFrom = $sb->hasColumn('social_group_discussions', 'shared_from_discussion_id');
+        $this->polls = $sb->hasTable('sg_polls')
                           && $sb->hasTable('sg_poll_options')
                           && $sb->hasTable('sg_poll_votes');
-        $this->reactions   = $sb->hasTable('social_group_post_reactions');
+        $this->reactions = $sb->hasTable('social_group_post_reactions');
         $this->linkPreview = $sb->hasColumn('social_group_posts', 'link_preview');
     }
-
 }

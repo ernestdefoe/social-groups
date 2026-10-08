@@ -22,12 +22,13 @@ class SetPrimaryGroupController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $body    = (array) ($request->getParsedBody() ?? []);
+        $body = (array) ($request->getParsedBody() ?? []);
         $groupId = $body['groupId'] ?? null;
 
         if ($groupId === null) {
             // Clear primary group — drop the companion row entirely.
             SocialGroupUserPrimary::where('user_id', $actor->id)->delete();
+
             return new JsonResponse(['primaryGroupId' => null]);
         }
 
@@ -50,10 +51,10 @@ class SetPrimaryGroupController implements RequestHandlerInterface
         );
 
         return new JsonResponse([
-            'primaryGroupId'    => $group->id,
-            'primaryGroupName'  => $group->name,
+            'primaryGroupId' => $group->id,
+            'primaryGroupName' => $group->name,
             'primaryGroupColor' => $group->color,
-            'primaryGroupSlug'  => $group->slug,
+            'primaryGroupSlug' => $group->slug,
         ]);
     }
 }

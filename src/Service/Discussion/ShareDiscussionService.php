@@ -40,9 +40,9 @@ class ShareDiscussionService
         /** @var SocialGroupDiscussion $source */
         $source = $context->model;
 
-        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $targetGroupId = (int) ($body['targetGroupId'] ?? 0);
-        $content       = trim((string) ($body['content'] ?? ''));
+        $content = trim((string) ($body['content'] ?? ''));
 
         if ($targetGroupId <= 0) {
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_required'));
@@ -84,29 +84,30 @@ class ShareDiscussionService
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.content_too_long'));
         }
 
-        $now           = Carbon::now();
+        $now = Carbon::now();
         $contentParsed = $this->formatter->parse($content);
 
         $discussion = SocialGroupDiscussion::create([
-            'group_id'                  => $target->id,
-            'user_id'                   => $actor->id,
-            'title'                     => mb_substr('Shared: ' . $source->title, 0, 255),
-            'comment_count'             => 1,
-            'last_posted_at'            => $now,
-            'last_posted_user_id'       => $actor->id,
-            'is_locked'                 => false,
+            'group_id' => $target->id,
+            'user_id' => $actor->id,
+            'title' => mb_substr('Shared: '.$source->title, 0, 255),
+            'comment_count' => 1,
+            'last_posted_at' => $now,
+            'last_posted_user_id' => $actor->id,
+            'is_locked' => false,
             'shared_from_discussion_id' => $source->id,
         ]);
 
         SocialGroupPost::create([
-            'discussion_id'  => $discussion->id,
-            'group_id'       => $target->id,
-            'user_id'        => $actor->id,
-            'content'        => $content,
+            'discussion_id' => $discussion->id,
+            'group_id' => $target->id,
+            'user_id' => $actor->id,
+            'content' => $content,
             'content_parsed' => $contentParsed,
         ]);
 
         $context->model = $discussion;
+
         return $discussion;
     }
 }

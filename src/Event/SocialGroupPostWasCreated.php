@@ -14,8 +14,9 @@ use Flarum\User\User;
 class SocialGroupPostWasCreated
 {
     public function __construct(
-        public readonly SocialGroupPost       $post,
-        public readonly User                  $actor,
+        public readonly SocialGroupPost $post,
+        public readonly User $actor,
         public readonly SocialGroupDiscussion $discussion,
-    ) {}
+    ) {
+    }
 }

@@ -16,7 +16,8 @@ class BroadcastGroupPost
     public function __construct(
         private LoggerInterface $log,
         private Container $container,
-    ) {}
+    ) {
+    }
 
     public function handle(SocialGroupPostWasCreated $event): void
     {
@@ -40,18 +41,18 @@ class BroadcastGroupPost
         // `/api/sg-thread-posts/{discussionId}` which is membership-gated.
         // This mirrors CLAUDE.md §29's "broadcast IDs only" pattern.
         $payload = [
-            'id'           => $post->id,
+            'id' => $post->id,
             'discussionId' => $post->discussion_id,
-            'groupId'      => $post->group_id,
+            'groupId' => $post->group_id,
             'parentPostId' => $post->parent_post_id,
         ];
 
-        $channel = 'private-sg-group.' . (int) $post->group_id;
+        $channel = 'private-sg-group.'.(int) $post->group_id;
 
         try {
             $this->container->make('flarum-realtime.pusher')->trigger($channel, 'sg-post-created', $payload);
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] Realtime broadcast failed: ' . $e->getMessage());
+            $this->log->error('[social-groups] Realtime broadcast failed: '.$e->getMessage());
         }
     }
 }

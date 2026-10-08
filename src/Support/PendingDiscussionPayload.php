@@ -14,5 +14,6 @@ class PendingDiscussionPayload
         public readonly string $content,
         public readonly ?array $linkPreview = null,
         public readonly ?array $poll = null,
-    ) {}
+    ) {
+    }
 }

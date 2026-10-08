@@ -2,10 +2,9 @@
 
 namespace Ernestdefoe\SocialGroups\Model;
 
+use Ernestdefoe\SocialGroups\Support\PendingDiscussionPayload;
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
-use Ernestdefoe\SocialGroups\Model\SgPoll;
-use Ernestdefoe\SocialGroups\Support\PendingDiscussionPayload;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -50,9 +49,9 @@ class SocialGroupDiscussion extends AbstractModel
     public ?PendingDiscussionPayload $_sgPending = null;
 
     protected $casts = [
-        'is_locked'      => 'boolean',
-        'is_pinned'      => 'boolean',
-        'is_gallery'     => 'boolean',
+        'is_locked' => 'boolean',
+        'is_pinned' => 'boolean',
+        'is_gallery' => 'boolean',
         'last_posted_at' => 'datetime',
     ];
 

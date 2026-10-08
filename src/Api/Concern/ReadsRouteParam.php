@@ -21,8 +21,8 @@ trait ReadsRouteParam
             return (string) $val;
         }
 
-        $regex = '#' . preg_replace('#\\\{(\w+)\\\}#', '(?P<$1>[^/]+)',
-                preg_quote(ltrim($routeTemplate, '/'), '#')) . '$#';
+        $regex = '#'.preg_replace('#\\\{(\w+)\\\}#', '(?P<$1>[^/]+)',
+            preg_quote(ltrim($routeTemplate, '/'), '#')).'$#';
 
         if (preg_match($regex, ltrim($request->getUri()->getPath(), '/'), $m)) {
             return $m[$name] ?? null;

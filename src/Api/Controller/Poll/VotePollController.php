@@ -24,16 +24,17 @@ class VotePollController implements RequestHandlerInterface
     public function __construct(
         private LoggerInterface $log,
         private TranslatorInterface $translator,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $actor  = RequestUtil::getActor($request);
+            $actor = RequestUtil::getActor($request);
             $actor->assertRegistered();
 
             $pollId = (int) ($this->routeParam($request, 'pollId', '/sg-polls/{pollId}') ?? 0);
-            $body   = (array) ($request->getParsedBody() ?? []);
+            $body = (array) ($request->getParsedBody() ?? []);
             $optionIds = array_map('intval', (array) ($body['optionIds'] ?? []));
 
             $poll = SgPoll::with('options')->find($pollId);
@@ -90,9 +91,9 @@ class VotePollController implements RequestHandlerInterface
 
                 foreach ($optionIds as $optionId) {
                     SgPollVote::create([
-                        'poll_id'   => $pollId,
+                        'poll_id' => $pollId,
                         'option_id' => $optionId,
-                        'user_id'   => $actor->id,
+                        'user_id' => $actor->id,
                     ]);
                 }
             });
@@ -102,7 +103,8 @@ class VotePollController implements RequestHandlerInterface
             // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] VotePollController: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] VotePollController: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }

@@ -29,7 +29,7 @@ class JoinGroupController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id    = $this->routeParam($request, 'id', '/social-groups/{id}');
+        $id = $this->routeParam($request, 'id', '/social-groups/{id}');
         $group = SocialGroup::findOrFail($id);
 
         // Private groups require an invite — for now just block joining
@@ -43,10 +43,11 @@ class JoinGroupController implements RequestHandlerInterface
             if ($existing->banned_at !== null) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.removed_from_group')], 403);
             }
+
             return new JsonResponse([
-                'status'      => 'joined',
+                'status' => 'joined',
                 'memberCount' => $group->member_count,
-                'isMember'    => true,
+                'isMember' => true,
             ]);
         }
 
@@ -83,16 +84,16 @@ class JoinGroupController implements RequestHandlerInterface
         }
 
         $group->members()->create([
-            'user_id'   => $actor->id,
-            'role'      => 'member',
+            'user_id' => $actor->id,
+            'role' => 'member',
             'joined_at' => \Carbon\Carbon::now(),
         ]);
         $group->increment('member_count');
 
         return new JsonResponse([
-            'status'      => 'joined',
+            'status' => 'joined',
             'memberCount' => $group->fresh()->member_count,
-            'isMember'    => true,
+            'isMember' => true,
         ]);
     }
 

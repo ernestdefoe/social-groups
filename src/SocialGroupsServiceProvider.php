@@ -42,7 +42,7 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
             ->needs(ClientInterface::class)
             ->give(function () {
                 return new Client([
-                    'timeout'         => 8,
+                    'timeout' => 8,
                     'connect_timeout' => 5,
                 ]);
             });

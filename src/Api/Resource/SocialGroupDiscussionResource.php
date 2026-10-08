@@ -118,6 +118,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
              * case — applied below after the group-scope branch.
              */
             $this->applyEagerLoads($query, $actor);
+
             return;
         }
 
@@ -133,6 +134,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             // the legacy /sg-discussions/{groupId} contract: discussions
             // are always listed within the scope of ONE group.
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -141,6 +143,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         $group = SocialGroup::find($groupId);
         if ($group === null) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -159,7 +162,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         // names and Flarum answers them with a 400, so a search never ran.
         $q = isset($params['searchTerm']) ? trim((string) $params['searchTerm']) : '';
         if ($q !== '') {
-            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $like = '%'.addcslashes($q, '%_\\').'%';
             // PostgreSQL's LIKE is case-sensitive; its ILIKE is what the
             // other databases' LIKE already is.
             $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
@@ -226,7 +229,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             // A comment is worth two reactions: it is somebody joining in, not
             // only passing by.
             $query->orderByRaw(
-                '((' . $comments->toSql() . ') * 2 + (' . $reactions->toSql() . ')) desc',
+                '(('.$comments->toSql().') * 2 + ('.$reactions->toSql().')) desc',
                 array_merge($comments->getBindings(), $reactions->getBindings())
             );
         }
@@ -363,6 +366,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         }
         $d->is_pinned = ! $d->is_pinned;
         $d->save();
+
         return $d;
     }
 
@@ -418,6 +422,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     ) {
                         return true;
                     }
+
                     return $this->isGroupModerator(
                         (int) $actor->id,
                         (int) $d->group_id,
@@ -446,6 +451,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     ) {
                         return true;
                     }
+
                     return $this->isActiveMember(
                         (int) $actor->id,
                         (int) $d->group_id,
@@ -473,6 +479,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     if ($d->group !== null && (int) $actor->id === (int) $d->group->user_id) {
                         return true;
                     }
+
                     return $this->isGroupModerator(
                         (int) $actor->id,
                         (int) $d->group_id,
@@ -486,6 +493,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     if (! $this->capabilities->sharedFrom) {
                         return null;
                     }
+
                     return $this->buildSharedFrom($d, $context->getActor());
                 }),
 
@@ -497,6 +505,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     if (! $this->capabilities->polls) {
                         return null;
                     }
+
                     return $this->buildPoll($d, $context);
                 }),
 
@@ -540,7 +549,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         if ($actorId <= 0 || $groupId <= 0) {
             return false;
         }
-        $key = $actorId . ':' . $groupId;
+        $key = $actorId.':'.$groupId;
         if (isset($this->moderatorCheckCache[$key])) {
             return $this->moderatorCheckCache[$key];
         }
@@ -555,8 +564,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         } else {
             $result = SocialGroup::query()
                 ->where('id', $groupId)
-                ->whereHas('members', fn ($q) =>
-                    $q->where('user_id', $actorId)
+                ->whereHas('members', fn ($q) => $q->where('user_id', $actorId)
                       ->whereNull('banned_at')
                       ->whereIn('role', ['creator', 'moderator'])
                 )
@@ -571,7 +579,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
     protected function canSeeGroup(User $actor, SocialGroup $group): bool
     {
-        $key = $actor->id . ':' . $group->id;
+        $key = $actor->id.':'.$group->id;
 
         return $this->groupVisibleCache[$key] ??= GroupVisibility::canSee($actor, $group);
     }
@@ -587,7 +595,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         if ($actorId <= 0 || $groupId <= 0) {
             return false;
         }
-        $key = $actorId . ':' . $groupId;
+        $key = $actorId.':'.$groupId;
         if (isset($this->memberCheckCache[$key])) {
             return $this->memberCheckCache[$key];
         }
@@ -601,8 +609,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         } else {
             $result = SocialGroup::query()
                 ->where('id', $groupId)
-                ->whereHas('members', fn ($q) =>
-                    $q->where('user_id', $actorId)
+                ->whereHas('members', fn ($q) => $q->where('user_id', $actorId)
                       ->whereNull('banned_at')
                       ->whereNull('muted_at')
                 )
@@ -629,16 +636,17 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             return null;
         }
         $fp = $orig->firstPost;
+
         return [
             'discussionId' => (int) $orig->id,
-            'title'        => $orig->title,
-            'groupId'      => (int) $orig->group_id,
-            'groupName'    => $orig->group->name,
-            'groupSlug'    => $orig->group->slug,
-            'snippet'      => $fp ? mb_substr(strip_tags($fp->content ?? ''), 0, 200) : '',
-            'user'         => $orig->user ? [
+            'title' => $orig->title,
+            'groupId' => (int) $orig->group_id,
+            'groupName' => $orig->group->name,
+            'groupSlug' => $orig->group->slug,
+            'snippet' => $fp ? mb_substr(strip_tags($fp->content ?? ''), 0, 200) : '',
+            'user' => $orig->user ? [
                 'displayName' => $orig->user->display_name,
-                'avatarUrl'   => $orig->user->avatar_url,
+                'avatarUrl' => $orig->user->avatar_url,
             ] : null,
         ];
     }
@@ -661,22 +669,22 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         // postingMembership excludes kicked AND muted members — a muted
         // member remains in the group but cannot start discussions.
         $isMember = $group->postingMembership($actor->id)->exists();
-        $isOwner  = (int) $actor->id === (int) $group->user_id;
-        $isMod    = $actor->isAdmin()
+        $isOwner = (int) $actor->id === (int) $group->user_id;
+        $isMod = $actor->isAdmin()
                   || $actor->hasPermission('ernestdefoe-social-groups.moderate');
 
         if (! ($isMember || $isOwner || $isMod)) {
             throw new PermissionDeniedException();
         }
 
-        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $attrs = (array) ($body['data']['attributes'] ?? []);
 
-        $content     = trim((string) ($attrs['content'] ?? ''));
+        $content = trim((string) ($attrs['content'] ?? ''));
         $linkPreview = is_array($attrs['linkPreview'] ?? null)
             ? $this->sanitizeLinkPreview($attrs['linkPreview'])
             : null;
-        $pollData    = $this->normalisePollInput($attrs['poll'] ?? null);
+        $pollData = $this->normalisePollInput($attrs['poll'] ?? null);
 
         if ($content === '' && $pollData === null) {
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.content_or_poll_required'));
@@ -698,11 +706,11 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.title_too_long'));
         }
 
-        $model->user_id             = $actor->id;
-        $model->comment_count       = 1;
-        $model->last_posted_at      = \Carbon\Carbon::now();
+        $model->user_id = $actor->id;
+        $model->comment_count = 1;
+        $model->last_posted_at = \Carbon\Carbon::now();
         $model->last_posted_user_id = $actor->id;
-        $model->is_locked           = false;
+        $model->is_locked = false;
 
         // Hand the first-post + poll payload to created() as one typed value
         // object on a declared model property (see SocialGroupDiscussion).
@@ -714,31 +722,31 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
     public function created(object $model, BaseContext $context): ?object
     {
         /** @var SocialGroupDiscussion $model */
-        $payload     = $model->_sgPending;
-        $content     = $payload->content ?? '';
+        $payload = $model->_sgPending;
+        $content = $payload->content ?? '';
         $linkPreview = $payload?->linkPreview;
-        $pollData    = $payload?->poll;
+        $pollData = $payload?->poll;
 
         SocialGroupPost::create([
-            'discussion_id'  => $model->id,
-            'group_id'       => $model->group_id,
-            'user_id'        => $model->user_id,
-            'content'        => $content,
+            'discussion_id' => $model->id,
+            'group_id' => $model->group_id,
+            'user_id' => $model->user_id,
+            'content' => $content,
             'content_parsed' => $content !== '' ? $this->formatter->parse($content) : null,
-            'link_preview'   => $linkPreview,
+            'link_preview' => $linkPreview,
         ]);
 
         if ($pollData !== null && $this->capabilities->polls) {
             $poll = SgPoll::create([
-                'discussion_id'   => $model->id,
-                'question'        => $pollData['question'],
+                'discussion_id' => $model->id,
+                'question' => $pollData['question'],
                 'is_multi_select' => $pollData['is_multi_select'],
-                'ends_at'         => $pollData['ends_at'],
+                'ends_at' => $pollData['ends_at'],
             ]);
             foreach ($pollData['options'] as $i => $optionText) {
                 SgPollOption::create([
-                    'poll_id'    => $poll->id,
-                    'text'       => $optionText,
+                    'poll_id' => $poll->id,
+                    'text' => $optionText,
                     'sort_order' => $i,
                 ]);
             }

@@ -18,7 +18,9 @@ class InviteUserController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator) {}
+    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator)
+    {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -28,7 +30,7 @@ class InviteUserController implements RequestHandlerInterface
 
             $groupId = $this->routeParam($request, 'id', '/social-groups/{id}');
 
-            $body     = (array) ($request->getParsedBody() ?? []);
+            $body = (array) ($request->getParsedBody() ?? []);
             $username = trim((string) ($body['username'] ?? ''));
 
             if (! $groupId || ! $username) {
@@ -43,7 +45,7 @@ class InviteUserController implements RequestHandlerInterface
             // 'admin' role, silently denying invite rights to every
             // user promoted through the normal flow.
             $actorMember = $group->activeMembership($actor->id)->first();
-            $canInvite   = $actor->isAdmin()
+            $canInvite = $actor->isAdmin()
                 || ($actorMember && in_array($actorMember->role, ['creator', 'moderator'], true));
 
             if (! $canInvite) {
@@ -76,24 +78,24 @@ class InviteUserController implements RequestHandlerInterface
 
             if ($existing) {
                 $existing->banned_at = null;
-                $existing->role      = 'member';
+                $existing->role = 'member';
                 $existing->joined_at = \Carbon\Carbon::now();
                 $existing->save();
             } else {
                 $group->members()->create([
-                    'user_id'   => $targetUser->id,
-                    'role'      => 'member',
+                    'user_id' => $targetUser->id,
+                    'role' => 'member',
                     'joined_at' => \Carbon\Carbon::now(),
                 ]);
             }
             $group->increment('member_count');
 
             return new JsonResponse([
-                'userId'      => $targetUser->id,
+                'userId' => $targetUser->id,
                 'displayName' => $targetUser->display_name,
-                'avatarUrl'   => $targetUser->avatar_url,
-                'slug'        => $targetUser->username,
-                'role'        => 'member',
+                'avatarUrl' => $targetUser->avatar_url,
+                'slug' => $targetUser->username,
+                'role' => 'member',
                 'memberCount' => $group->fresh()->member_count,
             ], 201);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -104,7 +106,8 @@ class InviteUserController implements RequestHandlerInterface
         } catch (\Throwable $e) {
             // Internal exception details (raw message, SQL fragments,
             // file paths) go to the server log only.
-            $this->log->error('[social-groups] InviteUserController: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] InviteUserController: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }

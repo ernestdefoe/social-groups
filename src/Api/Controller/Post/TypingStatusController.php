@@ -12,7 +12,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * POST /api/sg-typing
+ * POST /api/sg-typing.
  *
  * Body: { discussionId: int, isTyping: bool }
  *
@@ -25,7 +25,8 @@ class TypingStatusController implements RequestHandlerInterface
     public function __construct(
         private LoggerInterface $log,
         private Container $container,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -36,9 +37,9 @@ class TypingStatusController implements RequestHandlerInterface
             return new EmptyResponse(403);
         }
 
-        $body         = (array) ($request->getParsedBody() ?? []);
+        $body = (array) ($request->getParsedBody() ?? []);
         $discussionId = (int) ($body['discussionId'] ?? 0);
-        $isTyping     = (bool) ($body['isTyping'] ?? false);
+        $isTyping = (bool) ($body['isTyping'] ?? false);
 
         if (! $discussionId) {
             return new EmptyResponse(422);
@@ -69,17 +70,18 @@ class TypingStatusController implements RequestHandlerInterface
         // via app() so the dependency is discoverable and the listener
         // stays testable.
         if ($this->container->bound('flarum-realtime.pusher')) {
-            $channel = 'private-sg-group.' . (int) $discussion->group_id;
+            $channel = 'private-sg-group.'.(int) $discussion->group_id;
+
             try {
                 $this->container->make('flarum-realtime.pusher')->trigger($channel, 'sg-typing', [
                     'discussionId' => $discussionId,
-                    'userId'       => $actor->id,
-                    'displayName'  => $actor->display_name,
-                    'avatarUrl'    => $actor->avatar_url,
-                    'isTyping'     => $isTyping,
+                    'userId' => $actor->id,
+                    'displayName' => $actor->display_name,
+                    'avatarUrl' => $actor->avatar_url,
+                    'isTyping' => $isTyping,
                 ]);
             } catch (\Throwable $e) {
-                $this->log->error('[social-groups] Typing broadcast failed: ' . $e->getMessage());
+                $this->log->error('[social-groups] Typing broadcast failed: '.$e->getMessage());
             }
         }
 

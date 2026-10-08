@@ -105,8 +105,8 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         //   3. Show / include → PK lookup; applies only the
         //      group-visibility filter, without requiring the param.
         $isIndex = $context->endpoint instanceof Endpoint\Index;
-        $params  = $context->request->getQueryParams();
-        $discId  = isset($params['discussionId']) ? (int) $params['discussionId'] : 0;
+        $params = $context->request->getQueryParams();
+        $discId = isset($params['discussionId']) ? (int) $params['discussionId'] : 0;
 
         if ($isIndex) {
             if ($discId <= 0) {
@@ -117,12 +117,14 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                 // visibility, but the cost would be high and the
                 // behaviour unexpected).
                 $query->whereRaw('1 = 0');
+
                 return;
             }
 
             $discussion = SocialGroupDiscussion::with('group')->find($discId);
             if ($discussion === null || $discussion->group === null) {
                 $query->whereRaw('1 = 0');
+
                 return;
             }
             if (! GroupVisibility::canSee($actor, $discussion->group)) {
@@ -142,6 +144,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             if ($this->capabilities->reactions) {
                 $query->with('reactions');
             }
+
             return;
         }
 
@@ -226,6 +229,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         $p = $context->model;
         $p->is_pinned = ! $p->is_pinned;
         $p->save();
+
         return $p;
     }
 
@@ -246,7 +250,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                 ->where('user_id', $actor->id)
                 ->delete();
         } else {
-            $body     = (array) ($context->request->getParsedBody() ?? []);
+            $body = (array) ($context->request->getParsedBody() ?? []);
             $reaction = trim((string) ($body['reaction'] ?? 'like'));
             if (! in_array($reaction, self::REACTIONS, true)) {
                 throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.invalid_reaction'));
@@ -261,6 +265,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         // new state; without this the serializer reads the cached
         // collection from before the mutation.
         $p->load('reactions');
+
         return $p;
     }
 
@@ -271,11 +276,11 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         /** @var Context $context */
         $actor = $context->getActor();
 
-        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $attrs = (array) ($body['data']['attributes'] ?? []);
 
         $discussionId = (int) ($attrs['discussionId'] ?? 0);
-        $content      = trim((string) ($attrs['content'] ?? ''));
+        $content = trim((string) ($attrs['content'] ?? ''));
         $parentPostId = isset($attrs['parentPostId']) ? (int) $attrs['parentPostId'] : null;
 
         if ($discussionId <= 0 || $content === '') {
@@ -324,13 +329,13 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             ? $this->sanitizeLinkPreview($attrs['linkPreview'])
             : null;
 
-        $model->discussion_id  = $discussion->id;
-        $model->group_id       = $discussion->group_id;
-        $model->user_id        = $actor->id;
-        $model->content        = $content;
+        $model->discussion_id = $discussion->id;
+        $model->group_id = $discussion->group_id;
+        $model->user_id = $actor->id;
+        $model->content = $content;
         $model->content_parsed = $this->formatter->parse($content);
         $model->parent_post_id = $parentPostId;
-        $model->link_preview   = $linkPreview;
+        $model->link_preview = $linkPreview;
 
         $model->_sgDiscussionRef = $discussion;
 
@@ -340,21 +345,21 @@ class SocialGroupPostResource extends AbstractDatabaseResource
     public function created(object $model, BaseContext $context): ?object
     {
         /** @var SocialGroupPost $model */
-        $actor      = $context->getActor();
+        $actor = $context->getActor();
         $discussion = $model->_sgDiscussionRef ?? SocialGroupDiscussion::find($model->discussion_id);
         if ($discussion === null) {
             return null;
         }
 
         $discussion->increment('comment_count');
-        $discussion->last_posted_at      = \Carbon\Carbon::now();
+        $discussion->last_posted_at = \Carbon\Carbon::now();
         $discussion->last_posted_user_id = $actor->id;
         $discussion->save();
 
         try {
             $this->events->dispatch(new SocialGroupPostWasCreated($model, $actor, $discussion));
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] Realtime event dispatch failed: ' . $e->getMessage());
+            $this->log->error('[social-groups] Realtime event dispatch failed: '.$e->getMessage());
         }
 
         try {
@@ -382,7 +387,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                 }
             }
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] Notification failed: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] Notification failed: '.$e->getMessage(), ['exception' => $e]);
         }
 
         return null;
@@ -391,7 +396,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
     public function updating(object $model, BaseContext $context): ?object
     {
         /** @var SocialGroupPost $model */
-        $body  = (array) ($context->request->getParsedBody() ?? []);
+        $body = (array) ($context->request->getParsedBody() ?? []);
         $attrs = (array) ($body['data']['attributes'] ?? []);
 
         if (! array_key_exists('content', $attrs)) {
@@ -405,7 +410,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.post_content_too_long'));
         }
 
-        $model->content        = $content;
+        $model->content = $content;
         $model->content_parsed = $this->formatter->parse($content);
 
         return null;
@@ -492,6 +497,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                     if (! $this->capabilities->linkPreview) {
                         return null;
                     }
+
                     return $post->link_preview;
                 }),
 
@@ -501,6 +507,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                     if (! $this->capabilities->reactions) {
                         return (object) [];
                     }
+
                     return $this->aggregateReactions($post);
                 }),
 
@@ -520,6 +527,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                             return $r->reaction;
                         }
                     }
+
                     return null;
                 }),
 
@@ -538,6 +546,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                     if (! $actor->exists) {
                         return false;
                     }
+
                     // Mirror SocialGroupPostPolicy::edit — global admins may
                     // edit any post. Without this the feed/thread UI hid the
                     // Edit action from admins even though the PATCH would pass.
@@ -558,6 +567,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                     ) {
                         return true;
                     }
+
                     return $this->isInGroupModerator($actor, $post->group_id);
                 }),
 
@@ -575,6 +585,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                     ) {
                         return true;
                     }
+
                     return $this->isInGroupModerator($actor, $post->group_id);
                 }),
 
@@ -607,7 +618,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             return false;
         }
 
-        $key = ((int) $actor->id) . ':' . $groupId;
+        $key = ((int) $actor->id).':'.$groupId;
         if (isset($this->moderatorCheckCache[$key])) {
             return $this->moderatorCheckCache[$key];
         }
@@ -640,6 +651,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                 // fall through to escape fallback
             }
         }
+
         return nl2br(htmlspecialchars($post->content ?? '', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
     }
 
@@ -656,6 +668,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             $key = $r->reaction;
             $counts[$key] = ($counts[$key] ?? 0) + 1;
         }
+
         return (object) $counts;
     }
 }

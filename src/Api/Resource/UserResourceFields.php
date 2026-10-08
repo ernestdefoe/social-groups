@@ -65,10 +65,10 @@ class UserResourceFields
                     }
 
                     return [
-                        'name'     => $group->name,
-                        'slug'     => $group->slug,
+                        'name' => $group->name,
+                        'slug' => $group->slug,
                         'imageUrl' => $this->assetUrl->resolve($group->image_url),
-                        'color'    => $group->color,
+                        'color' => $group->color,
                     ];
                 })),
 
@@ -91,14 +91,14 @@ class UserResourceFields
                             }
 
                             return [
-                                'id'          => (int) $group->id,
-                                'name'        => $group->name,
-                                'slug'        => $group->slug,
-                                'imageUrl'    => $this->assetUrl->resolve($group->image_url),
-                                'color'       => $group->color,
+                                'id' => (int) $group->id,
+                                'name' => $group->name,
+                                'slug' => $group->slug,
+                                'imageUrl' => $this->assetUrl->resolve($group->image_url),
+                                'color' => $group->color,
                                 'memberCount' => (int) $group->member_count,
-                                'role'        => $membership->role,
-                                'isPrimary'   => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
+                                'role' => $membership->role,
+                                'isPrimary' => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
                             ];
                         })
                         ->filter()

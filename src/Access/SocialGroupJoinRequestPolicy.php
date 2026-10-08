@@ -29,6 +29,7 @@ class SocialGroupJoinRequestPolicy extends AbstractPolicy
     protected function canDecide(User $actor, SocialGroupJoinRequest $request): bool
     {
         $group = $request->group;
+
         return $group !== null && $actor->can('edit', $group);
     }
 }

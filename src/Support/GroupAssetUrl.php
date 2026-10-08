@@ -12,7 +12,9 @@ use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
  */
 class GroupAssetUrl
 {
-    public function __construct(protected FilesystemFactory $filesystem) {}
+    public function __construct(protected FilesystemFactory $filesystem)
+    {
+    }
 
     public function resolve(?string $stored): ?string
     {
@@ -22,6 +24,7 @@ class GroupAssetUrl
         if (preg_match('#^https?://#i', $stored)) {
             return $stored;
         }
+
         return $this->filesystem->disk('flarum-assets')->url(ltrim($stored, '/'));
     }
 }

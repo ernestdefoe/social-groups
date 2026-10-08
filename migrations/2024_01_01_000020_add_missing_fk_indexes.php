@@ -40,14 +40,16 @@ return [
                 $schema->table('social_group_discussions', function (Blueprint $table) {
                     $table->dropIndex('sgd_last_posted_user_id_index');
                 });
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
         }
         if ($schema->hasTable('social_group_posts')) {
             try {
                 $schema->table('social_group_posts', function (Blueprint $table) {
                     $table->dropIndex('sgp_parent_post_id_index');
                 });
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+            }
         }
     },
 ];

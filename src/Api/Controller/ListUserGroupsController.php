@@ -18,12 +18,14 @@ class ListUserGroupsController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private GroupAssetUrl $assetUrl, private TranslatorInterface $translator) {}
+    public function __construct(private LoggerInterface $log, private GroupAssetUrl $assetUrl, private TranslatorInterface $translator)
+    {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $actor  = RequestUtil::getActor($request);
+            $actor = RequestUtil::getActor($request);
             $userId = (int) ($this->routeParam($request, 'userId', '/sg-user-groups/{userId}') ?? 0);
 
             $profileUser = User::find($userId);
@@ -52,29 +54,36 @@ class ListUserGroupsController implements RequestHandlerInterface
 
             $groups = $memberships->map(function ($membership) use ($actor, $primaryGroupId, $actorGroupIds) {
                 $group = $membership->group;
-                if (! $group) return null;
+                if (! $group) {
+                    return null;
+                }
 
                 if ($group->is_private) {
-                    if (! $actor->exists) return null;
+                    if (! $actor->exists) {
+                        return null;
+                    }
                     $isMember = in_array((int) $group->id, $actorGroupIds, true);
-                    if (! $isMember && ! $actor->isAdmin()) return null;
+                    if (! $isMember && ! $actor->isAdmin()) {
+                        return null;
+                    }
                 }
 
                 return [
-                    'id'          => $group->id,
-                    'name'        => $group->name,
-                    'slug'        => $group->slug,
-                    'imageUrl'    => $this->assetUrl->resolve($group->image_url),
-                    'color'       => $group->color,
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'slug' => $group->slug,
+                    'imageUrl' => $this->assetUrl->resolve($group->image_url),
+                    'color' => $group->color,
                     'memberCount' => (int) $group->member_count,
-                    'role'        => $membership->role,
-                    'isPrimary'   => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
+                    'role' => $membership->role,
+                    'isPrimary' => $primaryGroupId !== null && (int) $group->id === $primaryGroupId,
                 ];
             })->filter()->values();
 
             return new JsonResponse(['data' => $groups->toArray()]);
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] ListUserGroupsController: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] ListUserGroupsController: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }

@@ -19,7 +19,7 @@ class LeaveGroupController implements RequestHandlerInterface
         $actor = RequestUtil::getActor($request);
         $actor->assertRegistered();
 
-        $id    = $this->routeParam($request, 'id', '/social-groups/{id}');
+        $id = $this->routeParam($request, 'id', '/social-groups/{id}');
         $group = SocialGroup::findOrFail($id);
 
         // Creators cannot leave their own group — they must delete it.
@@ -45,7 +45,7 @@ class LeaveGroupController implements RequestHandlerInterface
 
         return new JsonResponse([
             'memberCount' => $group->fresh()->member_count,
-            'isMember'    => false,
+            'isMember' => false,
         ]);
     }
 }

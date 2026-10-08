@@ -15,6 +15,6 @@ use Illuminate\Database\Schema\Builder;
  * raw closure form is required: there is no Migration helper for a no-op.
  */
 return [
-    'up'   => function (Builder $schema) {},
+    'up' => function (Builder $schema) {},
     'down' => function (Builder $schema) {},
 ];

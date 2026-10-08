@@ -63,7 +63,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
     {
         $this->moderatorCheckCache = [];
 
-        $actor  = RequestUtil::getActor($context->request);
+        $actor = RequestUtil::getActor($context->request);
         $params = $context->request->getQueryParams();
 
         // scope() runs for Index AND for the action endpoints
@@ -74,6 +74,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
         $isIndex = $context->endpoint instanceof Endpoint\Index;
         if (! $isIndex) {
             $query->with('user');
+
             return;
         }
 
@@ -82,12 +83,14 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
         $groupId = isset($params['groupId']) ? (int) $params['groupId'] : 0;
         if ($groupId <= 0) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
         $group = SocialGroup::find($groupId);
         if ($group === null) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -192,6 +195,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                         return false;
                     }
                     $group = $m->group;
+
                     return $group !== null && (int) $actor->id === (int) $group->user_id;
                 }),
 
@@ -239,7 +243,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             return false;
         }
 
-        $key = ((int) $actor->id) . ':' . $groupId;
+        $key = ((int) $actor->id).':'.$groupId;
         if (isset($this->moderatorCheckCache[$key])) {
             return $this->moderatorCheckCache[$key];
         }
@@ -274,6 +278,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
         }
         $target->role = $role;
         $target->save();
+
         return $target;
     }
 

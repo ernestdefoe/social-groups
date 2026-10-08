@@ -20,19 +20,21 @@ class GroupAnalyticsController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator) {}
+    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator)
+    {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $actor   = RequestUtil::getActor($request);
+            $actor = RequestUtil::getActor($request);
             $actor->assertRegistered();
 
             $groupId = $this->routeParam($request, 'groupId', '/sg-analytics/{groupId}');
-            $group   = SocialGroup::findOrFail($groupId);
+            $group = SocialGroup::findOrFail($groupId);
 
             $actorMember = $group->activeMembership($actor->id)->first();
-            $actorRole   = $actorMember?->role;
+            $actorRole = $actorMember?->role;
 
             $canView = $actor->isAdmin()
                 || in_array($actorRole, ['creator', 'moderator'], true);
@@ -59,7 +61,7 @@ class GroupAnalyticsController implements RequestHandlerInterface
 
             $memberGrowth = [];
             for ($i = 29; $i >= 0; $i--) {
-                $day            = Carbon::now()->subDays($i)->format('Y-m-d');
+                $day = Carbon::now()->subDays($i)->format('Y-m-d');
                 $memberGrowth[] = ['date' => $day, 'count' => (int) ($joinsByDay[$day] ?? 0)];
             }
 
@@ -76,11 +78,11 @@ class GroupAnalyticsController implements RequestHandlerInterface
 
             $postVolume = [];
             for ($i = 7; $i >= 0; $i--) {
-                $start    = Carbon::now()->subWeeks($i)->startOfWeek();
-                $end      = $start->copy()->endOfWeek();
+                $start = Carbon::now()->subWeeks($i)->startOfWeek();
+                $end = $start->copy()->endOfWeek();
                 $startStr = $start->format('Y-m-d');
-                $endStr   = $end->format('Y-m-d');
-                $count    = 0;
+                $endStr = $end->format('Y-m-d');
+                $count = 0;
                 foreach ($postsByDay as $day => $cnt) {
                     if ($day >= $startStr && $day <= $endStr) {
                         $count += (int) $cnt;
@@ -101,18 +103,18 @@ class GroupAnalyticsController implements RequestHandlerInterface
                 ->with('user')
                 ->get()
                 ->map(fn (SocialGroupPost $p) => [
-                    'postId'         => $p->id,
-                    'discussionId'   => $p->discussion_id,
-                    'snippet'        => mb_substr(strip_tags($p->content), 0, 120),
+                    'postId' => $p->id,
+                    'discussionId' => $p->discussion_id,
+                    'snippet' => mb_substr(strip_tags($p->content), 0, 120),
                     'totalReactions' => (int) $p->getAttribute('total_reactions'),
-                    'user'           => $p->user ? [
+                    'user' => $p->user ? [
                         'displayName' => $p->user->display_name,
-                        'avatarUrl'   => $p->user->avatar_url,
+                        'avatarUrl' => $p->user->avatar_url,
                     ] : null,
                 ]);
 
             // ── Summary stats ─────────────────────────────────────────────
-            $totalPosts     = SocialGroupPost::where('group_id', $groupId)->count();
+            $totalPosts = SocialGroupPost::where('group_id', $groupId)->count();
             // Join instead of a correlated whereHas subquery (planner can hash-join
             // on the indexed FK rather than re-run a subquery per reaction row).
             $totalReactions = SocialGroupPostReaction::query()
@@ -122,13 +124,13 @@ class GroupAnalyticsController implements RequestHandlerInterface
 
             return new JsonResponse([
                 'summary' => [
-                    'totalMembers'   => (int) $group->member_count,
-                    'totalPosts'     => $totalPosts,
+                    'totalMembers' => (int) $group->member_count,
+                    'totalPosts' => $totalPosts,
                     'totalReactions' => $totalReactions,
                 ],
                 'memberGrowth' => $memberGrowth,
-                'postVolume'   => $postVolume,
-                'topPosts'     => $topPosts->values(),
+                'postVolume' => $postVolume,
+                'topPosts' => $topPosts->values(),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
@@ -136,7 +138,8 @@ class GroupAnalyticsController implements RequestHandlerInterface
             // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] GroupAnalyticsController: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] GroupAnalyticsController: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }
@@ -169,9 +172,9 @@ class GroupAnalyticsController implements RequestHandlerInterface
     private function dayExpr(string $column, string $driver): string
     {
         return match ($driver) {
-            'pgsql'  => "to_char($column, 'YYYY-MM-DD')",
+            'pgsql' => "to_char($column, 'YYYY-MM-DD')",
             'sqlite' => "strftime('%Y-%m-%d', $column)",
-            default  => "DATE($column)",
+            default => "DATE($column)",
         };
     }
 }

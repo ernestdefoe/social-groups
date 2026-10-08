@@ -11,11 +11,12 @@ use Flarum\User\User;
 class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInterface
 {
     public function __construct(
-        private SocialGroupPost       $post,
-        private User                  $actor,
-        private SocialGroupPost       $parentPost,
+        private SocialGroupPost $post,
+        private User $actor,
+        private SocialGroupPost $parentPost,
         private SocialGroupDiscussion $discussion
-    ) {}
+    ) {
+    }
 
     public function getFromUser(): ?User
     {
@@ -35,12 +36,12 @@ class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInter
     public function getData(): array
     {
         return [
-            'postId'          => $this->post->id,
-            'parentPostId'    => $this->parentPost->id,
-            'discussionId'    => $this->discussion->id,
+            'postId' => $this->post->id,
+            'parentPostId' => $this->parentPost->id,
+            'discussionId' => $this->discussion->id,
             'discussionTitle' => $this->discussion->title ?? '',
-            'groupId'         => $this->discussion->group_id,
-            'groupSlug'       => $this->discussion->group->slug ?? '',
+            'groupId' => $this->discussion->group_id,
+            'groupSlug' => $this->discussion->group->slug ?? '',
         ];
     }
 

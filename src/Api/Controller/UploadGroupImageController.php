@@ -68,6 +68,7 @@ class UploadGroupImageController implements RequestHandlerInterface
         $size = $file->getSize();
         if ($size === null || $size <= 0 || $size > $maxSize) {
             $maxMb = round($maxSize / (1024 * 1024), 1);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.file_too_large', ['{max}' => $maxMb])], 422);
         }
 
@@ -94,7 +95,7 @@ class UploadGroupImageController implements RequestHandlerInterface
             $this->deleteOldFile($disk, $group->image_url);
         }
 
-        $filename = 'social-groups/' . $group->id . '-' . $type . '-' . time() . '.' . $ext;
+        $filename = 'social-groups/'.$group->id.'-'.$type.'-'.time().'.'.$ext;
 
         $disk->put($filename, $streamContents, 'public');
 
@@ -137,7 +138,7 @@ class UploadGroupImageController implements RequestHandlerInterface
             return ltrim($stored, '/');
         }
 
-        $probe  = $disk->url('__sgkey__');
+        $probe = $disk->url('__sgkey__');
         $marker = strrpos($probe, '__sgkey__');
         if ($marker !== false) {
             $base = substr($probe, 0, $marker);
@@ -147,6 +148,7 @@ class UploadGroupImageController implements RequestHandlerInterface
         }
 
         $path = parse_url($stored, PHP_URL_PATH);
+
         return is_string($path) ? ltrim($path, '/') : '';
     }
 }

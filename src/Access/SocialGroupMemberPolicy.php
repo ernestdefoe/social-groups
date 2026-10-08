@@ -27,6 +27,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         if ($actor->isAdmin()) {
             return $this->allow();
         }
+
         return $this->isGroupCreator($actor, $member) ? $this->allow() : null;
     }
 
@@ -35,6 +36,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         if ($actor->isAdmin()) {
             return $this->allow();
         }
+
         return $this->isGroupCreator($actor, $member) ? $this->allow() : null;
     }
 
@@ -62,6 +64,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         $isMod = $group->activeMembership($actor->id)
             ->whereIn('role', ['creator', 'moderator'])
             ->exists();
+
         return $isMod ? $this->allow() : null;
     }
 
@@ -81,6 +84,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         if ($group === null) {
             return false;
         }
+
         return $group->activeMembership($actor->id)
             ->where('role', 'creator')
             ->exists();

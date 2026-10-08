@@ -26,7 +26,7 @@ trait HandlesDiscussionPoll
         if ($poll === null) {
             return null;
         }
-        $actor   = $context->getActor();
+        $actor = $context->getActor();
         $options = $poll->options->sortBy('sort_order');
 
         /*
@@ -44,15 +44,15 @@ trait HandlesDiscussionPoll
         $totalVotes = (int) $options->sum(fn ($o) => (int) ($o->votes_count ?? 0));
 
         return [
-            'id'                  => (int) $poll->id,
-            'question'            => $poll->question,
-            'isMultiSelect'       => (bool) $poll->is_multi_select,
-            'endsAt'              => $poll->ends_at?->toIso8601String(),
-            'totalVotes'          => $totalVotes,
+            'id' => (int) $poll->id,
+            'question' => $poll->question,
+            'isMultiSelect' => (bool) $poll->is_multi_select,
+            'endsAt' => $poll->ends_at?->toIso8601String(),
+            'totalVotes' => $totalVotes,
             'actorVotedOptionIds' => array_map('intval', $actorVotes),
-            'options'             => $options->map(fn ($o) => [
-                'id'        => (int) $o->id,
-                'text'      => $o->text,
+            'options' => $options->map(fn ($o) => [
+                'id' => (int) $o->id,
+                'text' => $o->text,
                 'voteCount' => (int) ($o->votes_count ?? 0),
             ])->values()->all(),
         ];
@@ -69,7 +69,7 @@ trait HandlesDiscussionPoll
             return null;
         }
         $question = trim((string) ($raw['question'] ?? ''));
-        $options  = array_values(array_filter(
+        $options = array_values(array_filter(
             array_map(
                 fn ($t) => mb_substr(trim((string) $t), 0, 255),
                 (array) ($raw['options'] ?? [])
@@ -79,11 +79,12 @@ trait HandlesDiscussionPoll
         if ($question === '' || count($options) < 2 || count($options) > 6) {
             return null;
         }
+
         return [
-            'question'        => mb_substr($question, 0, 500),
-            'options'         => $options,
+            'question' => mb_substr($question, 0, 500),
+            'options' => $options,
             'is_multi_select' => ! empty($raw['isMultiSelect']),
-            'ends_at'         => null,
+            'ends_at' => null,
         ];
     }
 }

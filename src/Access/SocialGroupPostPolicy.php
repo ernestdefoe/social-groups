@@ -36,6 +36,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
             ->where('user_id', $actor->id)
             ->whereNull('banned_at')
             ->exists();
+
         return $active ? $this->allow() : null;
     }
 
@@ -58,6 +59,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
         $isMod = $group->activeMembership($actor->id)
             ->whereIn('role', ['creator', 'moderator'])
             ->exists();
+
         return $isMod ? $this->allow() : null;
     }
 
@@ -78,6 +80,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
         $isMod = $group->activeMembership($actor->id)
             ->whereIn('role', ['creator', 'moderator'])
             ->exists();
+
         return $isMod ? $this->allow() : null;
     }
 
@@ -98,6 +101,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
             ->where('user_id', $actor->id)
             ->whereNull('banned_at')
             ->exists();
+
         return $active ? $this->allow() : null;
     }
 }

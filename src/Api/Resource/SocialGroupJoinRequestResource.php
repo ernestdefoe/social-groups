@@ -58,6 +58,7 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
         $isIndex = $context->endpoint instanceof Endpoint\Index;
         if (! $isIndex) {
             $query->with('user');
+
             return;
         }
 
@@ -66,12 +67,14 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
         $groupId = isset($params['groupId']) ? (int) $params['groupId'] : 0;
         if ($groupId <= 0) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
         $group = SocialGroup::find($groupId);
         if ($group === null) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -164,8 +167,8 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
             $existing = $group->members()->where('user_id', $req->user_id)->first();
             if ($existing === null) {
                 $group->members()->create([
-                    'user_id'   => $req->user_id,
-                    'role'      => 'member',
+                    'user_id' => $req->user_id,
+                    'role' => 'member',
                     'joined_at' => \Carbon\Carbon::now(),
                 ]);
                 $group->increment('member_count');
@@ -181,6 +184,7 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
         $req = $context->model;
         $req->status = 'rejected';
         $req->save();
+
         return $req;
     }
 }

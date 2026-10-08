@@ -25,16 +25,17 @@ class ListGroupMediaController implements RequestHandlerInterface
         private Formatter $formatter,
         private LoggerInterface $log,
         private TranslatorInterface $translator,
-    ) {}
+    ) {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
         try {
-            $actor   = RequestUtil::getActor($request);
-            $params  = $request->getQueryParams();
+            $actor = RequestUtil::getActor($request);
+            $params = $request->getQueryParams();
             $groupId = (int) ($this->routeParam($request, 'groupId', '/sg-media/{groupId}') ?? 0);
-            $page    = max(1, (int) ($params['page'] ?? 1));
-            $offset  = ($page - 1) * self::PER_PAGE;
+            $page = max(1, (int) ($params['page'] ?? 1));
+            $offset = ($page - 1) * self::PER_PAGE;
 
             $group = SocialGroup::findOrFail($groupId);
 
@@ -52,8 +53,7 @@ class ListGroupMediaController implements RequestHandlerInterface
             //   2. Ordinary feed posts that embed an uploaded image — so a
             //      photo shared in the feed also shows up under Media (was the
             //      reported "fof/upload images don't appear in the Media tab").
-            $galleryDiscussionIds = \Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion
-                ::where('group_id', $groupId)
+            $galleryDiscussionIds = \Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion::where('group_id', $groupId)
                 ->where('is_gallery', true)
                 ->pluck('id')
                 ->all();
@@ -92,7 +92,7 @@ class ListGroupMediaController implements RequestHandlerInterface
                 try {
                     if ($post->content_parsed !== null) {
                         $rendered = $this->formatter->render($post->content_parsed);
-                        $urls     = $this->extractImageUrls($rendered);
+                        $urls = $this->extractImageUrls($rendered);
                     } else {
                         $urls = $this->extractRawUrls($post->content ?? '');
                     }
@@ -102,28 +102,28 @@ class ListGroupMediaController implements RequestHandlerInterface
 
                 foreach ($urls as $url) {
                     $items[] = [
-                        'url'          => $url,
-                        'postId'       => $post->id,
+                        'url' => $url,
+                        'postId' => $post->id,
                         'discussionId' => $post->discussion_id,
                         // Gallery-archive items live in the hidden "__gallery__"
                         // discussion, which isn't a navigable thread — the
                         // lightbox uses this to suppress its "View post" link
                         // (was the reported broken edit/reply on that thread).
-                        'isGallery'    => isset($gallerySet[$post->discussion_id]),
-                        'createdAt'    => $post->created_at?->toIso8601String(),
-                        'user'         => $post->user ? [
-                            'id'          => $post->user->id,
+                        'isGallery' => isset($gallerySet[$post->discussion_id]),
+                        'createdAt' => $post->created_at?->toIso8601String(),
+                        'user' => $post->user ? [
+                            'id' => $post->user->id,
                             'displayName' => $post->user->display_name,
-                            'avatarUrl'   => $post->user->avatar_url,
+                            'avatarUrl' => $post->user->avatar_url,
                         ] : null,
                     ];
                 }
             }
 
             return new JsonResponse([
-                'data'  => $items,
+                'data' => $items,
                 'total' => $total,
-                'page'  => $page,
+                'page' => $page,
                 'pages' => (int) ceil($total / self::PER_PAGE),
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -132,7 +132,8 @@ class ListGroupMediaController implements RequestHandlerInterface
             // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] ListGroupMediaController: ' . $e->getMessage(), ['exception' => $e]);
+            $this->log->error('[social-groups] ListGroupMediaController: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }
@@ -147,20 +148,23 @@ class ListGroupMediaController implements RequestHandlerInterface
         preg_match_all('#https?://[^\s\[\]<>"\']+#i', $content, $matches);
         // Strip any trailing punctuation that may still be attached
         $urls = array_map(fn ($u) => rtrim($u, '.,;:!?)}"\''), $matches[0]);
+
         return array_values(array_unique(array_filter($urls)));
     }
 
     private function extractImageUrls(string $html): array
     {
-        if ($html === '') return [];
+        if ($html === '') {
+            return [];
+        }
 
         $doc = new \DOMDocument();
-        @$doc->loadHTML('<?xml encoding="UTF-8">' . $html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+        @$doc->loadHTML('<?xml encoding="UTF-8">'.$html, LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
 
         $urls = [];
         foreach ($doc->getElementsByTagName('img') as $img) {
             /** @var \DOMElement $img */
-            $src   = $img->getAttribute('src');
+            $src = $img->getAttribute('src');
             $class = $img->getAttribute('class');
             // Skip inline emoji (Flarum renders them as <img class="emoji">),
             // data: URIs, and any other non-photo glyph — they aren't gallery

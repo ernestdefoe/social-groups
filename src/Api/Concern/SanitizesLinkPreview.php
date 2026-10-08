@@ -21,11 +21,11 @@ trait SanitizesLinkPreview
         }
 
         return [
-            'url'         => $url,
-            'title'       => mb_substr(strip_tags($raw['title']       ?? ''), 0, 200),
+            'url' => $url,
+            'title' => mb_substr(strip_tags($raw['title'] ?? ''), 0, 200),
             'description' => mb_substr(strip_tags($raw['description'] ?? ''), 0, 500),
-            'image'       => $image ?: null,
-            'siteName'    => mb_substr(strip_tags($raw['siteName']    ?? ''), 0, 100),
+            'image' => $image ?: null,
+            'siteName' => mb_substr(strip_tags($raw['siteName'] ?? ''), 0, 100),
         ];
     }
 }

@@ -27,23 +27,23 @@ class GalleryPostService
             $discussion = SocialGroupDiscussion::firstOrCreate(
                 ['group_id' => $group->id, 'is_gallery' => true],
                 [
-                    'user_id'        => $actor->id,
-                    'title'          => '__gallery__',
-                    'is_locked'      => false,
-                    'comment_count'  => 0,
+                    'user_id' => $actor->id,
+                    'title' => '__gallery__',
+                    'is_locked' => false,
+                    'comment_count' => 0,
                     'last_posted_at' => Carbon::now(),
                 ]
             );
 
             $post = SocialGroupPost::create([
                 'discussion_id' => $discussion->id,
-                'group_id'      => $group->id,
-                'user_id'       => $actor->id,
-                'content'       => $content,
+                'group_id' => $group->id,
+                'user_id' => $actor->id,
+                'content' => $content,
             ]);
 
             $discussion->increment('comment_count');
-            $discussion->last_posted_at      = Carbon::now();
+            $discussion->last_posted_at = Carbon::now();
             $discussion->last_posted_user_id = $actor->id;
             $discussion->save();
 

@@ -4,11 +4,11 @@ namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Ernestdefoe\SocialGroups\Access\GroupVisibility;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
-use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Flarum\Http\RequestUtil;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -27,7 +27,8 @@ class SocialGroupResource extends AbstractDatabaseResource
         protected LoggerInterface $log,
         protected GroupAssetUrl $assetUrl,
         protected TranslatorInterface $translator
-    ) {}
+    ) {
+    }
 
     public function type(): string
     {
@@ -95,9 +96,9 @@ class SocialGroupResource extends AbstractDatabaseResource
                 // pendingRequestCount schema fields read from pre-loaded
                 // attributes instead of issuing a fresh per-field query.
                 $group->loadCount([
-                    'members as actor_is_member'       => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at'),
-                    'members as actor_is_muted'        => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at')->whereNotNull('muted_at'),
-                    'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
+                    'members as actor_is_member' => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at'),
+                    'members as actor_is_muted' => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at')->whereNotNull('muted_at'),
+                    'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
                     'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
                 ]);
             }
@@ -109,11 +110,12 @@ class SocialGroupResource extends AbstractDatabaseResource
             // "not found" by the framework. Log so the next failure surfaces
             // a real cause in flarum.log.
             $this->log->error('[social-groups] SocialGroupResource::find failed', [
-                'id'        => $id,
+                'id' => $id,
                 'exception' => get_class($e),
-                'message'   => $e->getMessage(),
-                'file'      => $e->getFile() . ':' . $e->getLine(),
+                'message' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
             ]);
+
             throw $e;
         }
     }
@@ -131,16 +133,16 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
-        $actor   = RequestUtil::getActor($context->request);
+        $actor = RequestUtil::getActor($context->request);
         $actorId = $actor->exists ? $actor->id : null;
 
         if ($actorId) {
             // Batch all three per-actor lookups as correlated subqueries on the
             // main SELECT so the Index endpoint never issues O(n) extra queries.
             $query->withCount([
-                'members as actor_is_member'       => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at'),
-                'members as actor_is_muted'        => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at')->whereNotNull('muted_at'),
-                'joinRequests as actor_is_pending'  => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
+                'members as actor_is_member' => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at'),
+                'members as actor_is_muted' => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at')->whereNotNull('muted_at'),
+                'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
                 'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
             ]);
         }
@@ -165,6 +167,7 @@ class SocialGroupResource extends AbstractDatabaseResource
         // page with a raw permission toast.
         if (! $canSeePrivate && ! $actor->hasPermission('viewForum')) {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -200,7 +203,7 @@ class SocialGroupResource extends AbstractDatabaseResource
         // search failed.
         $q = trim((string) ($context->request->getQueryParams()['searchTerm'] ?? ''));
         if ($q !== '') {
-            $like = '%' . addcslashes($q, '%_\\') . '%';
+            $like = '%'.addcslashes($q, '%_\\').'%';
             // PostgreSQL's LIKE is case-sensitive; its ILIKE is what the
             // other databases' LIKE already is.
             $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
@@ -281,6 +284,7 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('canEdit')
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
+
                     return $actor->id === $group->user_id
                         || $actor->isAdmin()
                         || $actor->hasPermission('ernestdefoe-social-groups.moderate');
@@ -289,14 +293,18 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('isMember')
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
-                    if (! $actor->exists) return false;
+                    if (! $actor->exists) {
+                        return false;
+                    }
                     $pre = $group->actor_is_member;
+
                     return $pre !== null ? (bool) $pre : $group->activeMembership($actor->id)->exists();
                 }),
 
             Schema\Boolean::make('isCreator')
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
+
                     return $actor->id === $group->user_id;
                 }),
 
@@ -328,8 +336,11 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('actorIsMuted')
                 ->get(function ($group, Context $context) {
                     $actor = $context->getActor();
-                    if (! $actor->exists) return false;
+                    if (! $actor->exists) {
+                        return false;
+                    }
                     $pre = $group->actor_is_muted;
+
                     return $pre !== null
                         ? (bool) $pre
                         : $group->activeMembership($actor->id)->whereNotNull('muted_at')->exists();
@@ -345,8 +356,11 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('isPending')
                 ->get(function ($g, Context $context) {
                     $actor = $context->getActor();
-                    if (! $actor->exists) return false;
+                    if (! $actor->exists) {
+                        return false;
+                    }
                     $pre = $g->actor_is_pending;
+
                     return $pre !== null ? (bool) $pre : $g->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->exists();
                 }),
 
@@ -360,6 +374,7 @@ class SocialGroupResource extends AbstractDatabaseResource
                         return 0;
                     }
                     $pre = $g->pending_req_count;
+
                     return $pre !== null ? (int) $pre : $g->joinRequests()->where('status', 'pending')->count();
                 }),
 
@@ -388,6 +403,7 @@ class SocialGroupResource extends AbstractDatabaseResource
         $name = $body['data']['attributes']['name'] ?? '';
         $model->slug = SocialGroup::createSlug($name);
         $model->member_count = 1;
+
         return null;
     }
 
@@ -397,9 +413,10 @@ class SocialGroupResource extends AbstractDatabaseResource
         // Creator automatically joins as 'creator' role
         $model->members()->create([
             'user_id' => $context->getActor()->id,
-            'role'    => 'creator',
+            'role' => 'creator',
             'joined_at' => \Carbon\Carbon::now(),
         ]);
+
         return null;
     }
 
@@ -411,6 +428,7 @@ class SocialGroupResource extends AbstractDatabaseResource
         if ($newName !== null && $newName !== $model->name) {
             $model->slug = SocialGroup::createSlug($newName);
         }
+
         return null;
     }
 
@@ -429,6 +447,7 @@ class SocialGroupResource extends AbstractDatabaseResource
         for ($attempt = 0; ; $attempt++) {
             try {
                 $model->save();
+
                 return;
             } catch (QueryException $e) {
                 if ((string) $e->getCode() !== '23000') {
@@ -441,5 +460,4 @@ class SocialGroupResource extends AbstractDatabaseResource
             }
         }
     }
-
 }

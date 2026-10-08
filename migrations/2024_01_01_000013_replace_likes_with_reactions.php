@@ -36,8 +36,8 @@ return [
                         $payload = [];
                         foreach ($rows as $row) {
                             $payload[] = [
-                                'post_id'  => $row->post_id,
-                                'user_id'  => $row->user_id,
+                                'post_id' => $row->post_id,
+                                'user_id' => $row->user_id,
                                 'reaction' => 'like',
                             ];
                         }

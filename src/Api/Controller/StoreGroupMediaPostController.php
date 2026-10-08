@@ -25,7 +25,9 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private GalleryPostService $gallery, private TranslatorInterface $translator) {}
+    public function __construct(private LoggerInterface $log, private GalleryPostService $gallery, private TranslatorInterface $translator)
+    {
+    }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
     {
@@ -35,7 +37,7 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
 
             $groupId = (int) ($this->routeParam($request, 'groupId', '/sg-media-post/{groupId}') ?? 0);
 
-            $body    = (array) ($request->getParsedBody() ?? []);
+            $body = (array) ($request->getParsedBody() ?? []);
             $content = trim((string) ($body['content'] ?? ''));
 
             if (! $groupId || ! $content) {
@@ -58,7 +60,8 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
             // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] StoreGroupMediaPostController: ' . $e->getMessage());
+            $this->log->error('[social-groups] StoreGroupMediaPostController: '.$e->getMessage());
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
     }

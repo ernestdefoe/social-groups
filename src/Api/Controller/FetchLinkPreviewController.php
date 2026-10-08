@@ -15,10 +15,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class FetchLinkPreviewController implements RequestHandlerInterface
 {
-    private const CACHE_TTL   = 3600;  // 1 hour
-    private const MAX_BYTES   = 524288; // 512 KB — enough to find <head> OG tags
-    private const PER_MINUTE  = 20;     // uncached fetches per member per minute
-    private const USER_AGENT  = 'flarum-social-groups/1.0 (+https://github.com/ernestdefoe/social-groups)';
+    private const CACHE_TTL = 3600;  // 1 hour
+    private const MAX_BYTES = 524288; // 512 KB — enough to find <head> OG tags
+    private const PER_MINUTE = 20;     // uncached fetches per member per minute
+    private const USER_AGENT = 'flarum-social-groups/1.0 (+https://github.com/ernestdefoe/social-groups)';
 
     public function __construct(
         private CacheRepository $cache,
@@ -59,7 +59,7 @@ class FetchLinkPreviewController implements RequestHandlerInterface
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.url_host_not_allowed')], 422);
         }
 
-        $cacheKey = 'sg-link-preview:' . md5($url);
+        $cacheKey = 'sg-link-preview:'.md5($url);
 
         if ($cached = $this->cache->get($cacheKey)) {
             return new JsonResponse($cached);
@@ -76,7 +76,7 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 
         // Every uncached preview is an outbound fetch the forum makes for
         // the member; cap how many one member can start.
-        $rateKey = 'sg-link-preview-rate:' . $actor->id . ':' . intdiv(time(), 60);
+        $rateKey = 'sg-link-preview-rate:'.$actor->id.':'.intdiv(time(), 60);
         $this->cache->add($rateKey, 0, 120);
         if ($this->cache->increment($rateKey) > self::PER_MINUTE) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.too_many_previews')], 429);
@@ -88,7 +88,7 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 
         try {
             $response = $this->http->request('GET', $url, [
-                'stream'  => true,
+                'stream' => true,
                 // Redirect handling is intentionally disabled. If
                 // re-enabled later, every redirect target must be
                 // re-validated through resolvePublicIps() — libcurl's
@@ -96,15 +96,15 @@ class FetchLinkPreviewController implements RequestHandlerInterface
                 // host without our SSRF guard.
                 'allow_redirects' => false,
                 // A slow or silent host must not hold a PHP worker.
-                'timeout'         => 5,
+                'timeout' => 5,
                 'connect_timeout' => 3,
-                'curl'    => [
-                    CURLOPT_RESOLVE   => $resolveSpec,
+                'curl' => [
+                    CURLOPT_RESOLVE => $resolveSpec,
                     CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
                 ],
                 'headers' => [
                     'User-Agent' => self::USER_AGENT,
-                    'Accept'     => 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+                    'Accept' => 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
                 ],
             ]);
 
@@ -147,14 +147,18 @@ class FetchLinkPreviewController implements RequestHandlerInterface
      */
     private function resolvePublicIps(string $host): ?array
     {
-        if ($host === '') return null;
+        if ($host === '') {
+            return null;
+        }
 
         // Trim trailing dot + lowercase + IDN-normalise to defeat
         // case / encoding / homoglyph bypass attempts.
         $host = rtrim(strtolower(rawurldecode($host)), '.');
         if (function_exists('idn_to_ascii')) {
             $canonical = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
-            if (is_string($canonical) && $canonical !== '') $host = $canonical;
+            if (is_string($canonical) && $canonical !== '') {
+                $host = $canonical;
+            }
         }
 
         /*
@@ -170,24 +174,35 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         if (filter_var($bare, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
             $ips = [$bare];
         } elseif (preg_match('/^(?:\d+|0x[0-9a-f]*)(?:\.(?:\d*|0x[0-9a-f]*))*$/i', $host)) {
-            if (! self::isCanonicalIpv4($host)) return null;
+            if (! self::isCanonicalIpv4($host)) {
+                return null;
+            }
             $ips = [$host];
         } else {
             $records = @dns_get_record($host, DNS_A + DNS_AAAA);
             $ips = [];
             if (is_array($records)) {
                 foreach ($records as $r) {
-                    if (! empty($r['ip']))   $ips[] = $r['ip'];
-                    if (! empty($r['ipv6'])) $ips[] = $r['ipv6'];
+                    if (! empty($r['ip'])) {
+                        $ips[] = $r['ip'];
+                    }
+                    if (! empty($r['ipv6'])) {
+                        $ips[] = $r['ipv6'];
+                    }
                 }
             }
         }
 
-        if (empty($ips)) return null;
+        if (empty($ips)) {
+            return null;
+        }
 
         foreach ($ips as $ip) {
-            if (! $this->ipIsPublic($ip)) return null;
+            if (! $this->ipIsPublic($ip)) {
+                return null;
+            }
         }
+
         return array_values(array_unique($ips));
     }
 
@@ -214,21 +229,34 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 
         if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
             $packed = inet_pton($ip);
-            if ($packed === false) return false;
+            if ($packed === false) {
+                return false;
+            }
 
             $hex = bin2hex($packed);
-            if (str_starts_with($hex, '00000000000000000000000000000000')) return false; // ::
-            if (str_starts_with($hex, '00000000000000000000000000000001')) return false; // ::1
+            if (str_starts_with($hex, '00000000000000000000000000000000')) {
+                return false;
+            } // ::
+            if (str_starts_with($hex, '00000000000000000000000000000001')) {
+                return false;
+            } // ::1
             if (str_starts_with($hex, '00000000000000000000ffff')) {
                 // IPv4-mapped (::ffff:a.b.c.d) — recurse on the v4.
                 $v4 = long2ip(hexdec(substr($hex, 24, 8)));
+
                 return $this->ipIsPublic($v4);
             }
             $firstByte = hexdec(substr($hex, 0, 2));
-            if (($firstByte & 0xfe) === 0xfc) return false;        // fc00::/7 ULA
-            if (($firstByte & 0xff) === 0xff) return false;        // ff00::/8 multicast
+            if (($firstByte & 0xFE) === 0xFC) {
+                return false;
+            }        // fc00::/7 ULA
+            if (($firstByte & 0xFF) === 0xFF) {
+                return false;
+            }        // ff00::/8 multicast
             $firstWord = hexdec(substr($hex, 0, 4));
-            if (($firstWord & 0xffc0) === 0xfe80) return false;    // fe80::/10 link-local
+            if (($firstWord & 0xFFC0) === 0xFE80) {
+                return false;
+            }    // fe80::/10 link-local
 
             return true;
         }
@@ -244,14 +272,14 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         libxml_clear_errors();
 
         $xpath = new \DOMXPath($doc);
-        $og    = [];
+        $og = [];
 
         // Collect all <meta> tags
         foreach ($xpath->query('//head/meta') as $meta) {
             if (! $meta instanceof \DOMElement) {
                 continue;
             }
-            $prop    = $meta->getAttribute('property') ?: $meta->getAttribute('name');
+            $prop = $meta->getAttribute('property') ?: $meta->getAttribute('name');
             $content = $meta->getAttribute('content');
             if ($prop && $content) {
                 $og[$prop] = $content;
@@ -259,31 +287,31 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         }
 
         // Collect <title> fallback
-        $titleEl   = $xpath->query('//head/title')->item(0);
+        $titleEl = $xpath->query('//head/title')->item(0);
         $pageTitle = $titleEl ? trim($titleEl->textContent) : '';
 
-        $title       = $this->clean($og['og:title']       ?? $og['twitter:title']       ?? $pageTitle,       150);
+        $title = $this->clean($og['og:title'] ?? $og['twitter:title'] ?? $pageTitle, 150);
         $description = $this->clean($og['og:description'] ?? $og['twitter:description'] ?? $og['description'] ?? '', 300);
-        $siteName    = $this->clean($og['og:site_name']   ?? parse_url($requestUrl, PHP_URL_HOST) ?? '', 80);
+        $siteName = $this->clean($og['og:site_name'] ?? parse_url($requestUrl, PHP_URL_HOST) ?? '', 80);
         $canonicalUrl = $og['og:url'] ?? $requestUrl;
 
         // Resolve image URL
         $image = $og['og:image'] ?? $og['og:image:url'] ?? $og['twitter:image'] ?? null;
         if ($image && ! filter_var($image, FILTER_VALIDATE_URL)) {
             $parts = parse_url($requestUrl);
-            $image = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '')
-                . (str_starts_with($image, '/') ? '' : '/') . ltrim($image, '/');
+            $image = ($parts['scheme'] ?? 'https').'://'.($parts['host'] ?? '')
+                .(str_starts_with($image, '/') ? '' : '/').ltrim($image, '/');
         }
         if ($image && ! filter_var($image, FILTER_VALIDATE_URL)) {
             $image = null;
         }
 
         return [
-            'url'         => filter_var($canonicalUrl, FILTER_VALIDATE_URL) ? $canonicalUrl : $requestUrl,
-            'title'       => $title,
+            'url' => filter_var($canonicalUrl, FILTER_VALIDATE_URL) ? $canonicalUrl : $requestUrl,
+            'title' => $title,
             'description' => $description,
-            'image'       => $image,
-            'siteName'    => $siteName,
+            'image' => $image,
+            'siteName' => $siteName,
         ];
     }
 

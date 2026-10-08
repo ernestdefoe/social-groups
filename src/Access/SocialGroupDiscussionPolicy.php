@@ -31,6 +31,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
         if ($group === null) {
             return null;
         }
+
         // Allow (not abstain) when the group is visible: the Show endpoint
         // gates on `->can('view')`, and an abstain there denies — so an empty
         // thread (no posts to hydrate the include from) loaded by primary key
@@ -81,6 +82,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
         $isModInGroup = $group->activeMembership($actor->id)
             ->whereIn('role', ['creator', 'moderator'])
             ->exists();
+
         return $isModInGroup ? $this->allow() : null;
     }
 
@@ -103,7 +105,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
         $isModInGroup = $group->activeMembership($actor->id)
             ->whereIn('role', ['creator', 'moderator'])
             ->exists();
+
         return $isModInGroup ? $this->allow() : null;
     }
-
 }

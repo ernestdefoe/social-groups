@@ -15,8 +15,12 @@ use Illuminate\Database\Schema\Builder;
  */
 return [
     'up' => function (Builder $schema) {
-        if (! $schema->hasTable('social_group_posts')) return;
-        if ($schema->hasColumn('social_group_posts', 'is_pinned')) return;
+        if (! $schema->hasTable('social_group_posts')) {
+            return;
+        }
+        if ($schema->hasColumn('social_group_posts', 'is_pinned')) {
+            return;
+        }
 
         $schema->table('social_group_posts', function ($table) {
             $table->boolean('is_pinned')->default(false)->after('content_parsed');
@@ -24,8 +28,12 @@ return [
         });
     },
     'down' => function (Builder $schema) {
-        if (! $schema->hasTable('social_group_posts')) return;
-        if (! $schema->hasColumn('social_group_posts', 'is_pinned')) return;
+        if (! $schema->hasTable('social_group_posts')) {
+            return;
+        }
+        if (! $schema->hasColumn('social_group_posts', 'is_pinned')) {
+            return;
+        }
 
         $schema->table('social_group_posts', function ($table) {
             $table->dropIndex('sgp_disc_pinned_idx');

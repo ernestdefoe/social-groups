@@ -75,10 +75,16 @@ class SocialGroupPost extends AbstractModel
     {
         return Attribute::make(
             get: static function ($value): ?array {
-                if ($value === null || $value === '') return null;
-                if (is_array($value)) return $value;
+                if ($value === null || $value === '') {
+                    return null;
+                }
+                if (is_array($value)) {
+                    return $value;
+                }
+
                 try {
                     $decoded = json_decode($value, true, 512, \JSON_THROW_ON_ERROR);
+
                     return is_array($decoded) ? $decoded : null;
                 } catch (\JsonException) {
                     return null;

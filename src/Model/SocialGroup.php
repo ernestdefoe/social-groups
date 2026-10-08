@@ -39,7 +39,7 @@ class SocialGroup extends AbstractModel
     public $timestamps = true;
 
     protected $casts = [
-        'is_private'  => 'boolean',
+        'is_private' => 'boolean',
         'is_featured' => 'boolean',
     ];
 
@@ -155,7 +155,7 @@ class SocialGroup extends AbstractModel
         // If the name was entirely non-Latin (e.g. emoji, unsupported script)
         // the slug may be empty after stripping — fall back to a short hash.
         if ($slug === '') {
-            $slug = 'group-' . substr(md5($name . uniqid('', true)), 0, 8);
+            $slug = 'group-'.substr(md5($name.uniqid('', true)), 0, 8);
         }
 
         // A purely-numeric slug ("33333" for a group literally named "33333")
@@ -167,7 +167,7 @@ class SocialGroup extends AbstractModel
         // new groups never reproduce that ambiguity. A "g-" prefix keeps the
         // URL readable while guaranteeing at least one non-digit character.
         if (preg_match('/^\d+$/', $slug)) {
-            $slug = 'g-' . $slug;
+            $slug = 'g-'.$slug;
         }
 
         $base = $slug;
@@ -178,7 +178,7 @@ class SocialGroup extends AbstractModel
         // slug-safe (letters/digits/hyphens), so the LIKE pattern needs no extra
         // wildcard escaping.
         $taken = static::where('slug', $base)
-            ->orWhere('slug', 'like', $base . '-%')
+            ->orWhere('slug', 'like', $base.'-%')
             ->pluck('slug')
             ->all();
 
@@ -188,10 +188,10 @@ class SocialGroup extends AbstractModel
 
         $taken = array_flip($taken);
         $i = 2;
-        while (isset($taken[$base . '-' . $i])) {
+        while (isset($taken[$base.'-'.$i])) {
             $i++;
         }
 
-        return $base . '-' . $i;
+        return $base.'-'.$i;
     }
 }

@@ -24,7 +24,7 @@ class SgPoll extends AbstractModel
 
     protected $casts = [
         'is_multi_select' => 'boolean',
-        'ends_at'         => 'datetime',
+        'ends_at' => 'datetime',
     ];
 
     /** @return HasMany<SgPollOption, $this> */
