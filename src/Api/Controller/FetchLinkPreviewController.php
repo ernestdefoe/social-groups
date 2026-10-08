@@ -112,6 +112,10 @@ class FetchLinkPreviewController implements RequestHandlerInterface
         } catch (RequestException $e) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.fetch_failed')], 502);
         } catch (\Throwable $e) {
+            // A failure that is not the remote site's goes in the log: the
+            // member only sees "unexpected", so this is the only trace of it.
+            $this->log->error('[social-groups] link preview failed: '.$e->getMessage(), ['exception' => $e]);
+
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
 
