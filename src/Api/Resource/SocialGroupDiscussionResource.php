@@ -160,12 +160,15 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         $q = isset($params['searchTerm']) ? trim((string) $params['searchTerm']) : '';
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
-            $query->where(function ($w) use ($like) {
-                $w->where('social_group_discussions.title', 'like', $like)
-                  ->orWhereExists(function ($sub) use ($like) {
+            // PostgreSQL's LIKE is case-sensitive; its ILIKE is what the
+            // other databases' LIKE already is.
+            $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($w) use ($like, $op) {
+                $w->where('social_group_discussions.title', $op, $like)
+                  ->orWhereExists(function ($sub) use ($like, $op) {
                       $sub->from('social_group_posts')
                           ->whereColumn('social_group_posts.discussion_id', 'social_group_discussions.id')
-                          ->where('social_group_posts.content', 'like', $like);
+                          ->where('social_group_posts.content', $op, $like);
                   });
             });
         }

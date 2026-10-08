@@ -201,9 +201,12 @@ class SocialGroupResource extends AbstractDatabaseResource
         $q = trim((string) ($context->request->getQueryParams()['searchTerm'] ?? ''));
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
-            $query->where(function ($w) use ($like) {
-                $w->where('name', 'like', $like)
-                  ->orWhere('description', 'like', $like);
+            // PostgreSQL's LIKE is case-sensitive; its ILIKE is what the
+            // other databases' LIKE already is.
+            $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->where(function ($w) use ($like, $op) {
+                $w->where('name', $op, $like)
+                  ->orWhere('description', $op, $like);
             });
         }
 
