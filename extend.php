@@ -128,10 +128,10 @@ return [
             Endpoint\Index::class,
             fn ($endpoint) => $endpoint->eagerLoad(['recentDiscussions'])
         ),
-    (new Extend\ApiResource(SocialGroupPostResource::class)),
-    (new Extend\ApiResource(SocialGroupDiscussionResource::class)),
-    (new Extend\ApiResource(SocialGroupMemberResource::class)),
-    (new Extend\ApiResource(SocialGroupJoinRequestResource::class)),
+    new Extend\ApiResource(SocialGroupPostResource::class),
+    new Extend\ApiResource(SocialGroupDiscussionResource::class),
+    new Extend\ApiResource(SocialGroupMemberResource::class),
+    new Extend\ApiResource(SocialGroupJoinRequestResource::class),
 
     (new Extend\Policy())
         ->modelPolicy(SocialGroup::class, SocialGroupPolicy::class)

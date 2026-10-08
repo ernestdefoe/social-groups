@@ -564,7 +564,9 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         } else {
             $result = SocialGroup::query()
                 ->where('id', $groupId)
-                ->whereHas('members', fn ($q) => $q->where('user_id', $actorId)
+                ->whereHas(
+                    'members',
+                    fn ($q) => $q->where('user_id', $actorId)
                       ->whereNull('banned_at')
                       ->whereIn('role', ['creator', 'moderator'])
                 )
@@ -609,7 +611,9 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         } else {
             $result = SocialGroup::query()
                 ->where('id', $groupId)
-                ->whereHas('members', fn ($q) => $q->where('user_id', $actorId)
+                ->whereHas(
+                    'members',
+                    fn ($q) => $q->where('user_id', $actorId)
                       ->whereNull('banned_at')
                       ->whereNull('muted_at')
                 )

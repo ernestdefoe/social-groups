@@ -444,7 +444,7 @@ class SocialGroupResource extends AbstractDatabaseResource
      */
     protected function saveModel(Model $model, BaseContext $context): void
     {
-        for ($attempt = 0; ; $attempt++) {
+        for ($attempt = 0;; $attempt++) {
             try {
                 $model->save();
 
