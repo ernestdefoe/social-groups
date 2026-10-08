@@ -171,9 +171,13 @@ class SocialGroupResource extends AbstractDatabaseResource
                 if ($actorId) {
                     $q->orWhere('user_id', $actorId)
                       ->orWhereExists(function ($sub) use ($actorId) {
+                          // An active membership, as GroupVisibility::canSee
+                          // has it: a kicked member's row stays behind with
+                          // banned_at set, and must not keep listing the group.
                           $sub->from('social_group_members')
                               ->whereColumn('social_group_members.group_id', 'social_groups.id')
-                              ->where('social_group_members.user_id', $actorId);
+                              ->where('social_group_members.user_id', $actorId)
+                              ->whereNull('social_group_members.banned_at');
                       });
                 }
             });
