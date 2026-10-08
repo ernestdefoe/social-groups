@@ -10,9 +10,9 @@ import SGSkeleton, { measure } from './SGSkeleton';
 export default class MemberList extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.members   = [];
-    this.loading   = true;
-    this.error     = null;
+    this.members = [];
+    this.loading = true;
+    this.error = null;
     this.actioning = {}; // userId → 'promote'|'demote'|'remove'
   }
 
@@ -32,7 +32,7 @@ export default class MemberList extends Component {
         m.redraw();
       })
       .catch(() => {
-        this.error   = true;
+        this.error = true;
         this.loading = false;
         m.redraw();
       });
@@ -108,7 +108,7 @@ export default class MemberList extends Component {
 
   openInvite() {
     app.modal.show(InviteUserModal, {
-      groupId:   this.attrs.groupId,
+      groupId: this.attrs.groupId,
       // Reload from the Resource so the new membership row carries its
       // real `id` (used by promote/demote/kick action URLs). Optimistic
       // append would have a missing `id` field and break those actions
@@ -122,27 +122,30 @@ export default class MemberList extends Component {
 
     return m('div.MemberList', [
       m('div.MemberList-header', [
-        m('div.MemberList-title',
-          app.translator.trans('ernestdefoe-social-groups.forum.group.members_section')),
+        m('div.MemberList-title', app.translator.trans('ernestdefoe-social-groups.forum.group.members_section')),
         isCreator
-          ? m(Button, {
-              class:   'Button Button--sm Button--primary MemberList-inviteBtn',
-              'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.invite.title'),
-              onclick: () => this.openInvite(),
-            }, [m('i.fa-solid.fa-user-plus'), ' ',
-                app.translator.trans('ernestdefoe-social-groups.forum.invite.button')])
+          ? m(
+              Button,
+              {
+                class: 'Button Button--sm Button--primary MemberList-inviteBtn',
+                'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.invite.title'),
+                onclick: () => this.openInvite(),
+              },
+              [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.invite.button')]
+            )
           : null,
       ]),
 
       this.loading
         ? m(SGSkeleton, { surface: 'members', fallback: 240, rows: 5, variant: 'rows' })
         : this.error
-        ? m('div.MemberList-error', app.translator.trans('ernestdefoe-social-groups.forum.group.members_load_error'))
-        : this.members.length === 0
-        ? m('div.MemberList-empty', app.translator.trans('ernestdefoe-social-groups.forum.group.members_empty'))
-        : m('div.MemberList-list',
-            this.members.map((member) => this.renderMember(member, isCreator))
-          ),
+          ? m('div.MemberList-error', app.translator.trans('ernestdefoe-social-groups.forum.group.members_load_error'))
+          : this.members.length === 0
+            ? m('div.MemberList-empty', app.translator.trans('ernestdefoe-social-groups.forum.group.members_empty'))
+            : m(
+                'div.MemberList-list',
+                this.members.map((member) => this.renderMember(member, isCreator))
+              ),
 
       this.members.length > 0
         ? m('div.MemberList-count', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.members.length }))
@@ -151,10 +154,10 @@ export default class MemberList extends Component {
   }
 
   renderMember(member, isCreator) {
-    const profileUrl  = app.route('user', { username: member.slug });
-    const acting      = this.actioning[member.userId];
+    const profileUrl = app.route('user', { username: member.slug });
+    const acting = this.actioning[member.userId];
     const canModerate = isCreator && member.role !== 'creator';
-    const canRemove   = member.canRemove;
+    const canRemove = member.canRemove;
 
     return m('div.MemberList-row', { key: member.userId }, [
       // Avatar + name
@@ -167,15 +170,18 @@ export default class MemberList extends Component {
         m('div.MemberList-info', [
           m('span.MemberList-name', member.displayName),
           member.role !== 'member'
-            ? m('span.MemberList-role', {
-                class: `MemberList-role--${member.role}`,
-              }, member.role === 'creator'
-                ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
-                : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin'))
+            ? m(
+                'span.MemberList-role',
+                {
+                  class: `MemberList-role--${member.role}`,
+                },
+                member.role === 'creator'
+                  ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
+                  : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin')
+              )
             : null,
           member.mutedAt && member.canMute
-            ? m('span.MemberList-role.MemberList-role--muted',
-                app.translator.trans('ernestdefoe-social-groups.forum.group.muted_badge'))
+            ? m('span.MemberList-role.MemberList-role--muted', app.translator.trans('ernestdefoe-social-groups.forum.group.muted_badge'))
             : null,
         ]),
       ]),
@@ -184,45 +190,61 @@ export default class MemberList extends Component {
       canModerate || canRemove || member.canMute
         ? m('div.MemberList-actions', [
             canModerate
-              ? (member.role === 'member'
-                  ? m(Button, {
-                      class:       'Button Button--sm MemberList-promoteBtn',
+              ? member.role === 'member'
+                ? m(
+                    Button,
+                    {
+                      class: 'Button Button--sm MemberList-promoteBtn',
                       'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.promote_member'),
-                      loading:     acting === 'promote',
-                      disabled:    !!acting,
-                      onclick:     () => this.promote(member),
-                    }, m('i.fa-solid.fa-shield'))
-                  : m(Button, {
-                      class:       'Button Button--sm MemberList-demoteBtn',
+                      loading: acting === 'promote',
+                      disabled: !!acting,
+                      onclick: () => this.promote(member),
+                    },
+                    m('i.fa-solid.fa-shield')
+                  )
+                : m(
+                    Button,
+                    {
+                      class: 'Button Button--sm MemberList-demoteBtn',
                       'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.demote_member'),
-                      loading:     acting === 'demote',
-                      disabled:    !!acting,
-                      onclick:     () => this.demote(member),
-                    }, m('i.fa-solid.fa-user')))
+                      loading: acting === 'demote',
+                      disabled: !!acting,
+                      onclick: () => this.demote(member),
+                    },
+                    m('i.fa-solid.fa-user')
+                  )
               : null,
             member.canMute
-              ? m(Button, {
-                  class:       'Button Button--sm MemberList-muteBtn',
-                  'aria-label': app.translator.trans(member.mutedAt
-                    ? 'ernestdefoe-social-groups.forum.group.unmute_member'
-                    : 'ernestdefoe-social-groups.forum.group.mute_member'),
-                  title:        app.translator.trans(member.mutedAt
-                    ? 'ernestdefoe-social-groups.forum.group.unmute_member'
-                    : 'ernestdefoe-social-groups.forum.group.mute_member'),
-                  loading:      acting === 'mute',
-                  disabled:     !!acting,
-                  onclick:      () => this.toggleMute(member),
-                }, m(member.mutedAt ? 'i.fa-solid.fa-volume-high' : 'i.fa-solid.fa-volume-xmark'))
+              ? m(
+                  Button,
+                  {
+                    class: 'Button Button--sm MemberList-muteBtn',
+                    'aria-label': app.translator.trans(
+                      member.mutedAt ? 'ernestdefoe-social-groups.forum.group.unmute_member' : 'ernestdefoe-social-groups.forum.group.mute_member'
+                    ),
+                    title: app.translator.trans(
+                      member.mutedAt ? 'ernestdefoe-social-groups.forum.group.unmute_member' : 'ernestdefoe-social-groups.forum.group.mute_member'
+                    ),
+                    loading: acting === 'mute',
+                    disabled: !!acting,
+                    onclick: () => this.toggleMute(member),
+                  },
+                  m(member.mutedAt ? 'i.fa-solid.fa-volume-high' : 'i.fa-solid.fa-volume-xmark')
+                )
               : null,
             canRemove
-              ? m(Button, {
-                  class:       'Button Button--sm MemberList-removeBtn',
-                  'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
-                  title:        app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
-                  loading:      acting === 'remove',
-                  disabled:     !!acting,
-                  onclick:      () => this.removeMember(member),
-                }, m('i.fa-solid.fa-user-xmark'))
+              ? m(
+                  Button,
+                  {
+                    class: 'Button Button--sm MemberList-removeBtn',
+                    'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
+                    title: app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
+                    loading: acting === 'remove',
+                    disabled: !!acting,
+                    onclick: () => this.removeMember(member),
+                  },
+                  m('i.fa-solid.fa-user-xmark')
+                )
               : null,
           ])
         : null,

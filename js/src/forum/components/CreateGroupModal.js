@@ -13,9 +13,9 @@ export default class CreateGroupModal extends Modal {
     this.name = Stream('');
     this.description = Stream('');
     this.color = Stream(PRESET_COLORS[0]);
-    this.isPrivate      = Stream(false);
+    this.isPrivate = Stream(false);
     this.membershipType = Stream('open');
-    this.submitting     = false;
+    this.submitting = false;
     this.errors = {};
 
     // Refs to image upload buttons for deferred upload
@@ -83,10 +83,14 @@ export default class CreateGroupModal extends Modal {
 
       // Private toggle
       m('div.Form-group', [
-        m(Switch, {
-          state: this.isPrivate(),
-          onchange: (val) => this.isPrivate(val),
-        }, app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_label')),
+        m(
+          Switch,
+          {
+            state: this.isPrivate(),
+            onchange: (val) => this.isPrivate(val),
+          },
+          app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_label')
+        ),
         m('p.helpText', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_help')),
       ]),
 
@@ -96,7 +100,9 @@ export default class CreateGroupModal extends Modal {
         m('div.GroupModal-membershipType', [
           m('label.GroupModal-membershipOption', [
             m('input', {
-              type: 'radio', name: 'membership_type', value: 'open',
+              type: 'radio',
+              name: 'membership_type',
+              value: 'open',
               checked: this.membershipType() === 'open',
               onchange: () => this.membershipType('open'),
             }),
@@ -104,7 +110,9 @@ export default class CreateGroupModal extends Modal {
           ]),
           m('label.GroupModal-membershipOption', [
             m('input', {
-              type: 'radio', name: 'membership_type', value: 'approval',
+              type: 'radio',
+              name: 'membership_type',
+              value: 'approval',
               checked: this.membershipType() === 'approval',
               onchange: () => this.membershipType('approval'),
             }),
@@ -183,9 +191,9 @@ export default class CreateGroupModal extends Modal {
       .createRecord('social-groups')
       .save({
         name,
-        description:    this.description().trim() || null,
-        color:          this.color(),
-        isPrivate:      this.isPrivate(),
+        description: this.description().trim() || null,
+        color: this.color(),
+        isPrivate: this.isPrivate(),
         membershipType: this.membershipType(),
       })
       .then((group) => {
@@ -234,7 +242,6 @@ export default class CreateGroupModal extends Modal {
     formData.append('file', file);
     const endpoint = type === 'banner' ? 'banner' : 'image';
 
-    return apiUpload(`/social-groups/${groupId}/${endpoint}`, formData)
-      .then((data) => ({ type, url: data.url }));
+    return apiUpload(`/social-groups/${groupId}/${endpoint}`, formData).then((data) => ({ type, url: data.url }));
   }
 }

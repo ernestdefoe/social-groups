@@ -334,9 +334,7 @@ function projectMember(r) {
 }
 
 export function listMembers(groupId) {
-  return app.store
-    .find('social-group-members', { groupId, include: 'user' })
-    .then((results) => ({ data: results.map(projectMember) }));
+  return app.store.find('social-group-members', { groupId, include: 'user' }).then((results) => ({ data: results.map(projectMember) }));
 }
 
 export function promoteMember(memberId) {
@@ -377,17 +375,13 @@ function projectJoinRequest(r) {
   return {
     id: Number(r.id()),
     userId,
-    user: displayName
-      ? { id: userId, displayName, avatarUrl: r.attribute('avatarUrl') || null }
-      : null,
+    user: displayName ? { id: userId, displayName, avatarUrl: r.attribute('avatarUrl') || null } : null,
     createdAt: r.attribute('createdAt') || null,
   };
 }
 
 export function listJoinRequests(groupId) {
-  return app.store
-    .find('social-group-join-requests', { groupId, include: 'user' })
-    .then((results) => ({ data: results.map(projectJoinRequest) }));
+  return app.store.find('social-group-join-requests', { groupId, include: 'user' }).then((results) => ({ data: results.map(projectJoinRequest) }));
 }
 
 export function approveJoinRequest(requestId) {

@@ -15,12 +15,48 @@ function reactionLabel(localeKey) {
  * are render-time only. The `heart` key maps to the `love` locale key.
  */
 export const REACTIONS = [
-  { key: 'like',  emoji: '👍', get label() { return reactionLabel('like'); } },
-  { key: 'heart', emoji: '❤️', get label() { return reactionLabel('love'); } },
-  { key: 'haha',  emoji: '😂', get label() { return reactionLabel('haha'); } },
-  { key: 'wow',   emoji: '😮', get label() { return reactionLabel('wow'); } },
-  { key: 'sad',   emoji: '😢', get label() { return reactionLabel('sad'); } },
-  { key: 'angry', emoji: '😡', get label() { return reactionLabel('angry'); } },
+  {
+    key: 'like',
+    emoji: '👍',
+    get label() {
+      return reactionLabel('like');
+    },
+  },
+  {
+    key: 'heart',
+    emoji: '❤️',
+    get label() {
+      return reactionLabel('love');
+    },
+  },
+  {
+    key: 'haha',
+    emoji: '😂',
+    get label() {
+      return reactionLabel('haha');
+    },
+  },
+  {
+    key: 'wow',
+    emoji: '😮',
+    get label() {
+      return reactionLabel('wow');
+    },
+  },
+  {
+    key: 'sad',
+    emoji: '😢',
+    get label() {
+      return reactionLabel('sad');
+    },
+  },
+  {
+    key: 'angry',
+    emoji: '😡',
+    get label() {
+      return reactionLabel('angry');
+    },
+  },
 ];
 
 /**
@@ -34,20 +70,23 @@ export const REACTIONS = [
  *   attrs = { actorReaction, onPick(key), wrapperClass }
  */
 export function ReactionPicker(attrs) {
-  return m('.SGFeed-reactionPicker', { class: attrs.wrapperClass || '' },
+  return m(
+    '.SGFeed-reactionPicker',
+    { class: attrs.wrapperClass || '' },
     REACTIONS.map((r) =>
-      m('button.SGFeed-pickerBtn', {
-        key:     r.key,
-        title:   r.label,
-        class:   attrs.actorReaction === r.key ? 'is-active' : '',
-        onclick: (e) => {
-          e.stopPropagation();
-          attrs.onPick(r.key);
+      m(
+        'button.SGFeed-pickerBtn',
+        {
+          key: r.key,
+          title: r.label,
+          class: attrs.actorReaction === r.key ? 'is-active' : '',
+          onclick: (e) => {
+            e.stopPropagation();
+            attrs.onPick(r.key);
+          },
         },
-      }, [
-        m('span.SGFeed-pickerEmoji', r.emoji),
-        m('span.SGFeed-pickerLabel', r.label),
-      ])
+        [m('span.SGFeed-pickerEmoji', r.emoji), m('span.SGFeed-pickerLabel', r.label)]
+      )
     )
   );
 }
@@ -60,24 +99,22 @@ export function ReactionPicker(attrs) {
  *   attrs = { actorReaction, onClear(), onOpen() }
  */
 export function ReactionButton(attrs) {
-  const active = attrs.actorReaction
-    ? REACTIONS.find((r) => r.key === attrs.actorReaction)
-    : null;
+  const active = attrs.actorReaction ? REACTIONS.find((r) => r.key === attrs.actorReaction) : null;
 
-  return m('button.SGFeed-reactBtn', {
-    class:   active ? 'SGFeed-reactBtn--active' : '',
-    onclick: (e) => {
-      e.stopPropagation();
-      if (active) attrs.onClear();
-      else        attrs.onOpen();
+  return m(
+    'button.SGFeed-reactBtn',
+    {
+      class: active ? 'SGFeed-reactBtn--active' : '',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (active) attrs.onClear();
+        else attrs.onOpen();
+      },
     },
-  }, active
+    active
       ? [active.emoji, ' ', active.label]
-      : [
-          m('i.fa-solid.fa-face-grin-beam'),
-          ' ',
-          app.translator.trans('ernestdefoe-social-groups.forum.discussions.react'),
-        ]);
+      : [m('i.fa-solid.fa-face-grin-beam'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.react')]
+  );
 }
 
 /**

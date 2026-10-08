@@ -45,29 +45,33 @@ import ShareDiscussionModal from '../ShareDiscussionModal';
  */
 export default {
   view({ attrs }) {
-    const d  = attrs.discussion;
+    const d = attrs.discussion;
     const fp = d.firstPost;
-    const t  = (key, params) => app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`, params);
+    const t = (key, params) => app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`, params);
 
-    return m('.SGFeed-post', {
-      key:   d.id,
-      class: attrs.deleting ? 'is-deleting' : '',
-    }, [
-      renderHeader(d, fp, attrs, t),
-      attrs.editing ? renderEditForm(d, fp, attrs, t) : renderContent(d, fp),
-      !attrs.editing && fp ? viewPostLinkPreview(fp) : null,
-      renderSharedFrom(d),
-      d.poll ? renderPoll(d, attrs, t) : null,
-      renderStatBar(d, fp, attrs, t),
-      renderActionBar(d, fp, attrs, t),
-      attrs.inlineComments,
-      renderReplyRow(d, attrs, t),
-    ]);
+    return m(
+      '.SGFeed-post',
+      {
+        key: d.id,
+        class: attrs.deleting ? 'is-deleting' : '',
+      },
+      [
+        renderHeader(d, fp, attrs, t),
+        attrs.editing ? renderEditForm(d, fp, attrs, t) : renderContent(d, fp),
+        !attrs.editing && fp ? viewPostLinkPreview(fp) : null,
+        renderSharedFrom(d),
+        d.poll ? renderPoll(d, attrs, t) : null,
+        renderStatBar(d, fp, attrs, t),
+        renderActionBar(d, fp, attrs, t),
+        attrs.inlineComments,
+        renderReplyRow(d, attrs, t),
+      ]
+    );
   },
 };
 
 function renderHeader(d, fp, attrs, t) {
-  const actor    = app.session.user;
+  const actor = app.session.user;
   const postUser = fp?.user || d.user;
   const postTime = fp?.createdAt || d.createdAt;
 
@@ -80,53 +84,73 @@ function renderHeader(d, fp, attrs, t) {
     m('.SGFeed-postMeta', [
       m('span.SGFeed-postAuthor', postUser?.displayName || ''),
       m('span.SGFeed-postTime', { title: postTime }, humanTime(new Date(postTime))),
-      d.isPinned
-        ? m('span.SGFeed-pinnedBadge', [m('i.fa-solid.fa-thumbtack'), ' ', t('pinned')])
-        : null,
+      d.isPinned ? m('span.SGFeed-pinnedBadge', [m('i.fa-solid.fa-thumbtack'), ' ', t('pinned')]) : null,
     ]),
-    d.canDelete || d.canPin || (fp && fp.canEdit) || (actor && d.canShare)
-      ? renderMenu(d, attrs, t)
-      : null,
+    d.canDelete || d.canPin || (fp && fp.canEdit) || (actor && d.canShare) ? renderMenu(d, attrs, t) : null,
   ]);
 }
 
 function renderMenu(d, attrs, t) {
   const actor = app.session.user;
-  const fp    = d.firstPost;
+  const fp = d.firstPost;
 
   return m('.SGFeed-postMenu', [
-    m('button.SGFeed-postMenuBtn', {
-      onclick: (e) => { e.stopPropagation(); attrs.onMenuToggle(); },
-    }, m('i.fa-solid.fa-ellipsis')),
+    m(
+      'button.SGFeed-postMenuBtn',
+      {
+        onclick: (e) => {
+          e.stopPropagation();
+          attrs.onMenuToggle();
+        },
+      },
+      m('i.fa-solid.fa-ellipsis')
+    ),
     attrs.menuOpen
       ? m('.SGFeed-postDropdown', [
           fp && fp.canEdit
-            ? m('button.SGFeed-dropdownItem', {
-                onclick: () => { attrs.onMenuToggle(); attrs.onStartEdit(); },
-              }, [m('i.fa-solid.fa-pen'), ' ', t('edit')])
+            ? m(
+                'button.SGFeed-dropdownItem',
+                {
+                  onclick: () => {
+                    attrs.onMenuToggle();
+                    attrs.onStartEdit();
+                  },
+                },
+                [m('i.fa-solid.fa-pen'), ' ', t('edit')]
+              )
             : null,
           actor && d.canShare
-            ? m('button.SGFeed-dropdownItem', {
-                onclick: () => {
-                  attrs.onMenuToggle();
-                  app.modal.show(ShareDiscussionModal, {
-                    discussionId:   d.id,
-                    currentGroupId: attrs.groupId,
-                  });
+            ? m(
+                'button.SGFeed-dropdownItem',
+                {
+                  onclick: () => {
+                    attrs.onMenuToggle();
+                    app.modal.show(ShareDiscussionModal, {
+                      discussionId: d.id,
+                      currentGroupId: attrs.groupId,
+                    });
+                  },
                 },
-              }, [m('i.fa-solid.fa-share'), ' Share post'])
+                [m('i.fa-solid.fa-share'), ' Share post']
+              )
             : null,
           d.canPin
-            ? m('button.SGFeed-dropdownItem', {
-                onclick: () => attrs.onPin(),
-              }, d.isPinned
-                  ? [m('i.fa-solid.fa-thumbtack'), ' Unpin post']
-                  : [m('i.fa-solid.fa-thumbtack'), ' Pin post'])
+            ? m(
+                'button.SGFeed-dropdownItem',
+                {
+                  onclick: () => attrs.onPin(),
+                },
+                d.isPinned ? [m('i.fa-solid.fa-thumbtack'), ' Unpin post'] : [m('i.fa-solid.fa-thumbtack'), ' Pin post']
+              )
             : null,
           d.canDelete
-            ? m('button.SGFeed-dropdownItem.SGFeed-dropdownItem--danger', {
-                onclick: () => attrs.onDelete(),
-              }, [m('i.fa-solid.fa-trash'), ' ', t('delete')])
+            ? m(
+                'button.SGFeed-dropdownItem.SGFeed-dropdownItem--danger',
+                {
+                  onclick: () => attrs.onDelete(),
+                },
+                [m('i.fa-solid.fa-trash'), ' ', t('delete')]
+              )
             : null,
         ])
       : null,
@@ -134,42 +158,47 @@ function renderMenu(d, attrs, t) {
 }
 
 function renderContent(d, fp) {
-  return fp
-    ? m('.SGFeed-postContent', m.trust(fp.contentParsed))
-    : m('.SGFeed-postContent', m('.SGFeed-noContent', d.title));
+  return fp ? m('.SGFeed-postContent', m.trust(fp.contentParsed)) : m('.SGFeed-postContent', m('.SGFeed-noContent', d.title));
 }
 
 function renderEditForm(d, fp, attrs, t) {
   return m('.SGFeed-postEdit', [
-    attrs.editError
-      ? m('.Alert.Alert--error', { style: 'margin-bottom:8px;font-size:.85em' }, attrs.editError)
-      : null,
+    attrs.editError ? m('.Alert.Alert--error', { style: 'margin-bottom:8px;font-size:.85em' }, attrs.editError) : null,
     m('.SGMd-field', [
       MarkdownToolbar({
         onChange: (next) => attrs.onEditChange(next),
         disabled: attrs.editBusy,
       }),
       m('textarea.FormControl.SGFeed-editTextarea', {
-        value:    attrs.editText,
-        rows:     4,
+        value: attrs.editText,
+        rows: 4,
         disabled: attrs.editBusy,
-        oninput:  (e) => attrs.onEditChange(e.target.value),
+        oninput: (e) => attrs.onEditChange(e.target.value),
         onkeydown: (e) => {
-          if (e.key === 'Escape') { e.preventDefault(); attrs.onEditCancel(); }
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            attrs.onEditCancel();
+          }
         },
       }),
     ]),
     m('.SGFeed-editActions', [
-      m('button.Button.Button--primary.SGFeed-postBtn', {
-        disabled: attrs.editBusy || !attrs.editText.trim(),
-        onclick:  () => attrs.onEditSave(),
-      }, attrs.editBusy
-          ? m('i.fa-solid.fa-spinner.fa-spin')
-          : t('save_edit')),
-      m('button.Button.SGFeed-cancelBtn', {
-        disabled: attrs.editBusy,
-        onclick:  () => attrs.onEditCancel(),
-      }, t('cancel_edit')),
+      m(
+        'button.Button.Button--primary.SGFeed-postBtn',
+        {
+          disabled: attrs.editBusy || !attrs.editText.trim(),
+          onclick: () => attrs.onEditSave(),
+        },
+        attrs.editBusy ? m('i.fa-solid.fa-spinner.fa-spin') : t('save_edit')
+      ),
+      m(
+        'button.Button.SGFeed-cancelBtn',
+        {
+          disabled: attrs.editBusy,
+          onclick: () => attrs.onEditCancel(),
+        },
+        t('cancel_edit')
+      ),
     ]),
   ]);
 }
@@ -178,45 +207,57 @@ function renderSharedFrom(d) {
   if (!d.sharedFrom) return null;
   const sf = d.sharedFrom;
 
-  return m('a.SGFeed-sharedCard', {
-    href:    `/groups/${sf.groupSlug}/d/${sf.discussionId}`,
-    onclick: (e) => { e.preventDefault(); m.route.set(`/groups/${sf.groupSlug}/d/${sf.discussionId}`); },
-  }, [
-    m('.SGFeed-sharedCard-header', [
-      sf.user?.avatarUrl
-        ? m('img.SGFeed-sharedCard-avatar', { src: sf.user.avatarUrl, alt: '' })
-        : m('span.SGFeed-sharedCard-initial', (sf.user?.displayName || '?')[0].toUpperCase()),
-      m('span.SGFeed-sharedCard-author', sf.user?.displayName || ''),
-      m('span.SGFeed-sharedCard-group', [m('i.fa-solid.fa-users'), ' ', sf.groupName]),
-    ]),
-    m('.SGFeed-sharedCard-title', sf.title),
-    sf.snippet ? m('.SGFeed-sharedCard-snippet', sf.snippet) : null,
-  ]);
+  return m(
+    'a.SGFeed-sharedCard',
+    {
+      href: `/groups/${sf.groupSlug}/d/${sf.discussionId}`,
+      onclick: (e) => {
+        e.preventDefault();
+        m.route.set(`/groups/${sf.groupSlug}/d/${sf.discussionId}`);
+      },
+    },
+    [
+      m('.SGFeed-sharedCard-header', [
+        sf.user?.avatarUrl
+          ? m('img.SGFeed-sharedCard-avatar', { src: sf.user.avatarUrl, alt: '' })
+          : m('span.SGFeed-sharedCard-initial', (sf.user?.displayName || '?')[0].toUpperCase()),
+        m('span.SGFeed-sharedCard-author', sf.user?.displayName || ''),
+        m('span.SGFeed-sharedCard-group', [m('i.fa-solid.fa-users'), ' ', sf.groupName]),
+      ]),
+      m('.SGFeed-sharedCard-title', sf.title),
+      sf.snippet ? m('.SGFeed-sharedCard-snippet', sf.snippet) : null,
+    ]
+  );
 }
 
 function renderPoll(d, attrs, t) {
-  const poll    = d.poll;
-  const actor   = app.session.user;
-  const ended   = poll.endsAt && new Date(poll.endsAt) < new Date();
+  const poll = d.poll;
+  const actor = app.session.user;
+  const ended = poll.endsAt && new Date(poll.endsAt) < new Date();
   const canVote = actor && !ended;
 
   return m('.SGFeed-poll', [
     m('.SGFeed-poll-question', [m('i.fa-solid.fa-square-poll-vertical'), ' ', poll.question]),
-    m('.SGFeed-poll-options',
+    m(
+      '.SGFeed-poll-options',
       poll.options.map((opt) => {
         const voted = poll.actorVotedOptionIds.includes(opt.id);
-        const pct   = poll.totalVotes > 0 ? Math.round((opt.voteCount / poll.totalVotes) * 100) : 0;
-        return m('button.SGFeed-poll-option', {
-          key:      opt.id,
-          class:    voted ? 'is-voted' : '',
-          disabled: !canVote,
-          onclick:  () => canVote && attrs.onVotePoll(opt.id),
-        }, [
-          m('.SGFeed-poll-optBar', { style: `width:${pct}%` }),
-          m('span.SGFeed-poll-optText', opt.text),
-          m('span.SGFeed-poll-optPct', `${pct}%`),
-          voted ? m('i.fa-solid.fa-check.SGFeed-poll-check') : null,
-        ]);
+        const pct = poll.totalVotes > 0 ? Math.round((opt.voteCount / poll.totalVotes) * 100) : 0;
+        return m(
+          'button.SGFeed-poll-option',
+          {
+            key: opt.id,
+            class: voted ? 'is-voted' : '',
+            disabled: !canVote,
+            onclick: () => canVote && attrs.onVotePoll(opt.id),
+          },
+          [
+            m('.SGFeed-poll-optBar', { style: `width:${pct}%` }),
+            m('span.SGFeed-poll-optText', opt.text),
+            m('span.SGFeed-poll-optPct', `${pct}%`),
+            voted ? m('i.fa-solid.fa-check.SGFeed-poll-check') : null,
+          ]
+        );
       })
     ),
     m('.SGFeed-poll-footer', [
@@ -227,21 +268,15 @@ function renderPoll(d, attrs, t) {
 }
 
 function renderStatBar(d, fp, attrs, t) {
-  const stat        = ReactionStat(fp?.reactions);
+  const stat = ReactionStat(fp?.reactions);
   const hasComments = d.commentCount > 1;
   if (!stat.total && !hasComments) return null;
 
   return m('.SGFeed-postStatBar', [
-    stat.total > 0
-      ? m('span.SGFeed-statLikes', [
-          stat.topEmojis.map((emoji) => m('span.SGFeed-reactionEmoji', emoji)),
-          ' ', stat.total,
-        ])
-      : null,
+    stat.total > 0 ? m('span.SGFeed-statLikes', [stat.topEmojis.map((emoji) => m('span.SGFeed-reactionEmoji', emoji)), ' ', stat.total]) : null,
     stat.total > 0 && hasComments ? m('span.SGFeed-statDot', '·') : null,
     hasComments
-      ? m('button.SGFeed-statComments', { onclick: () => attrs.onToggleComments() },
-          t('comments_count', { count: d.commentCount - 1 }))
+      ? m('button.SGFeed-statComments', { onclick: () => attrs.onToggleComments() }, t('comments_count', { count: d.commentCount - 1 }))
       : null,
   ]);
 }
@@ -255,23 +290,24 @@ function renderActionBar(d, fp, attrs, t) {
           attrs.pickerOpen
             ? ReactionPicker({
                 actorReaction: fp.actorReaction,
-                onPick:        (key) => attrs.onReact(key),
+                onPick: (key) => attrs.onReact(key),
               })
             : null,
           ReactionButton({
             actorReaction: fp.actorReaction,
-            onClear:       () => attrs.onClearReaction(),
-            onOpen:        () => attrs.onTogglePicker(),
+            onClear: () => attrs.onClearReaction(),
+            onOpen: () => attrs.onTogglePicker(),
           }),
         ])
       : null,
-    m('button.SGFeed-commentBtn', {
-      class:   attrs.commentsExpanded ? 'is-active' : '',
-      onclick: () => attrs.onToggleComments(),
-    }, [
-      m('i.fa-solid.fa-comment'), ' ',
-      attrs.commentsExpanded ? t('hide_comments') : t('view_comments'),
-    ]),
+    m(
+      'button.SGFeed-commentBtn',
+      {
+        class: attrs.commentsExpanded ? 'is-active' : '',
+        onclick: () => attrs.onToggleComments(),
+      },
+      [m('i.fa-solid.fa-comment'), ' ', attrs.commentsExpanded ? t('hide_comments') : t('view_comments')]
+    ),
   ]);
 }
 
@@ -290,10 +326,10 @@ function renderReplyRow(d, attrs, t) {
       attrs.mentionDropdown,
       m('textarea.SGFeed-replyInput', {
         placeholder: t('reply_placeholder'),
-        value:       attrs.replyText,
-        rows:        1,
-        disabled:    attrs.replyBusy,
-        oninput:     (e) => {
+        value: attrs.replyText,
+        rows: 1,
+        disabled: attrs.replyBusy,
+        oninput: (e) => {
           attrs.onReplyChange(e.target.value);
           e.target.style.height = 'auto';
           e.target.style.height = e.target.scrollHeight + 'px';
@@ -301,13 +337,15 @@ function renderReplyRow(d, attrs, t) {
         },
         onkeydown: (e) => attrs.onReplyKeydown(e),
       }),
-      m('button.SGFeed-replySendBtn', {
-        disabled: attrs.replyBusy || !attrs.replyText.trim(),
-        onclick:  () => attrs.onReplySubmit(),
-        title:    t('post_comment'),
-      }, attrs.replyBusy
-          ? m('i.fa-solid.fa-spinner.fa-spin')
-          : m('i.fa-solid.fa-paper-plane')),
+      m(
+        'button.SGFeed-replySendBtn',
+        {
+          disabled: attrs.replyBusy || !attrs.replyText.trim(),
+          onclick: () => attrs.onReplySubmit(),
+          title: t('post_comment'),
+        },
+        attrs.replyBusy ? m('i.fa-solid.fa-spinner.fa-spin') : m('i.fa-solid.fa-paper-plane')
+      ),
     ]),
   ]);
 }

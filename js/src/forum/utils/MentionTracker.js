@@ -33,15 +33,15 @@ import { MentionDropdown } from '../components/feed/MentionDropdown';
  */
 export default class MentionTracker {
   constructor({ groupId, setText }) {
-    this.groupId    = groupId;
-    this.setText    = setText;
+    this.groupId = groupId;
+    this.setText = setText;
 
-    this.members         = null;
-    this.membersLoading  = false;
+    this.members = null;
+    this.membersLoading = false;
 
-    this.query   = null;
-    this.discId  = null;
-    this._ta     = null;
+    this.query = null;
+    this.discId = null;
+    this._ta = null;
   }
 
   loadMembers() {
@@ -49,12 +49,12 @@ export default class MentionTracker {
     this.membersLoading = true;
     listMembers(this.groupId)
       .then((data) => {
-        this.members        = data.data || [];
+        this.members = data.data || [];
         this.membersLoading = false;
         m.redraw();
       })
       .catch(() => {
-        this.members        = [];
+        this.members = [];
         this.membersLoading = false;
       });
   }
@@ -64,17 +64,17 @@ export default class MentionTracker {
    * `@word` token and, if so, opens (or updates) the dropdown.
    */
   onInput(discId, e) {
-    const ta     = e.target;
-    const pos    = ta.selectionStart;
+    const ta = e.target;
+    const pos = ta.selectionStart;
     const before = ta.value.slice(0, pos);
-    const match  = before.match(/@([\w-]*)$/);
+    const match = before.match(/@([\w-]*)$/);
     if (match) {
-      this.query  = match[1];
+      this.query = match[1];
       this.discId = discId;
-      this._ta    = ta;
+      this._ta = ta;
       this.loadMembers();
     } else if (this.discId === discId) {
-      this.query  = null;
+      this.query = null;
       this.discId = null;
     }
   }
@@ -88,20 +88,23 @@ export default class MentionTracker {
     const ta = this._ta;
     if (!ta) return;
 
-    const pos    = ta.selectionStart;
-    const text   = ta.value;
+    const pos = ta.selectionStart;
+    const text = ta.value;
     const before = text.slice(0, pos);
-    const match  = before.match(/@([\w-]*)$/);
-    if (!match) { this.query = null; return; }
+    const match = before.match(/@([\w-]*)$/);
+    if (!match) {
+      this.query = null;
+      return;
+    }
 
-    const start    = pos - match[0].length;
+    const start = pos - match[0].length;
     const inserted = '@' + member.displayName + ' ';
-    const newText  = text.slice(0, start) + inserted + text.slice(pos);
+    const newText = text.slice(0, start) + inserted + text.slice(pos);
 
     this.setText(this.discId, newText);
 
     const wasDiscId = this.discId;
-    this.query  = null;
+    this.query = null;
     this.discId = null;
     m.redraw();
 
@@ -121,9 +124,9 @@ export default class MentionTracker {
     if (this.discId !== discId) return null;
 
     return MentionDropdown({
-      members:  this.members,
-      loading:  this.membersLoading,
-      query:    this.query,
+      members: this.members,
+      loading: this.membersLoading,
+      query: this.query,
       onSelect: (member) => this.select(member),
     });
   }
@@ -139,7 +142,7 @@ export default class MentionTracker {
   closeIfOutside(target) {
     if (this.query === null) return false;
     if (target.closest && target.closest('.SGFeed-mentionDropdown')) return false;
-    this.query  = null;
+    this.query = null;
     this.discId = null;
     return true;
   }
@@ -147,7 +150,7 @@ export default class MentionTracker {
   /** Close the dropdown e.g. on Escape. */
   close() {
     if (this.query === null) return false;
-    this.query  = null;
+    this.query = null;
     this.discId = null;
     return true;
   }

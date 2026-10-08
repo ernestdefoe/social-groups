@@ -8,9 +8,9 @@ export default class GroupAnalyticsPanel extends Component {
   oninit(vnode) {
     super.oninit(vnode);
     this.expanded = true;
-    this.data     = null;
-    this.loading  = false;
-    this.error    = false;
+    this.data = null;
+    this.loading = false;
+    this.error = false;
   }
 
   oncreate(vnode) {
@@ -29,12 +29,12 @@ export default class GroupAnalyticsPanel extends Component {
 
     apiGet(`/sg-analytics/${this.attrs.groupId}`)
       .then((data) => {
-        this.data    = data;
+        this.data = data;
         this.loading = false;
         m.redraw();
       })
       .catch(() => {
-        this.error   = true;
+        this.error = true;
         this.loading = false;
         m.redraw();
       });
@@ -43,7 +43,11 @@ export default class GroupAnalyticsPanel extends Component {
   view() {
     return m('.SGAnalytics', [
       m('button.SGAnalytics-toggle', { onclick: () => this.toggle() }, [
-        m('span.SGAnalytics-toggleLabel', [m('i.fa-solid.fa-chart-bar'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.analytics.title')]),
+        m('span.SGAnalytics-toggleLabel', [
+          m('i.fa-solid.fa-chart-bar'),
+          ' ',
+          app.translator.trans('ernestdefoe-social-groups.forum.analytics.title'),
+        ]),
         m('i.fa-solid', { class: this.expanded ? 'fa-chevron-up' : 'fa-chevron-down' }),
       ]),
 
@@ -53,50 +57,55 @@ export default class GroupAnalyticsPanel extends Component {
 
   viewBody() {
     if (this.loading) return m('.SGAnalytics-body', m(SGSkeleton, { surface: 'analytics', fallback: 260, rows: 3 }));
-    if (this.error)   return m('.SGAnalytics-body.SGAnalytics-error', app.translator.trans('ernestdefoe-social-groups.forum.analytics.error'));
-    if (!this.data)   return null;
+    if (this.error) return m('.SGAnalytics-body.SGAnalytics-error', app.translator.trans('ernestdefoe-social-groups.forum.analytics.error'));
+    if (!this.data) return null;
 
     const { summary, memberGrowth, postVolume, topPosts } = this.data;
 
     return m('.SGAnalytics-body', [
-
       // Summary stats
       m('.SGAnalytics-stats', [
-        this.viewStat(summary.totalMembers,   app.translator.trans('ernestdefoe-social-groups.forum.analytics.stat_members'),   'fa-users'),
-        this.viewStat(summary.totalPosts,     app.translator.trans('ernestdefoe-social-groups.forum.analytics.stat_posts'),     'fa-comment'),
+        this.viewStat(summary.totalMembers, app.translator.trans('ernestdefoe-social-groups.forum.analytics.stat_members'), 'fa-users'),
+        this.viewStat(summary.totalPosts, app.translator.trans('ernestdefoe-social-groups.forum.analytics.stat_posts'), 'fa-comment'),
         this.viewStat(summary.totalReactions, app.translator.trans('ernestdefoe-social-groups.forum.analytics.stat_reactions'), 'fa-heart'),
       ]),
 
       // Member growth chart
       m('.SGAnalytics-section', [
         m('h4.SGAnalytics-sectionTitle', app.translator.trans('ernestdefoe-social-groups.forum.analytics.member_growth')),
-        this.viewBarChart(memberGrowth, 'date',      'count', '#4A90E2'),
+        this.viewBarChart(memberGrowth, 'date', 'count', '#4A90E2'),
       ]),
 
       // Post volume chart
       m('.SGAnalytics-section', [
         m('h4.SGAnalytics-sectionTitle', app.translator.trans('ernestdefoe-social-groups.forum.analytics.post_volume')),
-        this.viewBarChart(postVolume,   'weekStart', 'count', '#7b5ea7'),
+        this.viewBarChart(postVolume, 'weekStart', 'count', '#7b5ea7'),
       ]),
 
       // Top posts
       topPosts && topPosts.length > 0
         ? m('.SGAnalytics-section', [
             m('h4.SGAnalytics-sectionTitle', app.translator.trans('ernestdefoe-social-groups.forum.analytics.top_posts')),
-            m('ol.SGAnalytics-topPosts',
+            m(
+              'ol.SGAnalytics-topPosts',
               topPosts.map((p) =>
-                m('li.SGAnalytics-topPost', {
-                  key:     p.postId,
-                  onclick: () => m.route.set(app.route('ernestdefoe-social-groups.discussion', {
-                    slug:         this.attrs.groupSlug,
-                    discussionId: p.discussionId,
-                  })),
-                }, [
-                  m('span.SGAnalytics-topPostReactions', [
-                    m('i.fa-solid.fa-heart'), ' ', p.totalReactions,
-                  ]),
-                  m('span.SGAnalytics-topPostSnippet', p.snippet || '—'),
-                ])
+                m(
+                  'li.SGAnalytics-topPost',
+                  {
+                    key: p.postId,
+                    onclick: () =>
+                      m.route.set(
+                        app.route('ernestdefoe-social-groups.discussion', {
+                          slug: this.attrs.groupSlug,
+                          discussionId: p.discussionId,
+                        })
+                      ),
+                  },
+                  [
+                    m('span.SGAnalytics-topPostReactions', [m('i.fa-solid.fa-heart'), ' ', p.totalReactions]),
+                    m('span.SGAnalytics-topPostSnippet', p.snippet || '—'),
+                  ]
+                )
               )
             ),
           ])
@@ -105,40 +114,44 @@ export default class GroupAnalyticsPanel extends Component {
   }
 
   viewStat(value, label, icon) {
-    return m('.SGAnalytics-stat', [
-      m('i.fa-solid.' + icon),
-      m('span.SGAnalytics-statValue', value),
-      m('span.SGAnalytics-statLabel', label),
-    ]);
+    return m('.SGAnalytics-stat', [m('i.fa-solid.' + icon), m('span.SGAnalytics-statValue', value), m('span.SGAnalytics-statLabel', label)]);
   }
 
   viewBarChart(data, labelKey, countKey, color) {
     if (!data || !data.length) return null;
 
-    const W   = 240;
-    const H   = 56;
+    const W = 240;
+    const H = 56;
     const gap = 2;
     const max = Math.max(1, ...data.map((d) => d[countKey]));
     const barW = Math.max(1, (W - gap * (data.length - 1)) / data.length);
 
-    return m('svg.SGAnalytics-chart', {
-      viewBox:             `0 0 ${W} ${H}`,
-      preserveAspectRatio: 'none',
-      style:               `width:100%;height:${H}px`,
-    }, [
-      data.map((d, i) => {
-        const h = Math.max(2, Math.round((d[countKey] / max) * H));
-        return m('rect', {
-          key:    i,
-          x:      Math.round(i * (barW + gap)),
-          y:      H - h,
-          width:  Math.floor(barW),
-          height: h,
-          fill:   color,
-          rx:     2,
-          style:  'opacity:0.85',
-        }, m('title', `${d[labelKey]}: ${d[countKey]}`));
-      }),
-    ]);
+    return m(
+      'svg.SGAnalytics-chart',
+      {
+        viewBox: `0 0 ${W} ${H}`,
+        preserveAspectRatio: 'none',
+        style: `width:100%;height:${H}px`,
+      },
+      [
+        data.map((d, i) => {
+          const h = Math.max(2, Math.round((d[countKey] / max) * H));
+          return m(
+            'rect',
+            {
+              key: i,
+              x: Math.round(i * (barW + gap)),
+              y: H - h,
+              width: Math.floor(barW),
+              height: h,
+              fill: color,
+              rx: 2,
+              style: 'opacity:0.85',
+            },
+            m('title', `${d[labelKey]}: ${d[countKey]}`)
+          );
+        }),
+      ]
+    );
   }
 }

@@ -1,8 +1,13 @@
 import {
-  apiPost, apiUpload,
+  apiPost,
+  apiUpload,
   listThreadPosts,
-  createPost, updatePost, deletePost as apiDeletePost,
-  pinPost as apiPinPost, reactToPost, unreactToPost,
+  createPost,
+  updatePost,
+  deletePost as apiDeletePost,
+  pinPost as apiPinPost,
+  reactToPost,
+  unreactToPost,
 } from '../utils/api';
 import { pastedImages } from '../utils/uploads';
 import { scheduleLinkPreview, clearLinkPreview, viewComposerLinkPreview, viewPostLinkPreview } from '../utils/linkPreview';
@@ -18,32 +23,32 @@ import humanTime from 'flarum/common/utils/humanTime';
 export default class GroupDiscussionThread extends Page {
   oninit(vnode) {
     super.oninit(vnode);
-    this.discussion  = null;
-    this.posts       = [];
-    this.loading     = true;
-    this.error       = null;
-    this.replyText   = '';
-    this.submitting  = false;
-    this.replyError  = null;
-    this.editingId   = null;
-    this.editText    = '';
-    this.editError   = null;
-    this.deletingId  = null;
-    this.openMenuId  = null;
+    this.discussion = null;
+    this.posts = [];
+    this.loading = true;
+    this.error = null;
+    this.replyText = '';
+    this.submitting = false;
+    this.replyError = null;
+    this.editingId = null;
+    this.editText = '';
+    this.editError = null;
+    this.deletingId = null;
+    this.openMenuId = null;
 
-    this.uploads     = [];
+    this.uploads = [];
     this.editUploads = [];
 
     this.pickerPostId = null;
 
-    this.linkPreview    = null;
+    this.linkPreview = null;
     this.previewLoading = false;
-    this.previewUrl     = null;
-    this._previewTimer  = null;
+    this.previewUrl = null;
+    this._previewTimer = null;
     this._dismissedUrls = new Set();
 
-    this.replyingToId          = null;
-    this.inlineReplyText       = '';
+    this.replyingToId = null;
+    this.inlineReplyText = '';
     this.inlineReplySubmitting = false;
 
     /*
@@ -52,24 +57,24 @@ export default class GroupDiscussionThread extends Page {
      * false. Was a hardcoded `page[size]=200` request that silently
      * truncated long threads — see audit finding A4.
      */
-    this.PAGE_SIZE     = 30;
-    this.nextOffset    = 0;
-    this.hasMore       = false;
-    this.loadingMore   = false;
+    this.PAGE_SIZE = 30;
+    this.nextOffset = 0;
+    this.hasMore = false;
+    this.loadingMore = false;
     this.loadMoreError = null;
 
     // ── Realtime state ────────────────────────────────────────────────────
     // Set of post IDs we have already rendered — prevents double-injection
     // when the same post arrives both from the POST response and the WebSocket.
-    this._seenPostIds   = new Set();
+    this._seenPostIds = new Set();
     // Map of userId → { displayName, avatarUrl, at } for typing indicators.
-    this._typingUsers   = new Map();
-    this._typingTimer   = null;
+    this._typingUsers = new Map();
+    this._typingTimer = null;
     // Throttle: timestamp of last typing-status request sent to the server.
     this._lastTypingSent = 0;
-    this._isTyping       = false;
+    this._isTyping = false;
     // Flag cleared in onremove so stale event handlers become no-ops.
-    this._rtActive       = false;
+    this._rtActive = false;
   }
 
   oncreate(vnode) {
@@ -132,7 +137,10 @@ export default class GroupDiscussionThread extends Page {
         const cutoff = Date.now() - 4000;
         let changed = false;
         for (const [uid, entry] of this._typingUsers.entries()) {
-          if (entry.at < cutoff) { this._typingUsers.delete(uid); changed = true; }
+          if (entry.at < cutoff) {
+            this._typingUsers.delete(uid);
+            changed = true;
+          }
         }
         if (changed) m.redraw();
       }, 4500);
@@ -149,10 +157,10 @@ export default class GroupDiscussionThread extends Page {
       try {
         const ch = pusher.subscribe(channelName);
         ch.bind('sg-post-created', handlePost);
-        ch.bind('sg-typing',       handleTyping);
-        this._rtChannel     = ch;
+        ch.bind('sg-typing', handleTyping);
+        this._rtChannel = ch;
         this._rtChannelName = channelName;
-        this._rtPusher      = pusher;
+        this._rtPusher = pusher;
       } catch (_) {
         this._rtChannel = null;
       }
@@ -160,8 +168,8 @@ export default class GroupDiscussionThread extends Page {
       try {
         const ch = app.realtime.subscribePrivate(channelName);
         ch.bind?.('sg-post-created', handlePost);
-        ch.bind?.('sg-typing',       handleTyping);
-        this._rtChannel     = ch;
+        ch.bind?.('sg-typing', handleTyping);
+        this._rtChannel = ch;
         this._rtChannelName = channelName;
       } catch (_) {
         this._rtChannel = null;
@@ -183,14 +191,14 @@ export default class GroupDiscussionThread extends Page {
       .then((data) => {
         if (!data || !this._rtActive) return;
         if (String(discussionId) !== String(this.attrs.discussionId)) return;
-        this.discussion   = data.discussion ?? this.discussion;
-        const firstPage   = data.data || [];
+        this.discussion = data.discussion ?? this.discussion;
+        const firstPage = data.data || [];
         /*
          * Stitch: first PAGE_SIZE slots come from the refresh, anything
          * past that keeps whatever Load More had appended. Dedup by id.
          */
         const carryOver = this.posts.slice(this.PAGE_SIZE);
-        const seen      = new Set();
+        const seen = new Set();
         this.posts = [...firstPage, ...carryOver].filter((p) => {
           if (seen.has(p.id)) return false;
           seen.add(p.id);
@@ -199,7 +207,9 @@ export default class GroupDiscussionThread extends Page {
         this._seenPostIds = new Set(this.posts.map((p) => p.id));
         m.redraw();
       })
-      .catch(() => { /* transient — next event triggers another refresh */ });
+      .catch(() => {
+        /* transient — next event triggers another refresh */
+      });
   }
 
   _teardownRealtime() {
@@ -230,13 +240,12 @@ export default class GroupDiscussionThread extends Page {
     if (!isTyping && !this._isTyping) return; // no change
 
     const now = Date.now();
-    if (isTyping && (now - this._lastTypingSent) < 2000) return; // throttle
+    if (isTyping && now - this._lastTypingSent < 2000) return; // throttle
 
-    this._isTyping       = isTyping;
+    this._isTyping = isTyping;
     this._lastTypingSent = now;
 
-    apiPost('/sg-typing', { discussionId: this.discussion.id, isTyping })
-      .catch(() => {}); // fire-and-forget — errors are non-critical
+    apiPost('/sg-typing', { discussionId: this.discussion.id, isTyping }).catch(() => {}); // fire-and-forget — errors are non-critical
   }
 
   onupdate(vnode) {
@@ -255,29 +264,31 @@ export default class GroupDiscussionThread extends Page {
   }
 
   _revokeAll(uploads) {
-    uploads.forEach((u) => { if (u.previewUrl) URL.revokeObjectURL(u.previewUrl); });
+    uploads.forEach((u) => {
+      if (u.previewUrl) URL.revokeObjectURL(u.previewUrl);
+    });
   }
 
   load() {
     const discussionId = this.attrs.discussionId;
-    this.loading       = true;
-    this.error         = null;
-    this.nextOffset    = 0;
-    this.hasMore       = false;
+    this.loading = true;
+    this.error = null;
+    this.nextOffset = 0;
+    this.hasMore = false;
     this.loadMoreError = null;
 
     listThreadPosts(discussionId, { offset: 0, limit: this.PAGE_SIZE })
       .then((data) => {
         this.discussion = data.discussion;
-        this.posts      = data.data || [];
+        this.posts = data.data || [];
         this.nextOffset = this.posts.length;
-        this.hasMore    = !!data.meta?.hasMore;
+        this.hasMore = !!data.meta?.hasMore;
         /*
          * Seed the seen-set so WebSocket echoes of already-loaded posts
          * are ignored.
          */
         this._seenPostIds = new Set(this.posts.map((p) => p.id));
-        this.loading      = false;
+        this.loading = false;
         if (this.discussion) {
           document.title = `${this.discussion.title} — ${app.forum.attribute('title')}`;
         }
@@ -289,7 +300,7 @@ export default class GroupDiscussionThread extends Page {
         this._setupRealtime();
       })
       .catch((err) => {
-        this.error   = err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error'));
+        this.error = err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error'));
         this.loading = false;
         m.redraw();
       });
@@ -304,8 +315,8 @@ export default class GroupDiscussionThread extends Page {
     if (this.loadingMore || !this.hasMore) return;
 
     const discussionId = this.attrs.discussionId;
-    const offset       = this.nextOffset;
-    this.loadingMore   = true;
+    const offset = this.nextOffset;
+    this.loadingMore = true;
     this.loadMoreError = null;
     m.redraw();
 
@@ -313,22 +324,21 @@ export default class GroupDiscussionThread extends Page {
       .then((data) => {
         if (String(discussionId) !== String(this.attrs.discussionId)) return;
         const newPosts = data.data || [];
-        const seen     = this._seenPostIds;
+        const seen = this._seenPostIds;
         for (const p of newPosts) {
           if (seen.has(p.id)) continue;
           this.posts.push(p);
           seen.add(p.id);
         }
-        this.nextOffset  = offset + newPosts.length;
-        this.hasMore     = !!data.meta?.hasMore;
+        this.nextOffset = offset + newPosts.length;
+        this.hasMore = !!data.meta?.hasMore;
         this.loadingMore = false;
         m.redraw();
       })
       .catch((err) => {
-        this.loadingMore   = false;
-        this.loadMoreError = err.response?.errors?.[0]?.detail
-          || err.message
-          || app.translator.trans('ernestdefoe-social-groups.forum.discussions.load_more_failed');
+        this.loadingMore = false;
+        this.loadMoreError =
+          err.response?.errors?.[0]?.detail || err.message || app.translator.trans('ernestdefoe-social-groups.forum.discussions.load_more_failed');
         if (app.alerts?.show) {
           app.alerts.show({ type: 'error' }, this.loadMoreError);
         }
@@ -340,7 +350,7 @@ export default class GroupDiscussionThread extends Page {
 
   handleFiles(files, uploadsKey, textKey) {
     for (const file of files) {
-      const id         = Math.random().toString(36).slice(2);
+      const id = Math.random().toString(36).slice(2);
       const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null;
 
       this[uploadsKey].push({ id, name: file.name, previewUrl, uploading: true, error: null, uuid: null });
@@ -352,13 +362,13 @@ export default class GroupDiscussionThread extends Page {
       apiUpload('/fof/upload', fd)
         .then((data) => {
           const fileData = Array.isArray(data.data) ? data.data[0] : data.data;
-          const uuid     = fileData?.attributes?.uuid || fileData?.id;
-          const bbcode   = fileData?.attributes?.bbcode || `[upl-file uuid="${uuid}"][/upl-file]`;
-          const upload   = this[uploadsKey].find((u) => u.id === id);
+          const uuid = fileData?.attributes?.uuid || fileData?.id;
+          const bbcode = fileData?.attributes?.bbcode || `[upl-file uuid="${uuid}"][/upl-file]`;
+          const upload = this[uploadsKey].find((u) => u.id === id);
           if (upload) {
-            upload.uuid      = uuid;
+            upload.uuid = uuid;
             upload.uploading = false;
-            this[textKey]    = this[textKey] ? `${this[textKey]}\n${bbcode}` : bbcode;
+            this[textKey] = this[textKey] ? `${this[textKey]}\n${bbcode}` : bbcode;
           }
           m.redraw();
         })
@@ -366,7 +376,11 @@ export default class GroupDiscussionThread extends Page {
           const upload = this[uploadsKey].find((u) => u.id === id);
           if (upload) {
             upload.uploading = false;
-            upload.error     = err.response?.errors?.[0]?.detail || err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.upload.failed'));
+            upload.error =
+              err.response?.errors?.[0]?.detail ||
+              err.response?.error ||
+              err.message ||
+              extractText(app.translator.trans('ernestdefoe-social-groups.forum.upload.failed'));
           }
           m.redraw();
         });
@@ -378,8 +392,8 @@ export default class GroupDiscussionThread extends Page {
     if (!upload) return;
     if (upload.previewUrl) URL.revokeObjectURL(upload.previewUrl);
     if (upload.uuid) {
-      const tag      = `[upl-file uuid="${upload.uuid}"][/upl-file]`;
-      this[textKey]  = this[textKey].replace(`\n${tag}`, '').replace(tag, '').trim();
+      const tag = `[upl-file uuid="${upload.uuid}"][/upl-file]`;
+      this[textKey] = this[textKey].replace(`\n${tag}`, '').replace(tag, '').trim();
     }
     this[uploadsKey] = this[uploadsKey].filter((u) => u.id !== id);
     m.redraw();
@@ -395,28 +409,33 @@ export default class GroupDiscussionThread extends Page {
   toggleReaction(post, reactionKey) {
     if (!app.session.user || !post || !post.id) return;
 
-    const prevReaction  = post.actorReaction;
+    const prevReaction = post.actorReaction;
     const prevReactions = { ...(post.reactions || {}) };
-    const nextReaction  = prevReaction === reactionKey ? null : reactionKey;
+    const nextReaction = prevReaction === reactionKey ? null : reactionKey;
 
     // Optimistic update
     post.actorReaction = nextReaction;
     const updated = { ...prevReactions };
-    if (prevReaction) { updated[prevReaction] = Math.max(0, (updated[prevReaction] || 0) - 1); if (!updated[prevReaction]) delete updated[prevReaction]; }
-    if (nextReaction) { updated[nextReaction] = (updated[nextReaction] || 0) + 1; }
-    post.reactions    = updated;
+    if (prevReaction) {
+      updated[prevReaction] = Math.max(0, (updated[prevReaction] || 0) - 1);
+      if (!updated[prevReaction]) delete updated[prevReaction];
+    }
+    if (nextReaction) {
+      updated[nextReaction] = (updated[nextReaction] || 0) + 1;
+    }
+    post.reactions = updated;
     this.pickerPostId = null;
     m.redraw();
 
     const req = nextReaction ? reactToPost(post.id, nextReaction) : unreactToPost(post.id);
     req
       .then((data) => {
-        post.reactions     = data.reactions || {};
+        post.reactions = data.reactions || {};
         post.actorReaction = data.actorReaction || null;
         m.redraw();
       })
       .catch(() => {
-        post.reactions     = prevReactions;
+        post.reactions = prevReactions;
         post.actorReaction = prevReaction;
         m.redraw();
       });
@@ -434,7 +453,7 @@ export default class GroupDiscussionThread extends Page {
     createPost({
       discussionId: this.discussion.id,
       content,
-      linkPreview:  this.linkPreview || null,
+      linkPreview: this.linkPreview || null,
     })
       .then((post) => {
         // Register as seen so the WebSocket echo doesn't double-insert it.
@@ -442,7 +461,7 @@ export default class GroupDiscussionThread extends Page {
         this._sendTyping(false);
         this.posts.push(post);
         if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
-        this.replyText  = '';
+        this.replyText = '';
         this.submitting = false;
         this._revokeAll(this.uploads);
         this.uploads = [];
@@ -454,7 +473,8 @@ export default class GroupDiscussionThread extends Page {
         });
       })
       .catch((err) => {
-        this.replyError = err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error'));
+        this.replyError =
+          err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error'));
         this.submitting = false;
         m.redraw();
       });
@@ -463,17 +483,17 @@ export default class GroupDiscussionThread extends Page {
   startEdit(post) {
     this._revokeAll(this.editUploads);
     this.editUploads = [];
-    this.editingId   = post.id;
-    this.editText    = post.content;
-    this.openMenuId  = null;
+    this.editingId = post.id;
+    this.editText = post.content;
+    this.openMenuId = null;
   }
 
   cancelEdit() {
     this._revokeAll(this.editUploads);
     this.editUploads = [];
-    this.editingId   = null;
-    this.editText    = '';
-    this.editError   = null;
+    this.editingId = null;
+    this.editText = '';
+    this.editError = null;
   }
 
   saveEdit(post) {
@@ -490,7 +510,8 @@ export default class GroupDiscussionThread extends Page {
         m.redraw();
       })
       .catch((err) => {
-        this.editError = err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.discussions.edit_failed'));
+        this.editError =
+          err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.discussions.edit_failed'));
         m.redraw();
       });
   }
@@ -563,8 +584,8 @@ export default class GroupDiscussionThread extends Page {
   }
 
   startInlineReply(post) {
-    const targetId     = post.parentPostId ?? post.id;
-    this.replyingToId  = this.replyingToId === targetId ? null : targetId;
+    const targetId = post.parentPostId ?? post.id;
+    this.replyingToId = this.replyingToId === targetId ? null : targetId;
     this.inlineReplyText = '';
     m.redraw();
   }
@@ -585,9 +606,9 @@ export default class GroupDiscussionThread extends Page {
         this._sendTyping(false);
         this.posts.push(post);
         if (this.discussion) this.discussion.commentCount = (this.discussion.commentCount || 0) + 1;
-        this.inlineReplyText       = '';
+        this.inlineReplyText = '';
         this.inlineReplySubmitting = false;
-        this.replyingToId          = null;
+        this.replyingToId = null;
         m.redraw();
       })
       .catch(() => {
@@ -612,18 +633,17 @@ export default class GroupDiscussionThread extends Page {
     }
 
     return m('.SGThread-typingBar', [
-      m('.SGThread-typingAvatars',
-        typers.slice(0, 3).map((t) =>
-          t.avatarUrl
-            ? m('img.SGThread-typingAvatar', { src: t.avatarUrl, alt: t.displayName, key: t.displayName })
-            : m('span.SGThread-typingInitial', { key: t.displayName }, (t.displayName || '?')[0].toUpperCase())
-        )
+      m(
+        '.SGThread-typingAvatars',
+        typers
+          .slice(0, 3)
+          .map((t) =>
+            t.avatarUrl
+              ? m('img.SGThread-typingAvatar', { src: t.avatarUrl, alt: t.displayName, key: t.displayName })
+              : m('span.SGThread-typingInitial', { key: t.displayName }, (t.displayName || '?')[0].toUpperCase())
+          )
       ),
-      m('span.SGThread-typingLabel', [
-        m('.SGThread-typingDots', [m('span'), m('span'), m('span')]),
-        ' ',
-        label,
-      ]),
+      m('span.SGThread-typingLabel', [m('.SGThread-typingDots', [m('span'), m('span'), m('span')]), ' ', label]),
     ]);
   }
 
@@ -631,62 +651,74 @@ export default class GroupDiscussionThread extends Page {
 
   view() {
     const { slug } = this.attrs;
-    const actor    = app.session.user;
+    const actor = app.session.user;
 
     return m('.SGThread', [
       m('.SGThread-back', [
-        m('a.SGThread-backLink', {
-          href: app.route('ernestdefoe-social-groups.show', { slug }),
-          onclick: (e) => { e.preventDefault(); m.route.set(app.route('ernestdefoe-social-groups.show', { slug })); },
-        }, [m('i.fa-solid.fa-arrow-left'), ' ',
-            app.translator.trans('ernestdefoe-social-groups.forum.discussions.back')]),
+        m(
+          'a.SGThread-backLink',
+          {
+            href: app.route('ernestdefoe-social-groups.show', { slug }),
+            onclick: (e) => {
+              e.preventDefault();
+              m.route.set(app.route('ernestdefoe-social-groups.show', { slug }));
+            },
+          },
+          [m('i.fa-solid.fa-arrow-left'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.back')]
+        ),
       ]),
 
       this.loading
         ? m('.SGThread-loading', m(LoadingIndicator, { display: 'block' }))
         : this.error
-        ? m('.SGThread-error', this.error)
-        : m('.SGThread-body', [
-            m('.SGThread-headerCard', [
-              m('h1.SGThread-title', this.discussion.title),
-              m('.SGThread-meta', [
-                m('span', [
-                  m('i.fa-solid.fa-message'),
-                  ' ',
-                  app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_count', { count: this.discussion.commentCount }),
+          ? m('.SGThread-error', this.error)
+          : m('.SGThread-body', [
+              m('.SGThread-headerCard', [
+                m('h1.SGThread-title', this.discussion.title),
+                m('.SGThread-meta', [
+                  m('span', [
+                    m('i.fa-solid.fa-message'),
+                    ' ',
+                    app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_count', { count: this.discussion.commentCount }),
+                  ]),
+                  this.discussion.isLocked
+                    ? m('span.SGThread-locked', [
+                        m('i.fa-solid.fa-lock'),
+                        ' ',
+                        app.translator.trans('ernestdefoe-social-groups.forum.discussions.locked'),
+                      ])
+                    : null,
                 ]),
-                this.discussion.isLocked
-                  ? m('span.SGThread-locked', [m('i.fa-solid.fa-lock'), ' ',
-                      app.translator.trans('ernestdefoe-social-groups.forum.discussions.locked')])
-                  : null,
               ]),
-            ]),
 
-            m('.SGThread-posts', (() => {
-              const topLevel = this.posts.filter((p) => !p.parentPostId);
-              const nested   = this.posts.filter((p) => !!p.parentPostId);
-              const repliesByParent = {};
-              nested.forEach((p) => {
-                if (!repliesByParent[p.parentPostId]) repliesByParent[p.parentPostId] = [];
-                repliesByParent[p.parentPostId].push(p);
-              });
-              return topLevel.map((post) => this.viewPost(post, repliesByParent));
-            })()),
+              m(
+                '.SGThread-posts',
+                (() => {
+                  const topLevel = this.posts.filter((p) => !p.parentPostId);
+                  const nested = this.posts.filter((p) => !!p.parentPostId);
+                  const repliesByParent = {};
+                  nested.forEach((p) => {
+                    if (!repliesByParent[p.parentPostId]) repliesByParent[p.parentPostId] = [];
+                    repliesByParent[p.parentPostId].push(p);
+                  });
+                  return topLevel.map((post) => this.viewPost(post, repliesByParent));
+                })()
+              ),
 
-            this.viewLoadMore(),
+              this.viewLoadMore(),
 
-            this.viewTypingBar(),
+              this.viewTypingBar(),
 
-            actor && !this.discussion.isLocked
-              ? (this.discussion.canReply
+              actor && !this.discussion.isLocked
+                ? this.discussion.canReply
                   ? this.viewReplyBox(actor)
                   : m('.SGThread-joinToReply', [
                       m('i.fa-solid.fa-user-plus'),
                       ' ',
                       app.translator.trans('ernestdefoe-social-groups.forum.discussions.join_to_reply'),
-                    ]))
-              : null,
-          ]),
+                    ])
+                : null,
+            ]),
     ]);
   }
 
@@ -705,19 +737,19 @@ export default class GroupDiscussionThread extends Page {
       }
       // Best-effort count from the last meta we saw — graceful fallback
       // if total wasn't returned.
-      return app.translator.trans(
-        'ernestdefoe-social-groups.forum.discussions.load_more_short'
-      );
+      return app.translator.trans('ernestdefoe-social-groups.forum.discussions.load_more_short');
     })();
 
     return m('.SGThread-loadMore', [
-      this.loadMoreError
-        ? m('.Alert.Alert--error.SGThread-loadMoreError', this.loadMoreError)
-        : null,
-      m('button.Button.SGThread-loadMoreBtn', {
-        disabled: this.loadingMore,
-        onclick:  () => this.loadMore(),
-      }, label),
+      this.loadMoreError ? m('.Alert.Alert--error.SGThread-loadMoreError', this.loadMoreError) : null,
+      m(
+        'button.Button.SGThread-loadMoreBtn',
+        {
+          disabled: this.loadingMore,
+          onclick: () => this.loadMore(),
+        },
+        label
+      ),
     ]);
   }
 
@@ -732,13 +764,16 @@ export default class GroupDiscussionThread extends Page {
         this.replyError ? m('.Alert.Alert--error', this.replyError) : null,
         m('.SGMd-field', [
           MarkdownToolbar({
-            onChange: (next) => { this.replyText = next; scheduleLinkPreview(this, next); },
+            onChange: (next) => {
+              this.replyText = next;
+              scheduleLinkPreview(this, next);
+            },
             disabled: this.submitting,
           }),
           m('textarea.SGThread-replyTextarea', {
             placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_placeholder'),
-            value:       this.replyText,
-            oninput:     (e) => {
+            value: this.replyText,
+            oninput: (e) => {
               this.replyText = e.target.value;
               e.target.style.height = 'auto';
               e.target.style.height = e.target.scrollHeight + 'px';
@@ -748,76 +783,89 @@ export default class GroupDiscussionThread extends Page {
             onblur: () => this._sendTyping(false),
             onpaste: (e) => {
               const imgs = pastedImages(e);
-              if (imgs.length) { e.preventDefault(); this.handleFiles(imgs, 'uploads', 'replyText'); }
+              if (imgs.length) {
+                e.preventDefault();
+                this.handleFiles(imgs, 'uploads', 'replyText');
+              }
             },
-            rows:     1,
+            rows: 1,
             disabled: this.submitting,
           }),
         ]),
         this.uploads.length
-          ? m('.SGThread-uploads', this.uploads.map((u) => this.viewUpload(u, 'uploads', 'replyText')))
+          ? m(
+              '.SGThread-uploads',
+              this.uploads.map((u) => this.viewUpload(u, 'uploads', 'replyText'))
+            )
           : null,
         viewComposerLinkPreview(this),
         m('.SGThread-replyFooter', [
-          m('.SGThread-replyFooterLeft', [
-            this.viewUploadBtn('uploads', 'replyText', this.submitting),
-          ]),
-          m('button.SGThread-postBtn', {
-            disabled: this.submitting || !this.replyText.trim() || this.uploads.some((u) => u.uploading),
-            onclick:  () => this.submitReply(),
-          }, this.submitting
-            ? m('i.fa-solid.fa-spinner.fa-spin')
-            : app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_button')),
+          m('.SGThread-replyFooterLeft', [this.viewUploadBtn('uploads', 'replyText', this.submitting)]),
+          m(
+            'button.SGThread-postBtn',
+            {
+              disabled: this.submitting || !this.replyText.trim() || this.uploads.some((u) => u.uploading),
+              onclick: () => this.submitReply(),
+            },
+            this.submitting ? m('i.fa-solid.fa-spinner.fa-spin') : app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_button')
+          ),
         ]),
       ]),
     ]);
   }
 
   viewUploadBtn(uploadsKey, textKey, disabled) {
-    return m('label.SGThread-uploadBtn', {
-      title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.upload_image'),
-      class: disabled ? 'disabled' : '',
-    }, [
-      m('input[type=file]', {
-        accept:   'image/*,video/*,.pdf,.doc,.docx,.zip',
-        multiple: true,
-        style:    'display:none',
-        disabled,
-        onchange: (e) => {
-          if (e.target.files.length) this.handleFiles(Array.from(e.target.files), uploadsKey, textKey);
-          e.target.value = '';
-        },
-      }),
-      m('i.fa-solid.fa-paperclip'),
-    ]);
+    return m(
+      'label.SGThread-uploadBtn',
+      {
+        title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.upload_image'),
+        class: disabled ? 'disabled' : '',
+      },
+      [
+        m('input[type=file]', {
+          accept: 'image/*,video/*,.pdf,.doc,.docx,.zip',
+          multiple: true,
+          style: 'display:none',
+          disabled,
+          onchange: (e) => {
+            if (e.target.files.length) this.handleFiles(Array.from(e.target.files), uploadsKey, textKey);
+            e.target.value = '';
+          },
+        }),
+        m('i.fa-solid.fa-paperclip'),
+      ]
+    );
   }
 
   viewUpload(u, uploadsKey, textKey) {
-    const cls = 'SGThread-upload' +
-      (u.error ? '.SGThread-upload--error' : u.uploading ? '.SGThread-upload--loading' : '.SGThread-upload--done');
+    const cls = 'SGThread-upload' + (u.error ? '.SGThread-upload--error' : u.uploading ? '.SGThread-upload--loading' : '.SGThread-upload--done');
 
     return m(cls, { key: u.id }, [
       u.uploading
         ? m('i.fa-solid.fa-spinner.fa-spin.SGThread-uploadSpinner')
         : u.error
-        ? m('i.fa-solid.fa-circle-exclamation.SGThread-uploadErrIcon')
-        : u.previewUrl
-        ? m('img.SGThread-uploadThumb', { src: u.previewUrl, alt: u.name })
-        : m('i.fa-solid.fa-file.SGThread-uploadFileIcon'),
+          ? m('i.fa-solid.fa-circle-exclamation.SGThread-uploadErrIcon')
+          : u.previewUrl
+            ? m('img.SGThread-uploadThumb', { src: u.previewUrl, alt: u.name })
+            : m('i.fa-solid.fa-file.SGThread-uploadFileIcon'),
       m('span.SGThread-uploadName', u.error ? `${u.name}: ${u.error}` : u.name),
       !u.uploading
-        ? m('button.SGThread-uploadRemove', {
-            type:    'button',
-            title:   app.translator.trans('ernestdefoe-social-groups.forum.discussions.upload_remove'),
-            onclick: () => this.removeUpload(u.id, uploadsKey, textKey),
-          }, '×')
+        ? m(
+            'button.SGThread-uploadRemove',
+            {
+              type: 'button',
+              title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.upload_remove'),
+              onclick: () => this.removeUpload(u.id, uploadsKey, textKey),
+            },
+            '×'
+          )
         : null,
     ]);
   }
 
   viewReactionStatBar(post) {
     const reactions = post.reactions || {};
-    const total     = Object.values(reactions).reduce((s, c) => s + Number(c), 0);
+    const total = Object.values(reactions).reduce((s, c) => s + Number(c), 0);
     if (!total) return null;
 
     const topEmojis = Object.entries(reactions)
@@ -827,57 +875,69 @@ export default class GroupDiscussionThread extends Page {
       .map(([key]) => REACTIONS.find((r) => r.key === key)?.emoji || '👍');
 
     return m('.SGThread-postStatBar', [
-      m('span.SGThread-statLikes', [
-        topEmojis.map((emoji) => m('span.SGThread-reactionEmoji', emoji)),
-        ' ',
-        total,
-      ]),
+      m('span.SGThread-statLikes', [topEmojis.map((emoji) => m('span.SGThread-reactionEmoji', emoji)), ' ', total]),
     ]);
   }
 
   viewReactionActionBar(post) {
-    const actor         = app.session.user;
-    const pickerOpen    = this.pickerPostId === post.id;
+    const actor = app.session.user;
+    const pickerOpen = this.pickerPostId === post.id;
     const actorReaction = post.actorReaction || null;
-    const active        = actorReaction
-      ? REACTIONS.find((r) => r.key === actorReaction)
-      : null;
+    const active = actorReaction ? REACTIONS.find((r) => r.key === actorReaction) : null;
 
     return m('.SGThread-postActionBar', [
       actor
         ? m('.SGThread-reactWrap', [
             pickerOpen
-              ? m('.SGThread-reactionPicker',
+              ? m(
+                  '.SGThread-reactionPicker',
                   REACTIONS.map((r) =>
-                    m('button.SGThread-pickerBtn', {
-                      key:     r.key,
-                      title:   r.label,
-                      class:   actorReaction === r.key ? 'is-active' : '',
-                      onclick: (e) => { e.stopPropagation(); this.pickerPostId = null; this.toggleReaction(post, r.key); },
-                    }, [m('span.SGThread-pickerEmoji', r.emoji), m('span.SGThread-pickerLabel', r.label)])
-                  ))
+                    m(
+                      'button.SGThread-pickerBtn',
+                      {
+                        key: r.key,
+                        title: r.label,
+                        class: actorReaction === r.key ? 'is-active' : '',
+                        onclick: (e) => {
+                          e.stopPropagation();
+                          this.pickerPostId = null;
+                          this.toggleReaction(post, r.key);
+                        },
+                      },
+                      [m('span.SGThread-pickerEmoji', r.emoji), m('span.SGThread-pickerLabel', r.label)]
+                    )
+                  )
+                )
               : null,
             // Single React button: opens picker when idle, removes reaction when active
-            m('button.SGThread-reactBtn', {
-              class:   active ? 'SGThread-reactBtn--active' : '',
-              onclick: (e) => {
-                e.stopPropagation();
-                if (active) {
-                  this.toggleReaction(post, actorReaction); // same key → removes it
-                } else {
-                  this.togglePicker(post.id);               // opens emoji picker
-                }
+            m(
+              'button.SGThread-reactBtn',
+              {
+                class: active ? 'SGThread-reactBtn--active' : '',
+                onclick: (e) => {
+                  e.stopPropagation();
+                  if (active) {
+                    this.toggleReaction(post, actorReaction); // same key → removes it
+                  } else {
+                    this.togglePicker(post.id); // opens emoji picker
+                  }
+                },
               },
-            }, active
+              active
                 ? [active.emoji, ' ', active.label]
-                : [m('i.fa-solid.fa-face-grin-beam'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.react')]),
+                : [m('i.fa-solid.fa-face-grin-beam'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.react')]
+            ),
           ])
         : null,
       actor && this.discussion?.canReply && !this.discussion?.isLocked
-        ? m('button.SGThread-replyBtn', {
-            class:   this.replyingToId === (post.parentPostId ?? post.id) ? 'is-active' : '',
-            onclick: () => this.startInlineReply(post),
-          }, [m('i.fa-solid.fa-reply'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_button')])
+        ? m(
+            'button.SGThread-replyBtn',
+            {
+              class: this.replyingToId === (post.parentPostId ?? post.id) ? 'is-active' : '',
+              onclick: () => this.startInlineReply(post),
+            },
+            [m('i.fa-solid.fa-reply'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_button')]
+          )
         : null,
     ]);
   }
@@ -893,57 +953,58 @@ export default class GroupDiscussionThread extends Page {
       m('.SGThread-inlineReplyInputWrap', [
         m('textarea.SGThread-inlineReplyInput', {
           placeholder: app.translator.trans('ernestdefoe-social-groups.forum.discussions.reply_placeholder'),
-          value:       this.inlineReplyText,
-          rows:        1,
-          disabled:    this.inlineReplySubmitting,
-          oninput:     (e) => {
+          value: this.inlineReplyText,
+          rows: 1,
+          disabled: this.inlineReplySubmitting,
+          oninput: (e) => {
             this.inlineReplyText = e.target.value;
             e.target.style.height = 'auto';
             e.target.style.height = e.target.scrollHeight + 'px';
             if (e.target.value.trim()) this._sendTyping(true);
           },
-          onblur:    () => this._sendTyping(false),
+          onblur: () => this._sendTyping(false),
           onkeydown: (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.submitInlineReply(); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              this.submitInlineReply();
+            }
           },
         }),
-        m('button.SGThread-inlineReplySendBtn', {
-          disabled: this.inlineReplySubmitting || !this.inlineReplyText.trim(),
-          onclick:  () => this.submitInlineReply(),
-          title:    app.translator.trans('ernestdefoe-social-groups.forum.discussions.post_reply'),
-        }, this.inlineReplySubmitting
-            ? m('i.fa-solid.fa-spinner.fa-spin')
-            : m('i.fa-solid.fa-paper-plane')),
+        m(
+          'button.SGThread-inlineReplySendBtn',
+          {
+            disabled: this.inlineReplySubmitting || !this.inlineReplyText.trim(),
+            onclick: () => this.submitInlineReply(),
+            title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.post_reply'),
+          },
+          this.inlineReplySubmitting ? m('i.fa-solid.fa-spinner.fa-spin') : m('i.fa-solid.fa-paper-plane')
+        ),
       ]),
     ]);
   }
 
   viewPost(post, repliesByParent = {}, nested = false) {
-    const isEditing  = this.editingId === post.id;
+    const isEditing = this.editingId === post.id;
     const isDeleting = this.deletingId === post.id;
-    const menuOpen   = this.openMenuId === post.id;
-    const actor      = app.session.user;
+    const menuOpen = this.openMenuId === post.id;
+    const actor = app.session.user;
     // Client-side fallback: always allow edit/delete on your own posts even if
     // the server flag was missing (e.g. posts injected via WebSocket broadcast).
-    const isOwnPost  = actor && post.user && String(post.user.id) === String(actor.id());
-    const canEdit    = post.canEdit   || isOwnPost;
-    const canDelete  = post.canDelete || isOwnPost;
-    const canPin     = !!post.canPin;
-    const isPinned   = !!post.isPinned;
-    const cls = '.SGThread-post'
-      + (nested    ? '.SGThread-post--nested' : '')
-      + (isPinned  ? '.SGThread-post--pinned' : '')
-      + (isDeleting ? '.is-deleting'          : '');
+    const isOwnPost = actor && post.user && String(post.user.id) === String(actor.id());
+    const canEdit = post.canEdit || isOwnPost;
+    const canDelete = post.canDelete || isOwnPost;
+    const canPin = !!post.canPin;
+    const isPinned = !!post.isPinned;
+    const cls =
+      '.SGThread-post' + (nested ? '.SGThread-post--nested' : '') + (isPinned ? '.SGThread-post--pinned' : '') + (isDeleting ? '.is-deleting' : '');
 
     return m(cls, { key: post.id }, [
-
       // ── Post header: avatar + name/time + menu ──
       m('.SGThread-postHeader', [
         m('.SGThread-postAvatar', [
           post.user && post.user.avatarUrl
             ? m('img', { src: post.user.avatarUrl, alt: post.user.displayName })
-            : m('span.SGThread-postInitial',
-                (post.user?.displayName || '?')[0].toUpperCase()),
+            : m('span.SGThread-postInitial', (post.user?.displayName || '?')[0].toUpperCase()),
         ]),
         m('.SGThread-postMeta', [
           m('span.SGThread-postAuthor', post.user?.displayName || ''),
@@ -954,30 +1015,35 @@ export default class GroupDiscussionThread extends Page {
               : null,
           ]),
           isPinned
-            ? m('span.SGThread-pinnedBadge', {
-                title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned_reply'),
-              }, [
-                m('i.fa-solid.fa-thumbtack'),
-                ' ',
-                app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned'),
-              ])
+            ? m(
+                'span.SGThread-pinnedBadge',
+                {
+                  title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned_reply'),
+                },
+                [m('i.fa-solid.fa-thumbtack'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.discussions.pinned')]
+              )
             : null,
         ]),
         !isEditing && (canEdit || canDelete || canPin)
           ? m('.SGThread-postMenu', [
-              m('button.SGThread-postMenuBtn', {
-                onclick: (e) => {
-                  e.stopPropagation();
-                  this.openMenuId = menuOpen ? null : post.id;
-                  m.redraw();
+              m(
+                'button.SGThread-postMenuBtn',
+                {
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    this.openMenuId = menuOpen ? null : post.id;
+                    m.redraw();
+                  },
+                  title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.more_options'),
                 },
-                title: app.translator.trans('ernestdefoe-social-groups.forum.discussions.more_options'),
-              }, m('i.fa-solid.fa-ellipsis')),
+                m('i.fa-solid.fa-ellipsis')
+              ),
               menuOpen
                 ? m('.SGThread-postDropdown', [
                     canPin
                       ? m('button.SGThread-dropdownItem', { onclick: () => this.pinPost(post) }, [
-                          m('i.fa-solid.fa-thumbtack'), ' ',
+                          m('i.fa-solid.fa-thumbtack'),
+                          ' ',
                           app.translator.trans(
                             isPinned
                               ? 'ernestdefoe-social-groups.forum.discussions.unpin_reply'
@@ -987,13 +1053,15 @@ export default class GroupDiscussionThread extends Page {
                       : null,
                     canEdit
                       ? m('button.SGThread-dropdownItem', { onclick: () => this.startEdit(post) }, [
-                          m('i.fa-solid.fa-pencil'), ' ',
+                          m('i.fa-solid.fa-pencil'),
+                          ' ',
                           app.translator.trans('ernestdefoe-social-groups.forum.discussions.edit'),
                         ])
                       : null,
                     canDelete
                       ? m('button.SGThread-dropdownItem.SGThread-dropdownItem--danger', { onclick: () => this.deletePost(post) }, [
-                          m('i.fa-solid.fa-trash'), ' ',
+                          m('i.fa-solid.fa-trash'),
+                          ' ',
                           app.translator.trans('ernestdefoe-social-groups.forum.discussions.delete_post'),
                         ])
                       : null,
@@ -1009,33 +1077,51 @@ export default class GroupDiscussionThread extends Page {
             this.editError ? m('.Alert.Alert--error', { style: 'margin-bottom:8px;font-size:.85em' }, this.editError) : null,
             m('.SGMd-field', [
               MarkdownToolbar({
-                onChange: (next) => { this.editText = next; },
+                onChange: (next) => {
+                  this.editText = next;
+                },
                 disabled: false,
               }),
               m('textarea.FormControl.SGThread-editTextarea', {
-                value:   this.editText,
-                oninput: (e) => { this.editText = e.target.value; },
+                value: this.editText,
+                oninput: (e) => {
+                  this.editText = e.target.value;
+                },
                 onpaste: (e) => {
                   const imgs = pastedImages(e);
-                  if (imgs.length) { e.preventDefault(); this.handleFiles(imgs, 'editUploads', 'editText'); }
+                  if (imgs.length) {
+                    e.preventDefault();
+                    this.handleFiles(imgs, 'editUploads', 'editText');
+                  }
                 },
-                rows:    4,
+                rows: 4,
               }),
             ]),
             this.editUploads.length
-              ? m('.SGThread-uploads', this.editUploads.map((u) => this.viewUpload(u, 'editUploads', 'editText')))
+              ? m(
+                  '.SGThread-uploads',
+                  this.editUploads.map((u) => this.viewUpload(u, 'editUploads', 'editText'))
+                )
               : null,
             m('.SGThread-editActions', [
               this.viewUploadBtn('editUploads', 'editText', false),
-              m(Button, {
-                class:    'Button Button--primary Button--sm',
-                onclick:  () => this.saveEdit(post),
-                disabled: !this.editText.trim() || this.editUploads.some((u) => u.uploading),
-              }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.save_edit')),
-              m(Button, {
-                class:   'Button Button--sm',
-                onclick: () => this.cancelEdit(),
-              }, app.translator.trans('ernestdefoe-social-groups.forum.discussions.cancel_edit')),
+              m(
+                Button,
+                {
+                  class: 'Button Button--primary Button--sm',
+                  onclick: () => this.saveEdit(post),
+                  disabled: !this.editText.trim() || this.editUploads.some((u) => u.uploading),
+                },
+                app.translator.trans('ernestdefoe-social-groups.forum.discussions.save_edit')
+              ),
+              m(
+                Button,
+                {
+                  class: 'Button Button--sm',
+                  onclick: () => this.cancelEdit(),
+                },
+                app.translator.trans('ernestdefoe-social-groups.forum.discussions.cancel_edit')
+              ),
             ]),
           ])
         : m('.SGThread-postContent', m.trust(post.contentParsed)),
@@ -1048,15 +1134,14 @@ export default class GroupDiscussionThread extends Page {
       !isEditing ? this.viewReactionActionBar(post) : null,
 
       // ── Nested replies + inline composer (top-level posts only) ──
-      !nested ? (() => {
-        const replies      = repliesByParent[post.id] || [];
-        const showComposer = this.replyingToId === post.id;
-        if (!replies.length && !showComposer) return null;
-        return m('.SGThread-replies', [
-          replies.map((r) => this.viewPost(r, {}, true)),
-          showComposer ? this.viewInlineReplyComposer() : null,
-        ]);
-      })() : null,
+      !nested
+        ? (() => {
+            const replies = repliesByParent[post.id] || [];
+            const showComposer = this.replyingToId === post.id;
+            if (!replies.length && !showComposer) return null;
+            return m('.SGThread-replies', [replies.map((r) => this.viewPost(r, {}, true)), showComposer ? this.viewInlineReplyComposer() : null]);
+          })()
+        : null,
     ]);
   }
 }

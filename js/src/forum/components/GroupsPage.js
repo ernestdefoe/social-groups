@@ -9,10 +9,10 @@ import SGSkeleton, { measure } from './SGSkeleton';
 export default class GroupsPage extends Page {
   oninit(vnode) {
     super.oninit(vnode);
-    this.allGroups   = null; // current result set from server
-    this.loading     = true;
+    this.allGroups = null; // current result set from server
+    this.loading = true;
     this.searchValue = '';
-    this.error       = null;
+    this.error = null;
     this._searchTimer = null;
   }
 
@@ -43,11 +43,11 @@ export default class GroupsPage extends Page {
       .find('social-groups', params)
       .then((groups) => {
         this.allGroups = groups;
-        this.loading   = false;
+        this.loading = false;
         m.redraw();
       })
       .catch((err) => {
-        this.error   = err;
+        this.error = err;
         this.loading = false;
         m.redraw();
       });
@@ -66,7 +66,8 @@ export default class GroupsPage extends Page {
     // Toggle via the standard Update endpoint on SocialGroupResource:
     // PATCH /api/social-groups/{id} with { isFeatured: !was }. The
     // Schema field gates write to admin actors.
-    group.save({ isFeatured: !was })
+    group
+      .save({ isFeatured: !was })
       .then(() => m.redraw())
       .catch(() => {
         group.pushData({ attributes: { isFeatured: was } });
@@ -97,24 +98,29 @@ export default class GroupsPage extends Page {
           m('div.GroupsPage-actions', [
             // Search bar
             m('input.GroupsPage-search', {
-              type:        'text',
+              type: 'text',
               placeholder: app.translator.trans('ernestdefoe-social-groups.forum.groups.search_placeholder'),
-              value:       this.searchValue,
-              oninput:     (e) => this.onSearch(e.target.value),
+              value: this.searchValue,
+              oninput: (e) => this.onSearch(e.target.value),
             }),
 
             // Create group button
             canCreate
-              ? m(Button, {
-                  class:   'Button Button--primary',
-                  icon:    'fa-solid fa-plus',
-                  onclick: () => app.modal.show(CreateGroupModal, {
-                    onCreated: (group) => {
-                      this.allGroups = [group, ...(this.allGroups || [])];
-                      m.redraw();
-                    },
-                  }),
-                }, app.translator.trans('ernestdefoe-social-groups.forum.groups.create_button'))
+              ? m(
+                  Button,
+                  {
+                    class: 'Button Button--primary',
+                    icon: 'fa-solid fa-plus',
+                    onclick: () =>
+                      app.modal.show(CreateGroupModal, {
+                        onCreated: (group) => {
+                          this.allGroups = [group, ...(this.allGroups || [])];
+                          m.redraw();
+                        },
+                      }),
+                  },
+                  app.translator.trans('ernestdefoe-social-groups.forum.groups.create_button')
+                )
               : null,
           ]),
         ]),
@@ -123,58 +129,75 @@ export default class GroupsPage extends Page {
         this.loading
           ? m(SGSkeleton, { surface: 'index', fallback: 318, rows: 3, variant: 'cards' })
           : this.error
-          ? m('div.GroupsPage-error', app.translator.trans('ernestdefoe-social-groups.forum.groups.load_error'))
-          : !this.filteredGroups || this.filteredGroups.length === 0
-          ? m('div.GroupsPage-empty', [
-              m('i.fa-solid.fa-users'),
-              m('h3', app.translator.trans(
-                this.searchValue.trim()
-                  ? 'ernestdefoe-social-groups.forum.groups.empty_search'
-                  : 'ernestdefoe-social-groups.forum.groups.empty_title'
-              )),
-              !this.searchValue.trim()
-                ? m('p', app.translator.trans('ernestdefoe-social-groups.forum.groups.empty_text'))
-                : null,
-              canCreate && !this.searchValue.trim()
-                ? m(Button, {
-                    class:   'Button Button--primary',
-                    onclick: () => app.modal.show(CreateGroupModal, {
-                      onCreated: (group) => {
-                        this.allGroups = [group, ...(this.allGroups || [])];
-                        m.redraw();
-                      },
-                    }),
-                  }, app.translator.trans('ernestdefoe-social-groups.forum.groups.create_button'))
-                : null,
-            ])
-          : (() => {
-              const groups   = this.filteredGroups;
-              const featured = groups.filter((g) => g.isFeatured());
-              const regular  = groups.filter((g) => !g.isFeatured());
-              return [
-                featured.length
-                  ? m('div.GroupsPage-featured', [
-                      m('h3.GroupsPage-featuredHeading', [m('i.fa-solid.fa-star'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.featured_heading')]),
-                      m('div.GroupsPage-grid.GroupsPage-grid--featured',
-                        featured.map((group) => m(GroupCard, {
-                          group,
-                          key:           group.id(),
-                          onToggleFeature: () => this.toggleFeature(group),
-                        }))
-                      ),
-                    ])
-                  : null,
-                regular.length
-                  ? m('div.GroupsPage-grid', measure('index'),
-                      regular.map((group) => m(GroupCard, {
-                        group,
-                        key:           group.id(),
-                        onToggleFeature: () => this.toggleFeature(group),
-                      }))
+            ? m('div.GroupsPage-error', app.translator.trans('ernestdefoe-social-groups.forum.groups.load_error'))
+            : !this.filteredGroups || this.filteredGroups.length === 0
+              ? m('div.GroupsPage-empty', [
+                  m('i.fa-solid.fa-users'),
+                  m(
+                    'h3',
+                    app.translator.trans(
+                      this.searchValue.trim()
+                        ? 'ernestdefoe-social-groups.forum.groups.empty_search'
+                        : 'ernestdefoe-social-groups.forum.groups.empty_title'
                     )
-                  : null,
-              ];
-            })(),
+                  ),
+                  !this.searchValue.trim() ? m('p', app.translator.trans('ernestdefoe-social-groups.forum.groups.empty_text')) : null,
+                  canCreate && !this.searchValue.trim()
+                    ? m(
+                        Button,
+                        {
+                          class: 'Button Button--primary',
+                          onclick: () =>
+                            app.modal.show(CreateGroupModal, {
+                              onCreated: (group) => {
+                                this.allGroups = [group, ...(this.allGroups || [])];
+                                m.redraw();
+                              },
+                            }),
+                        },
+                        app.translator.trans('ernestdefoe-social-groups.forum.groups.create_button')
+                      )
+                    : null,
+                ])
+              : (() => {
+                  const groups = this.filteredGroups;
+                  const featured = groups.filter((g) => g.isFeatured());
+                  const regular = groups.filter((g) => !g.isFeatured());
+                  return [
+                    featured.length
+                      ? m('div.GroupsPage-featured', [
+                          m('h3.GroupsPage-featuredHeading', [
+                            m('i.fa-solid.fa-star'),
+                            ' ',
+                            app.translator.trans('ernestdefoe-social-groups.forum.groups.featured_heading'),
+                          ]),
+                          m(
+                            'div.GroupsPage-grid.GroupsPage-grid--featured',
+                            featured.map((group) =>
+                              m(GroupCard, {
+                                group,
+                                key: group.id(),
+                                onToggleFeature: () => this.toggleFeature(group),
+                              })
+                            )
+                          ),
+                        ])
+                      : null,
+                    regular.length
+                      ? m(
+                          'div.GroupsPage-grid',
+                          measure('index'),
+                          regular.map((group) =>
+                            m(GroupCard, {
+                              group,
+                              key: group.id(),
+                              onToggleFeature: () => this.toggleFeature(group),
+                            })
+                          )
+                        )
+                      : null,
+                  ];
+                })(),
       ]),
     ]);
   }

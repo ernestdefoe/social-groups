@@ -11,12 +11,12 @@ export default class EditGroupModal extends Modal {
     super.oninit(vnode);
     const { group } = this.attrs;
 
-    this.name           = Stream(group.name() || '');
-    this.description    = Stream(group.description() || '');
-    this.color          = Stream(group.color() || PRESET_COLORS[0]);
-    this.isPrivate      = Stream(group.isPrivate() || false);
+    this.name = Stream(group.name() || '');
+    this.description = Stream(group.description() || '');
+    this.color = Stream(group.color() || PRESET_COLORS[0]);
+    this.isPrivate = Stream(group.isPrivate() || false);
     this.membershipType = Stream(group.membershipType() || 'open');
-    this.submitting     = false;
+    this.submitting = false;
     this.errors = {};
     this.deleting = false;
 
@@ -80,10 +80,14 @@ export default class EditGroupModal extends Modal {
 
       // Private toggle
       m('div.Form-group', [
-        m(Switch, {
-          state: this.isPrivate(),
-          onchange: (val) => this.isPrivate(val),
-        }, app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_label')),
+        m(
+          Switch,
+          {
+            state: this.isPrivate(),
+            onchange: (val) => this.isPrivate(val),
+          },
+          app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_label')
+        ),
         m('p.helpText', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.private_help')),
       ]),
 
@@ -93,7 +97,9 @@ export default class EditGroupModal extends Modal {
         m('div.GroupModal-membershipType', [
           m('label.GroupModal-membershipOption', [
             m('input', {
-              type: 'radio', name: 'edit_membership_type', value: 'open',
+              type: 'radio',
+              name: 'edit_membership_type',
+              value: 'open',
               checked: this.membershipType() === 'open',
               onchange: () => this.membershipType('open'),
             }),
@@ -101,7 +107,9 @@ export default class EditGroupModal extends Modal {
           ]),
           m('label.GroupModal-membershipOption', [
             m('input', {
-              type: 'radio', name: 'edit_membership_type', value: 'approval',
+              type: 'radio',
+              name: 'edit_membership_type',
+              value: 'approval',
               checked: this.membershipType() === 'approval',
               onchange: () => this.membershipType('approval'),
             }),
@@ -183,9 +191,9 @@ export default class EditGroupModal extends Modal {
     group
       .save({
         name,
-        description:    this.description().trim() || null,
-        color:          this.color(),
-        isPrivate:      this.isPrivate(),
+        description: this.description().trim() || null,
+        color: this.color(),
+        isPrivate: this.isPrivate(),
         membershipType: this.membershipType(),
       })
       .then(() => {

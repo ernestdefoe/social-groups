@@ -25,45 +25,44 @@ const PREVIEW_LIMIT = 3;
  * component contract stays "render the list state I give you".
  */
 export function InlineCommentList(attrs) {
-  const t = (key, params) =>
-    app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`, params);
+  const t = (key, params) => app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`, params);
 
   if (attrs.loading && !attrs.comments) {
-    return m('.SGFeed-comments',
-      m('.SGFeed-commentsLoading', m('i.fa-solid.fa-spinner.fa-spin'))
-    );
+    return m('.SGFeed-comments', m('.SGFeed-commentsLoading', m('i.fa-solid.fa-spinner.fa-spin')));
   }
 
   if (!attrs.comments || attrs.comments.length === 0) {
-    return m('.SGFeed-comments',
-      m('.SGFeed-commentsEmpty', t('comments_empty'))
-    );
+    return m('.SGFeed-comments', m('.SGFeed-commentsEmpty', t('comments_empty')));
   }
 
-  const shown  = attrs.comments.slice(-PREVIEW_LIMIT);
+  const shown = attrs.comments.slice(-PREVIEW_LIMIT);
   const hidden = Math.max(0, attrs.comments.length - PREVIEW_LIMIT);
-  const actor  = app.session.user;
+  const actor = app.session.user;
 
   return m('.SGFeed-comments', [
     hidden > 0
-      ? m('button.SGFeed-viewAllBtn', {
-          onclick: () => attrs.onOpenThread(),
-        }, t('view_all_comments', { count: attrs.comments.length }))
+      ? m(
+          'button.SGFeed-viewAllBtn',
+          {
+            onclick: () => attrs.onOpenThread(),
+          },
+          t('view_all_comments', { count: attrs.comments.length })
+        )
       : null,
     shown.map((post) => renderComment(post, attrs, actor, t)),
   ]);
 }
 
 function renderComment(post, attrs, actor, t) {
-  const user        = post.user;
-  const actorReact  = post.actorReaction || null;
-  const pickerOpen  = attrs.pickerCommentId === post.id;
-  const stat        = ReactionStat(post.reactions);
+  const user = post.user;
+  const actorReact = post.actorReaction || null;
+  const pickerOpen = attrs.pickerCommentId === post.id;
+  const stat = ReactionStat(post.reactions);
   const activeEmoji = actorReact ? REACTIONS.find((r) => r.key === actorReact) : null;
   // Author can always delete their own; moderators/admins get canDelete from
   // the server. (Same gate as the thread view's reply menu.)
-  const isOwn       = actor && user && String(user.id) === String(actor.id());
-  const canDelete   = !!post.canDelete || isOwn;
+  const isOwn = actor && user && String(user.id) === String(actor.id());
+  const canDelete = !!post.canDelete || isOwn;
 
   return m('.SGFeed-comment', { key: post.id }, [
     m('.SGFeed-commentAvatar', [
@@ -75,7 +74,7 @@ function renderComment(post, attrs, actor, t) {
     m('.SGFeed-commentRight', [
       m('.SGFeed-commentBody', [
         m('span.SGFeed-commentAuthor', user?.displayName || ''),
-        m('.SGFeed-commentContent', post.contentParsed ? m.trust(post.contentParsed) : (post.content || '')),
+        m('.SGFeed-commentContent', post.contentParsed ? m.trust(post.contentParsed) : post.content || ''),
       ]),
 
       m('.SGFeed-commentFooter', [
@@ -86,45 +85,45 @@ function renderComment(post, attrs, actor, t) {
               pickerOpen
                 ? ReactionPicker({
                     actorReaction: actorReact,
-                    wrapperClass:  'SGFeed-commentPicker',
-                    onPick:        (key) => attrs.onPickReaction(post, key),
+                    wrapperClass: 'SGFeed-commentPicker',
+                    onPick: (key) => attrs.onPickReaction(post, key),
                   })
                 : null,
-              m('button.SGFeed-commentReactBtn', {
-                class:   activeEmoji ? 'is-active' : '',
-                title:   activeEmoji
-                           ? t('remove_reaction', { emoji: activeEmoji.label })
-                           : t('react'),
-                onclick: (e) => {
-                  e.stopPropagation();
-                  if (activeEmoji) {
-                    attrs.onPickReaction(post, actorReact);
-                  } else {
-                    attrs.onTogglePicker(pickerOpen ? null : post.id);
-                  }
+              m(
+                'button.SGFeed-commentReactBtn',
+                {
+                  class: activeEmoji ? 'is-active' : '',
+                  title: activeEmoji ? t('remove_reaction', { emoji: activeEmoji.label }) : t('react'),
+                  onclick: (e) => {
+                    e.stopPropagation();
+                    if (activeEmoji) {
+                      attrs.onPickReaction(post, actorReact);
+                    } else {
+                      attrs.onTogglePicker(pickerOpen ? null : post.id);
+                    }
+                  },
                 },
-              }, activeEmoji
-                  ? [activeEmoji.emoji, ' ', activeEmoji.label]
-                  : [m('i.fa-solid.fa-face-grin-beam'), ' ', t('react')]),
+                activeEmoji ? [activeEmoji.emoji, ' ', activeEmoji.label] : [m('i.fa-solid.fa-face-grin-beam'), ' ', t('react')]
+              ),
             ])
           : null,
 
         stat.total > 0
-          ? m('span.SGFeed-commentReactStat', [
-              stat.topEmojis.map((emoji) => m('span.SGFeed-commentReactEmoji', emoji)),
-              ' ',
-              stat.total,
-            ])
+          ? m('span.SGFeed-commentReactStat', [stat.topEmojis.map((emoji) => m('span.SGFeed-commentReactEmoji', emoji)), ' ', stat.total])
           : null,
 
         canDelete && attrs.onDeleteComment
-          ? m('button.SGFeed-commentDeleteBtn', {
-              title:   t('delete_post'),
-              onclick: (e) => {
-                e.stopPropagation();
-                attrs.onDeleteComment(post);
+          ? m(
+              'button.SGFeed-commentDeleteBtn',
+              {
+                title: t('delete_post'),
+                onclick: (e) => {
+                  e.stopPropagation();
+                  attrs.onDeleteComment(post);
+                },
               },
-            }, m('i.fa-solid.fa-trash'))
+              m('i.fa-solid.fa-trash')
+            )
           : null,
       ]),
     ]),

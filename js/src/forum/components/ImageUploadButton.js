@@ -43,10 +43,7 @@ export default class ImageUploadButton extends Component {
         // Preview
         this.previewUrl
           ? m('div.ImageUploadButton-preview', [m('img', { src: this.previewUrl, alt: label })])
-          : m('div.ImageUploadButton-placeholder', [
-              m('i.fas', { class: isBanner ? 'fa-panorama' : 'fa-image' }),
-              m('span', label),
-            ]),
+          : m('div.ImageUploadButton-placeholder', [m('i.fas', { class: isBanner ? 'fa-panorama' : 'fa-image' }), m('span', label)]),
 
         // Loading overlay
         this.loading

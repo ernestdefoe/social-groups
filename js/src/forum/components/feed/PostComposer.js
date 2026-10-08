@@ -33,9 +33,9 @@ import { PollComposer } from './PollComposer';
  */
 export default {
   view({ attrs }) {
-    const a        = attrs.actor;
+    const a = attrs.actor;
     const expanded = attrs.postFocused || attrs.postText.trim().length > 0;
-    const t        = (key) => app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`);
+    const t = (key) => app.translator.trans(`ernestdefoe-social-groups.forum.discussions.${key}`);
 
     return m('.SGFeed-composer', [
       m('.SGFeed-composerAvatar', [
@@ -44,9 +44,7 @@ export default {
           : m('span.SGFeed-composerInitial', (a.attribute('displayName') || '?')[0].toUpperCase()),
       ]),
       m('.SGFeed-composerRight', [
-        attrs.postError
-          ? m('.Alert.Alert--error', { style: 'margin-bottom:8px' }, attrs.postError)
-          : null,
+        attrs.postError ? m('.Alert.Alert--error', { style: 'margin-bottom:8px' }, attrs.postError) : null,
         m('.SGMd-field', [
           expanded
             ? MarkdownToolbar({
@@ -56,10 +54,10 @@ export default {
             : null,
           m('textarea.SGFeed-composerTextarea', {
             placeholder: t('feed_placeholder'),
-            value:       attrs.postText,
-            rows:        expanded ? 3 : 1,
-            onfocus:     () => attrs.onFocus(),
-            oninput:     (e) => {
+            value: attrs.postText,
+            rows: expanded ? 3 : 1,
+            onfocus: () => attrs.onFocus(),
+            oninput: (e) => {
               attrs.onTextChange(e);
               // Grow to fit, but cap at the CSS max-height (40vh); past that the
               // textarea scrolls (overflow-y:auto) so a big paste stays editable.
@@ -68,8 +66,8 @@ export default {
               e.target.style.height = Math.min(e.target.scrollHeight, cap) + 'px';
             },
             onkeydown: (e) => attrs.onKeydown(e),
-            onpaste:   (e) => attrs.onPaste(e),
-            disabled:  attrs.postSubmitting,
+            onpaste: (e) => attrs.onPaste(e),
+            disabled: attrs.postSubmitting,
           }),
         ]),
         viewUploadChips(attrs.postUploads, (id) => attrs.onRemoveUpload(id)),
@@ -83,39 +81,51 @@ export default {
 };
 
 function renderActions(attrs, t) {
-  const submitDisabled = attrs.postSubmitting
-    || (!attrs.postText.trim() && !attrs.postUploads.length && !attrs.poll)
-    || attrs.hasUploading;
+  const submitDisabled = attrs.postSubmitting || (!attrs.postText.trim() && !attrs.postUploads.length && !attrs.poll) || attrs.hasUploading;
 
   return m('.SGFeed-composerActions', [
-    m('label.SGFeed-composerAttach', {
-      title: t('upload_image'),
-    }, [
-      m('input[type=file]', {
-        accept:   'image/*',
-        multiple: true,
-        style:    'display:none',
-        disabled: attrs.postSubmitting,
-        onchange: (e) => {
-          if (e.target.files.length) attrs.onUploadFiles(Array.from(e.target.files));
-          e.target.value = '';
-        },
-      }),
-      m('i.fa-solid.fa-paperclip'),
-    ]),
-    m('button.SGFeed-pollToggle', {
-      class:   attrs.poll ? 'is-active' : '',
-      title:   attrs.poll ? t('poll_remove') : t('poll_add'),
-      onclick: () => attrs.onTogglePoll(),
-    }, m('i.fa-solid.fa-square-poll-vertical')),
-    m('button.SGFeed-cancelBtn', {
-      onclick: () => attrs.onCancel(),
-    }, t('cancel_edit')),
-    m('button.SGFeed-postBtn', {
-      disabled: submitDisabled,
-      onclick:  () => attrs.onSubmit(),
-    }, attrs.postSubmitting
-        ? m('i.fa-solid.fa-spinner.fa-spin')
-        : t('reply_button')),
+    m(
+      'label.SGFeed-composerAttach',
+      {
+        title: t('upload_image'),
+      },
+      [
+        m('input[type=file]', {
+          accept: 'image/*',
+          multiple: true,
+          style: 'display:none',
+          disabled: attrs.postSubmitting,
+          onchange: (e) => {
+            if (e.target.files.length) attrs.onUploadFiles(Array.from(e.target.files));
+            e.target.value = '';
+          },
+        }),
+        m('i.fa-solid.fa-paperclip'),
+      ]
+    ),
+    m(
+      'button.SGFeed-pollToggle',
+      {
+        class: attrs.poll ? 'is-active' : '',
+        title: attrs.poll ? t('poll_remove') : t('poll_add'),
+        onclick: () => attrs.onTogglePoll(),
+      },
+      m('i.fa-solid.fa-square-poll-vertical')
+    ),
+    m(
+      'button.SGFeed-cancelBtn',
+      {
+        onclick: () => attrs.onCancel(),
+      },
+      t('cancel_edit')
+    ),
+    m(
+      'button.SGFeed-postBtn',
+      {
+        disabled: submitDisabled,
+        onclick: () => attrs.onSubmit(),
+      },
+      attrs.postSubmitting ? m('i.fa-solid.fa-spinner.fa-spin') : t('reply_button')
+    ),
   ]);
 }

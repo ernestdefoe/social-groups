@@ -12,8 +12,8 @@ import SGSkeleton, { measure } from './SGSkeleton';
 export default class JoinRequestsPanel extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.requests  = null;
-    this.loading   = true;
+    this.requests = null;
+    this.loading = true;
     this.actioning = {};
   }
 
@@ -24,17 +24,17 @@ export default class JoinRequestsPanel extends Component {
 
   load() {
     const groupId = this.attrs.groupId;
-    this.loading  = true;
+    this.loading = true;
 
     listJoinRequests(groupId)
       .then((data) => {
         this.requests = data.data || [];
-        this.loading  = false;
+        this.loading = false;
         m.redraw();
       })
       .catch(() => {
         this.requests = [];
-        this.loading  = false;
+        this.loading = false;
         m.redraw();
       });
   }
@@ -83,11 +83,11 @@ export default class JoinRequestsPanel extends Component {
 
     return m('.SGJoinRequests', [
       m('.SGJoinRequests-header', [
-        m('span.SGJoinRequests-title',
-          app.translator.trans('ernestdefoe-social-groups.forum.requests.title')),
+        m('span.SGJoinRequests-title', app.translator.trans('ernestdefoe-social-groups.forum.requests.title')),
         m('span.SGJoinRequests-badge', this.requests.length),
       ]),
-      m('.SGJoinRequests-list',
+      m(
+        '.SGJoinRequests-list',
         this.requests.map((req) =>
           m('.SGJoinRequests-row', { key: req.id }, [
             m('.SGJoinRequests-user', [
@@ -97,18 +97,26 @@ export default class JoinRequestsPanel extends Component {
               m('span.SGJoinRequests-name', req.user.displayName),
             ]),
             m('.SGJoinRequests-actions', [
-              m(Button, {
-                class:    'Button Button--primary Button--sm SGJoinRequests-approveBtn',
-                loading:  this.actioning[req.id] === 'approve',
-                disabled: !!this.actioning[req.id],
-                onclick:  () => this.approve(req),
-              }, m('i.fa-solid.fa-check')),
-              m(Button, {
-                class:    'Button Button--sm SGJoinRequests-rejectBtn',
-                loading:  this.actioning[req.id] === 'reject',
-                disabled: !!this.actioning[req.id],
-                onclick:  () => this.reject(req),
-              }, m('i.fa-solid.fa-xmark')),
+              m(
+                Button,
+                {
+                  class: 'Button Button--primary Button--sm SGJoinRequests-approveBtn',
+                  loading: this.actioning[req.id] === 'approve',
+                  disabled: !!this.actioning[req.id],
+                  onclick: () => this.approve(req),
+                },
+                m('i.fa-solid.fa-check')
+              ),
+              m(
+                Button,
+                {
+                  class: 'Button Button--sm SGJoinRequests-rejectBtn',
+                  loading: this.actioning[req.id] === 'reject',
+                  disabled: !!this.actioning[req.id],
+                  onclick: () => this.reject(req),
+                },
+                m('i.fa-solid.fa-xmark')
+              ),
             ]),
           ])
         )

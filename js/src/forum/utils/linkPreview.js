@@ -24,14 +24,14 @@ export function scheduleLinkPreview(component, text) {
   if (component._dismissedUrls?.has(url)) return;
 
   component._previewTimer = setTimeout(() => {
-    component.previewUrl     = url;
+    component.previewUrl = url;
     component.previewLoading = true;
     m.redraw();
 
     apiGet('/sg-link-preview', { url })
       .then((data) => {
         if (component.previewUrl !== url) return;
-        component.linkPreview    = data;
+        component.linkPreview = data;
         component.previewLoading = false;
         m.redraw();
       })
@@ -46,8 +46,8 @@ export function scheduleLinkPreview(component, text) {
 /** Reset all preview state on a component (call after submit). */
 export function clearLinkPreview(component) {
   clearTimeout(component._previewTimer);
-  component.linkPreview    = null;
-  component.previewUrl     = null;
+  component.linkPreview = null;
+  component.previewUrl = null;
   component.previewLoading = false;
   component._dismissedUrls = new Set();
 }
@@ -58,10 +58,7 @@ export function clearLinkPreview(component) {
  */
 export function viewComposerLinkPreview(component) {
   if (component.previewLoading) {
-    return m('.SGLinkPreview.SGLinkPreview--loading', [
-      m('i.fa-solid.fa-spinner.fa-spin'),
-      m('span', ' Loading preview…'),
-    ]);
+    return m('.SGLinkPreview.SGLinkPreview--loading', [m('i.fa-solid.fa-spinner.fa-spin'), m('span', ' Loading preview…')]);
   }
 
   const p = component.linkPreview;
@@ -69,23 +66,33 @@ export function viewComposerLinkPreview(component) {
 
   return m('.SGLinkPreview', [
     p.image
-      ? m('img.SGLinkPreview-image', { src: p.image, alt: '', onerror: (e) => { e.target.style.display = 'none'; } })
+      ? m('img.SGLinkPreview-image', {
+          src: p.image,
+          alt: '',
+          onerror: (e) => {
+            e.target.style.display = 'none';
+          },
+        })
       : null,
     m('.SGLinkPreview-body', [
       p.siteName ? m('span.SGLinkPreview-site', p.siteName) : null,
       m('a.SGLinkPreview-title', { href: p.url, target: '_blank', rel: 'noopener noreferrer' }, p.title || p.url),
       p.description ? m('p.SGLinkPreview-desc', p.description) : null,
     ]),
-    m('button.SGLinkPreview-remove', {
-      type:    'button',
-      onclick: () => {
-        if (!component._dismissedUrls) component._dismissedUrls = new Set();
-        component._dismissedUrls.add(component.previewUrl);
-        component.linkPreview    = null;
-        component.previewLoading = false;
-        m.redraw();
+    m(
+      'button.SGLinkPreview-remove',
+      {
+        type: 'button',
+        onclick: () => {
+          if (!component._dismissedUrls) component._dismissedUrls = new Set();
+          component._dismissedUrls.add(component.previewUrl);
+          component.linkPreview = null;
+          component.previewLoading = false;
+          m.redraw();
+        },
       },
-    }, '×'),
+      '×'
+    ),
   ]);
 }
 
@@ -96,7 +103,13 @@ export function viewPostLinkPreview(post) {
 
   return m('a.SGLinkPreview.SGLinkPreview--post', { href: p.url, target: '_blank', rel: 'noopener noreferrer' }, [
     p.image
-      ? m('img.SGLinkPreview-image', { src: p.image, alt: '', onerror: (e) => { e.target.style.display = 'none'; } })
+      ? m('img.SGLinkPreview-image', {
+          src: p.image,
+          alt: '',
+          onerror: (e) => {
+            e.target.style.display = 'none';
+          },
+        })
       : null,
     m('.SGLinkPreview-body', [
       p.siteName ? m('span.SGLinkPreview-site', p.siteName) : null,

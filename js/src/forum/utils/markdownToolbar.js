@@ -31,25 +31,25 @@ import app from 'flarum/forum/app';
  */
 const DIALECTS = {
   markdown: [
-    { key: 'bold',    icon: 'fa-bold',          before: '**',  after: '**',          ph: 'bold text' },
-    { key: 'italic',  icon: 'fa-italic',        before: '_',   after: '_',           ph: 'italic text' },
-    { key: 'strike',  icon: 'fa-strikethrough', before: '~~',  after: '~~',          ph: 'strikethrough' },
-    { key: 'link',    icon: 'fa-link',          before: '[',   after: '](https://)', ph: 'link text' },
-    { key: 'quote',   icon: 'fa-quote-right',   before: '> ',  after: '',            ph: 'quote', line: true },
-    { key: 'list',    icon: 'fa-list-ul',       before: '- ',  after: '',            ph: 'list item', line: true },
-    { key: 'code',    icon: 'fa-code',          before: '`',   after: '`',           ph: 'code' },
+    { key: 'bold', icon: 'fa-bold', before: '**', after: '**', ph: 'bold text' },
+    { key: 'italic', icon: 'fa-italic', before: '_', after: '_', ph: 'italic text' },
+    { key: 'strike', icon: 'fa-strikethrough', before: '~~', after: '~~', ph: 'strikethrough' },
+    { key: 'link', icon: 'fa-link', before: '[', after: '](https://)', ph: 'link text' },
+    { key: 'quote', icon: 'fa-quote-right', before: '> ', after: '', ph: 'quote', line: true },
+    { key: 'list', icon: 'fa-list-ul', before: '- ', after: '', ph: 'list item', line: true },
+    { key: 'code', icon: 'fa-code', before: '`', after: '`', ph: 'code' },
   ],
   bbcode: [
-    { key: 'bold',    icon: 'fa-bold',          before: '[b]', after: '[/b]',        ph: 'bold text' },
-    { key: 'italic',  icon: 'fa-italic',        before: '[i]', after: '[/i]',        ph: 'italic text' },
-    { key: 'strike',  icon: 'fa-strikethrough', before: '[s]', after: '[/s]',        ph: 'strikethrough' },
-    { key: 'link',    icon: 'fa-link',          before: '[url=https://]', after: '[/url]', ph: 'link text' },
+    { key: 'bold', icon: 'fa-bold', before: '[b]', after: '[/b]', ph: 'bold text' },
+    { key: 'italic', icon: 'fa-italic', before: '[i]', after: '[/i]', ph: 'italic text' },
+    { key: 'strike', icon: 'fa-strikethrough', before: '[s]', after: '[/s]', ph: 'strikethrough' },
+    { key: 'link', icon: 'fa-link', before: '[url=https://]', after: '[/url]', ph: 'link text' },
     // 🚨 Not line-prefixed. BBCode quotes and lists WRAP a block rather than
     // marking each line, so reusing the markdown `line: true` path here would
     // emit [quote] on every line and produce nested quotes.
-    { key: 'quote',   icon: 'fa-quote-right',   before: '[quote]', after: '[/quote]', ph: 'quote' },
-    { key: 'list',    icon: 'fa-list-ul',       before: '[list]\n[*]', after: '\n[/list]', ph: 'list item' },
-    { key: 'code',    icon: 'fa-code',          before: '[code]', after: '[/code]',  ph: 'code' },
+    { key: 'quote', icon: 'fa-quote-right', before: '[quote]', after: '[/quote]', ph: 'quote' },
+    { key: 'list', icon: 'fa-list-ul', before: '[list]\n[*]', after: '\n[/list]', ph: 'list item' },
+    { key: 'code', icon: 'fa-code', before: '[code]', after: '[/code]', ph: 'code' },
   ],
 };
 
@@ -79,7 +79,7 @@ export function applyMarkdown(el, action, onChange) {
   if (!el) return;
   const value = el.value;
   const start = el.selectionStart ?? value.length;
-  const end   = el.selectionEnd ?? value.length;
+  const end = el.selectionEnd ?? value.length;
   const selected = value.slice(start, end) || action.ph;
 
   let insert;
@@ -87,10 +87,10 @@ export function applyMarkdown(el, action, onChange) {
   if (action.line) {
     // Prefix every selected line (so multi-line quotes/lists work).
     const block = selected.replace(/^/gm, action.before);
-    insert    = block;
+    insert = block;
     selOffset = action.before.length;
   } else {
-    insert    = action.before + selected + action.after;
+    insert = action.before + selected + action.after;
     selOffset = action.before.length;
   }
 
@@ -124,19 +124,26 @@ export function MarkdownToolbar({ onChange, disabled = false }) {
    */
   if (!available.length) return null;
 
-  return m('.SGMd-toolbar', available.map((a) =>
-    m('button.SGMd-btn', {
-      type:     'button',
-      title:    app.translator.trans('ernestdefoe-social-groups.forum.composer.md_' + a.key),
-      disabled,
-      // Keep the textarea's focus + selection when the button is pressed.
-      onmousedown: (e) => e.preventDefault(),
-      onclick: (e) => {
-        e.preventDefault();
-        const field = e.target.closest('.SGMd-field');
-        const el    = field && field.querySelector('textarea');
-        applyMarkdown(el, a, onChange);
-      },
-    }, m('i.fa-solid.' + a.icon))
-  ));
+  return m(
+    '.SGMd-toolbar',
+    available.map((a) =>
+      m(
+        'button.SGMd-btn',
+        {
+          type: 'button',
+          title: app.translator.trans('ernestdefoe-social-groups.forum.composer.md_' + a.key),
+          disabled,
+          // Keep the textarea's focus + selection when the button is pressed.
+          onmousedown: (e) => e.preventDefault(),
+          onclick: (e) => {
+            e.preventDefault();
+            const field = e.target.closest('.SGMd-field');
+            const el = field && field.querySelector('textarea');
+            applyMarkdown(el, a, onChange);
+          },
+        },
+        m('i.fa-solid.' + a.icon)
+      )
+    )
+  );
 }

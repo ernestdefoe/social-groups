@@ -32,32 +32,41 @@ export default class GroupsUserPage extends UserPage {
     }
 
     if (this.groups.length === 0) {
-      return m('div.GroupsUserPage-empty',
-        app.translator.trans('ernestdefoe-social-groups.forum.profile_groups.empty'));
+      return m('div.GroupsUserPage-empty', app.translator.trans('ernestdefoe-social-groups.forum.profile_groups.empty'));
     }
 
     return m('div.GroupsUserPage', [
-      m('ul.GroupsUserPage-list', this.groups.map((g) =>
-        m('li.GroupsUserPage-item', { key: g.id },
-          m(Link, { href: app.route('ernestdefoe-social-groups.show', { slug: g.slug }), className: 'GroupsUserPage-link' }, [
-            g.imageUrl
-              ? m('img.GroupsUserPage-img', { src: g.imageUrl, alt: '' })
-              : m('span.GroupsUserPage-disc', { style: `background:${g.color || '#4A90E2'}` }, (g.name || '?')[0].toUpperCase()),
-            m('div.GroupsUserPage-info', [
-              m('span.GroupsUserPage-name', [
-                g.name,
-                g.role !== 'member'
-                  ? m('span.GroupsUserPage-role', g.role === 'creator'
-                      ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
-                      : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin'))
-                  : null,
+      m(
+        'ul.GroupsUserPage-list',
+        this.groups.map((g) =>
+          m(
+            'li.GroupsUserPage-item',
+            { key: g.id },
+            m(Link, { href: app.route('ernestdefoe-social-groups.show', { slug: g.slug }), className: 'GroupsUserPage-link' }, [
+              g.imageUrl
+                ? m('img.GroupsUserPage-img', { src: g.imageUrl, alt: '' })
+                : m('span.GroupsUserPage-disc', { style: `background:${g.color || '#4A90E2'}` }, (g.name || '?')[0].toUpperCase()),
+              m('div.GroupsUserPage-info', [
+                m('span.GroupsUserPage-name', [
+                  g.name,
+                  g.role !== 'member'
+                    ? m(
+                        'span.GroupsUserPage-role',
+                        g.role === 'creator'
+                          ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
+                          : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin')
+                      )
+                    : null,
+                ]),
+                m(
+                  'span.GroupsUserPage-meta',
+                  app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: g.memberCount || 0 })
+                ),
               ]),
-              m('span.GroupsUserPage-meta',
-                app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: g.memberCount || 0 })),
-            ]),
-          ])
+            ])
+          )
         )
-      )),
+      ),
     ]);
   }
 }

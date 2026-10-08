@@ -5,7 +5,7 @@ import Button from 'flarum/common/components/Button';
 export default class GroupHero extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.joining   = false;
+    this.joining = false;
     this.isPending = false; // local override after request
   }
 
@@ -13,17 +13,17 @@ export default class GroupHero extends Component {
     const { group, onEdit, onJoin, onLeave } = this.attrs;
     if (!group) return null;
 
-    const name        = group.name() || '';
-    const color       = group.color() || '#4A90E2';
-    const imageUrl    = group.imageUrl();
-    const bannerUrl   = group.bannerUrl();
+    const name = group.name() || '';
+    const color = group.color() || '#4A90E2';
+    const imageUrl = group.imageUrl();
+    const bannerUrl = group.bannerUrl();
     const memberCount = group.memberCount() || 0;
-    const initial     = name.charAt(0).toUpperCase();
-    const isMember    = group.isMember();
-    const isCreator   = group.isCreator();
-    const canEdit     = group.canEdit();
-    const isApproval  = group.membershipType() === 'approval';
-    const isPending   = this.isPending || group.isPending();
+    const initial = name.charAt(0).toUpperCase();
+    const isMember = group.isMember();
+    const isCreator = group.isCreator();
+    const canEdit = group.canEdit();
+    const isApproval = group.membershipType() === 'approval';
+    const isPending = this.isPending || group.isPending();
 
     return m('div.GroupHero', [
       // Full-width banner
@@ -37,11 +37,7 @@ export default class GroupHero extends Component {
       m('div.GroupHero-info', [
         m('div.GroupHero-info-inner', [
           // Group avatar (overlaps banner)
-          m(
-            'div.GroupHero-avatar',
-            { style: imageUrl ? '' : `background: ${color}` },
-            imageUrl ? m('img', { src: imageUrl, alt: name }) : initial
-          ),
+          m('div.GroupHero-avatar', { style: imageUrl ? '' : `background: ${color}` }, imageUrl ? m('img', { src: imageUrl, alt: name }) : initial),
 
           // Name + meta
           m('div.GroupHero-text', [
@@ -59,12 +55,16 @@ export default class GroupHero extends Component {
                 ? m('span', [m('i.fa-solid.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
                 : null,
               !group.isPrivate()
-                ? m('a.GroupHero-rssLink', {
-                    href:   `${app.forum.attribute('baseUrl')}/groups/${group.slug()}/feed.rss`,
-                    target: '_blank',
-                    rel:    'noopener noreferrer',
-                    title:  app.translator.trans('ernestdefoe-social-groups.forum.group.rss_feed'),
-                  }, m('i.fa-solid.fa-rss'))
+                ? m(
+                    'a.GroupHero-rssLink',
+                    {
+                      href: `${app.forum.attribute('baseUrl')}/groups/${group.slug()}/feed.rss`,
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      title: app.translator.trans('ernestdefoe-social-groups.forum.group.rss_feed'),
+                    },
+                    m('i.fa-solid.fa-rss')
+                  )
                 : null,
             ]),
           ]),
@@ -72,16 +72,18 @@ export default class GroupHero extends Component {
           // Action buttons
           m('div.GroupHero-actions', [
             canEdit
-              ? m(Button, {
-                  class: 'Button Button--default',
-                  icon: 'fa-solid fa-pen-to-square',
-                  onclick: onEdit,
-                }, app.translator.trans('ernestdefoe-social-groups.forum.group.edit'))
+              ? m(
+                  Button,
+                  {
+                    class: 'Button Button--default',
+                    icon: 'fa-solid fa-pen-to-square',
+                    onclick: onEdit,
+                  },
+                  app.translator.trans('ernestdefoe-social-groups.forum.group.edit')
+                )
               : null,
 
-            app.session.user && !isCreator
-              ? this.renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave)
-              : null,
+            app.session.user && !isCreator ? this.renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave) : null,
           ]),
         ]),
       ]),
@@ -90,34 +92,50 @@ export default class GroupHero extends Component {
 
   renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave) {
     if (isMember) {
-      return m(Button, {
-        class: 'Button Button--default',
-        loading: this.joining,
-        onclick: () => this.doLeave(group, onLeave),
-      }, [m('i.fa-solid.fa-arrow-right-from-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')]);
+      return m(
+        Button,
+        {
+          class: 'Button Button--default',
+          loading: this.joining,
+          onclick: () => this.doLeave(group, onLeave),
+        },
+        [m('i.fa-solid.fa-arrow-right-from-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')]
+      );
     }
 
     if (isApproval && isPending) {
-      return m(Button, {
-        class: 'Button Button--default GroupHero-pendingBtn',
-        loading: this.joining,
-        onclick: () => this.cancelRequest(group),
-      }, [m('i.fa-solid.fa-clock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.pending')]);
+      return m(
+        Button,
+        {
+          class: 'Button Button--default GroupHero-pendingBtn',
+          loading: this.joining,
+          onclick: () => this.cancelRequest(group),
+        },
+        [m('i.fa-solid.fa-clock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.pending')]
+      );
     }
 
     if (isApproval) {
-      return m(Button, {
+      return m(
+        Button,
+        {
+          class: 'Button Button--primary',
+          loading: this.joining,
+          onclick: () => this.doJoin(group, onJoin),
+        },
+        [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]
+      );
+    }
+
+    return m(
+      Button,
+      {
         class: 'Button Button--primary',
         loading: this.joining,
         onclick: () => this.doJoin(group, onJoin),
-      }, [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]);
-    }
-
-    return m(Button, {
-      class: 'Button Button--primary',
-      loading: this.joining,
-      onclick: () => this.doJoin(group, onJoin),
-    }, [m('i.fa-solid.fa-arrow-right-to-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]);
+      },
+      [m('i.fa-solid.fa-arrow-right-to-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]
+    );
   }
 
   doJoin(group, onJoin) {
@@ -136,7 +154,10 @@ export default class GroupHero extends Component {
         }
         m.redraw();
       })
-      .catch(() => { this.joining = false; m.redraw(); });
+      .catch(() => {
+        this.joining = false;
+        m.redraw();
+      });
   }
 
   doLeave(group, onLeave) {
@@ -150,7 +171,10 @@ export default class GroupHero extends Component {
         if (onLeave) onLeave(data);
         m.redraw();
       })
-      .catch(() => { this.joining = false; m.redraw(); });
+      .catch(() => {
+        this.joining = false;
+        m.redraw();
+      });
   }
 
   cancelRequest(group) {
@@ -164,7 +188,10 @@ export default class GroupHero extends Component {
         group.pushData({ attributes: { isPending: false } });
         m.redraw();
       })
-      .catch(() => { this.joining = false; m.redraw(); });
+      .catch(() => {
+        this.joining = false;
+        m.redraw();
+      });
   }
 
   complementaryColor(hex) {

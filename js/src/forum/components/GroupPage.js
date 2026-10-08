@@ -13,9 +13,9 @@ import SGSkeleton, { measure } from './SGSkeleton';
 export default class GroupPage extends Page {
   oninit(vnode) {
     super.oninit(vnode);
-    this.group     = null;
-    this.loading   = true;
-    this.error     = null;
+    this.group = null;
+    this.loading = true;
+    this.error = null;
     this.activeTab = 'posts';
   }
 
@@ -26,9 +26,9 @@ export default class GroupPage extends Page {
 
   onupdate(vnode) {
     if (vnode.attrs.slug !== this.attrs.slug) {
-      this.group   = null;
+      this.group = null;
       this.loading = true;
-      this.error   = null;
+      this.error = null;
       this.loadGroup(vnode.attrs.slug);
     }
   }
@@ -57,7 +57,7 @@ export default class GroupPage extends Page {
         if (!group && payload && payload.data && payload.data.id) {
           group = app.store.getById('social-groups', payload.data.id);
         }
-        this.group   = group || null;
+        this.group = group || null;
         this.loading = false;
         if (this.group) {
           document.title = `${this.group.name()} — ${app.forum.attribute('title')}`;
@@ -65,7 +65,7 @@ export default class GroupPage extends Page {
         m.redraw();
       })
       .catch(() => {
-        this.error   = app.translator.trans('ernestdefoe-social-groups.forum.group.load_error');
+        this.error = app.translator.trans('ernestdefoe-social-groups.forum.group.load_error');
         this.loading = false;
         m.redraw();
       });
@@ -77,26 +77,33 @@ export default class GroupPage extends Page {
     }
 
     if (this.error || !this.group) {
-      return m('.GroupPage', m('.container', m('p.GroupPage-error', this.error || app.translator.trans('ernestdefoe-social-groups.forum.group.not_found'))));
+      return m(
+        '.GroupPage',
+        m('.container', m('p.GroupPage-error', this.error || app.translator.trans('ernestdefoe-social-groups.forum.group.not_found')))
+      );
     }
 
-    const group      = this.group;
-    const isMember   = group.isMember();
-    const isMuted    = !!group.actorIsMuted();
-    const isCreator  = group.isCreator();
-    const canEdit    = group.canEdit();
+    const group = this.group;
+    const isMember = group.isMember();
+    const isMuted = !!group.actorIsMuted();
+    const isCreator = group.isCreator();
+    const canEdit = group.canEdit();
     const isApproval = group.membershipType() === 'approval';
 
     return m('.GroupPage', [
       // Hero: banner + avatar + name + join/edit buttons
       m(GroupHero, {
         group,
-        onJoin:  () => m.redraw(),
+        onJoin: () => m.redraw(),
         onLeave: () => m.redraw(),
-        onEdit:  () => app.modal.show(EditGroupModal, {
-          group,
-          onSaved: (updated) => { group.pushData({ attributes: updated }); m.redraw(); },
-        }),
+        onEdit: () =>
+          app.modal.show(EditGroupModal, {
+            group,
+            onSaved: (updated) => {
+              group.pushData({ attributes: updated });
+              m.redraw();
+            },
+          }),
       }),
 
       // Two-column body
@@ -104,23 +111,37 @@ export default class GroupPage extends Page {
         // Main column — tabs + content
         m('.GroupPage-main', [
           m('.GroupPage-tabs', [
-            m('button.GroupPage-tab', {
-              class:   this.activeTab === 'posts' ? 'is-active' : '',
-              onclick: () => { this.activeTab = 'posts'; m.redraw(); },
-            }, [m('i.fa-solid.fa-bars-staggered'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.tab_posts')]),
-            m('button.GroupPage-tab', {
-              class:   this.activeTab === 'media' ? 'is-active' : '',
-              onclick: () => { this.activeTab = 'media'; m.redraw(); },
-            }, [m('i.fa-solid.fa-photo-film'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.tab_media')]),
+            m(
+              'button.GroupPage-tab',
+              {
+                class: this.activeTab === 'posts' ? 'is-active' : '',
+                onclick: () => {
+                  this.activeTab = 'posts';
+                  m.redraw();
+                },
+              },
+              [m('i.fa-solid.fa-bars-staggered'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.tab_posts')]
+            ),
+            m(
+              'button.GroupPage-tab',
+              {
+                class: this.activeTab === 'media' ? 'is-active' : '',
+                onclick: () => {
+                  this.activeTab = 'media';
+                  m.redraw();
+                },
+              },
+              [m('i.fa-solid.fa-photo-film'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.group.tab_media')]
+            ),
           ]),
           this.activeTab === 'media'
             ? m(GroupMediaGallery, {
-                groupId:   group.id(),
+                groupId: group.id(),
                 groupSlug: group.slug(),
                 isMember,
               })
             : m(GroupFeed, {
-                groupId:   group.id(),
+                groupId: group.id(),
                 groupSlug: group.slug(),
                 isMember,
                 isMuted,
@@ -132,7 +153,7 @@ export default class GroupPage extends Page {
           // Join requests panel — creator/admins only on approval groups
           (isCreator || canEdit) && isApproval
             ? m(JoinRequestsPanel, {
-                groupId:    group.id(),
+                groupId: group.id(),
                 onApproved: () => {
                   // Optimistic +1: approve always grows the count
                   // (the server skips if user was already a member,
@@ -145,30 +166,31 @@ export default class GroupPage extends Page {
             : null,
 
           m('.GroupPage-aboutCard', [
-            m('.GroupPage-aboutCard-title',
-              app.translator.trans('ernestdefoe-social-groups.forum.group.about_title')),
+            m('.GroupPage-aboutCard-title', app.translator.trans('ernestdefoe-social-groups.forum.group.about_title')),
             group.description()
               ? m('p.GroupPage-aboutCard-text', group.description())
-              : m('p.GroupPage-aboutCard-empty',
-                  app.translator.trans('ernestdefoe-social-groups.forum.group.description_placeholder')),
+              : m('p.GroupPage-aboutCard-empty', app.translator.trans('ernestdefoe-social-groups.forum.group.description_placeholder')),
             group.isPrivate()
-              ? m('.GroupPage-privateTag', [m('i.fa-solid.fa-lock'), ' ',
-                  app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
+              ? m('.GroupPage-privateTag', [m('i.fa-solid.fa-lock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
               : null,
             isApproval
-              ? m('.GroupPage-approvalTag', [m('i.fa-solid.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
+              ? m('.GroupPage-approvalTag', [
+                  m('i.fa-solid.fa-user-check'),
+                  ' ',
+                  app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required'),
+                ])
               : null,
           ]),
 
           canEdit || isCreator
             ? m(GroupAnalyticsPanel, {
-                groupId:   group.id(),
+                groupId: group.id(),
                 groupSlug: group.slug(),
               })
             : null,
 
           m(MemberList, {
-            groupId:   group.id(),
+            groupId: group.id(),
             isCreator,
           }),
         ]),

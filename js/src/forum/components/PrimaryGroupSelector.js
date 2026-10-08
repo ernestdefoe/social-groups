@@ -12,11 +12,11 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 export default class PrimaryGroupSelector extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.groups   = null;
-    this.loading  = true;
-    this.saving   = false;
-    this.selected = '';   // group id string, or '' for None
-    this.error    = null;
+    this.groups = null;
+    this.loading = true;
+    this.saving = false;
+    this.selected = ''; // group id string, or '' for None
+    this.error = null;
   }
 
   oncreate(vnode) {
@@ -25,7 +25,10 @@ export default class PrimaryGroupSelector extends Component {
   }
 
   loadGroups() {
-    if (!app.session.user) { this.loading = false; return; }
+    if (!app.session.user) {
+      this.loading = false;
+      return;
+    }
 
     /*
      * Shared with the card badges and the profile Groups tab, which render on
@@ -37,22 +40,24 @@ export default class PrimaryGroupSelector extends Component {
       // Restore saved selection from isPrimary flag returned by the API
       const primary = this.groups.find((g) => g.isPrimary);
       this.selected = primary ? String(primary.id) : '';
-      this.loading  = false;
+      this.loading = false;
       m.redraw();
     });
   }
 
   save(groupId) {
-    this.saving   = true;
+    this.saving = true;
     this.selected = groupId ? String(groupId) : '';
-    this.error    = null;
+    this.error = null;
     m.redraw();
 
     apiPost('/sg-primary-group', { groupId: groupId || null })
       .then(() => {
         // Reflect new isPrimary state locally so the badge updates without a reload
         if (this.groups) {
-          this.groups.forEach((g) => { g.isPrimary = String(g.id) === this.selected; });
+          this.groups.forEach((g) => {
+            g.isPrimary = String(g.id) === this.selected;
+          });
         }
         // The cached list (and the sgGroups already on the serialized user)
         // still carry the OLD isPrimary, so drop them — otherwise the next
@@ -67,7 +72,8 @@ export default class PrimaryGroupSelector extends Component {
         m.redraw();
       })
       .catch((err) => {
-        this.error  = err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.primary_group.save_failed'));
+        this.error =
+          err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.primary_group.save_failed'));
         this.saving = false;
         m.redraw();
       });
@@ -93,41 +99,53 @@ export default class PrimaryGroupSelector extends Component {
         : m('.SG-PrimaryGroupSelector-grid', [
             m('label.SG-PrimaryGroupSelector-tile', { key: 'none', class: !this.selected ? 'active' : '' }, [
               m('input[type=radio].SG-PrimaryGroupSelector-radio', {
-                name:     'sg-primary-group',
-                value:    '',
-                checked:  !this.selected,
+                name: 'sg-primary-group',
+                value: '',
+                checked: !this.selected,
                 disabled: this.saving,
                 onchange: () => this.save(null),
               }),
-              m('span.SG-PrimaryGroupSelector-tileBadge.SG-PrimaryGroupSelector-tileBadge--none',
-                m('i.fa-solid.fa-ban')),
-              m('span.SG-PrimaryGroupSelector-tileName',
-                app.translator.trans('ernestdefoe-social-groups.forum.primary_group.none')),
+              m('span.SG-PrimaryGroupSelector-tileBadge.SG-PrimaryGroupSelector-tileBadge--none', m('i.fa-solid.fa-ban')),
+              m('span.SG-PrimaryGroupSelector-tileName', app.translator.trans('ernestdefoe-social-groups.forum.primary_group.none')),
             ]),
 
             ...groups.map((group) =>
-              m('label.SG-PrimaryGroupSelector-tile', {
-                class: this.selected === String(group.id) ? 'active' : '',
-                key:   group.id,
-              }, [
-                m('input[type=radio].SG-PrimaryGroupSelector-radio', {
-                  name:     'sg-primary-group',
-                  value:    String(group.id),
-                  checked:  this.selected === String(group.id),
-                  disabled: this.saving,
-                  onchange: () => this.save(group.id),
-                }),
-                group.imageUrl
-                  ? m('img.SG-PrimaryGroupSelector-tileImg', { src: group.imageUrl, alt: '' })
-                  : m('span.SG-PrimaryGroupSelector-tileBadge', {
-                      style: `background:${group.color || '#4A90E2'}`,
-                    }, m('i.fa-solid.fa-users')),
-                m('span.SG-PrimaryGroupSelector-tileName', group.name),
-              ])
+              m(
+                'label.SG-PrimaryGroupSelector-tile',
+                {
+                  class: this.selected === String(group.id) ? 'active' : '',
+                  key: group.id,
+                },
+                [
+                  m('input[type=radio].SG-PrimaryGroupSelector-radio', {
+                    name: 'sg-primary-group',
+                    value: String(group.id),
+                    checked: this.selected === String(group.id),
+                    disabled: this.saving,
+                    onchange: () => this.save(group.id),
+                  }),
+                  group.imageUrl
+                    ? m('img.SG-PrimaryGroupSelector-tileImg', { src: group.imageUrl, alt: '' })
+                    : m(
+                        'span.SG-PrimaryGroupSelector-tileBadge',
+                        {
+                          style: `background:${group.color || '#4A90E2'}`,
+                        },
+                        m('i.fa-solid.fa-users')
+                      ),
+                  m('span.SG-PrimaryGroupSelector-tileName', group.name),
+                ]
+              )
             ),
           ]),
 
-      this.saving ? m('span.SG-PrimaryGroupSelector-saving', [m('i.fa-solid.fa-spinner.fa-spin'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.primary_group.saving')]) : null,
+      this.saving
+        ? m('span.SG-PrimaryGroupSelector-saving', [
+            m('i.fa-solid.fa-spinner.fa-spin'),
+            ' ',
+            app.translator.trans('ernestdefoe-social-groups.forum.primary_group.saving'),
+          ])
+        : null,
     ]);
   }
 }
