@@ -5,6 +5,8 @@ namespace Ernestdefoe\SocialGroups\Model;
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int    $id
@@ -13,8 +15,15 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
  * @property int    $user_id
  * @property string      $content
  * @property string|null $content_parsed
+ * @property int|null    $parent_post_id
+ * @property array<string, mixed>|null $link_preview
+ * @property bool        $is_pinned
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
+ * @property-read SocialGroupDiscussion|null $discussion
+ * @property-read SocialGroup|null $group
+ * @property-read User|null $user
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupPostReaction> $reactions
  */
 class SocialGroupPost extends AbstractModel
 {
@@ -27,6 +36,12 @@ class SocialGroupPost extends AbstractModel
      * would land in $attributes and break the INSERT.
      */
     public ?SocialGroupDiscussion $_sgDiscussionRef = null;
+
+    /**
+     * The discussion a deleted post belonged to, carried from deleting() to
+     * deleted(). A real property for the same reason as the one above.
+     */
+    public ?int $_sgDeletedDiscussionId = null;
 
     /**
      * Explicit mass-assignment allowlist. Blocks a future caller passing
@@ -73,22 +88,26 @@ class SocialGroupPost extends AbstractModel
         );
     }
 
-    public function discussion()
+    /** @return BelongsTo<SocialGroupDiscussion, $this> */
+    public function discussion(): BelongsTo
     {
         return $this->belongsTo(SocialGroupDiscussion::class, 'discussion_id');
     }
 
-    public function group()
+    /** @return BelongsTo<SocialGroup, $this> */
+    public function group(): BelongsTo
     {
         return $this->belongsTo(SocialGroup::class, 'group_id');
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function reactions()
+    /** @return HasMany<SocialGroupPostReaction, $this> */
+    public function reactions(): HasMany
     {
         return $this->hasMany(SocialGroupPostReaction::class, 'post_id');
     }

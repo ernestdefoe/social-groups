@@ -57,7 +57,7 @@ class GroupRssFeedController implements RequestHandlerInterface
                 $post       = $d->firstPost;
                 $threadUrl  = $baseUrl . '/groups/' . rawurlencode($slug) . '/d/' . $d->id;
                 $pubDate    = ($d->created_at ?? $d->last_posted_at)?->format(\DateTime::RSS) ?? date(\DateTime::RSS);
-                $authorName = $post?->user?->display_name ?? $d->user?->display_name ?? '';
+                $authorName = $post?->user->display_name ?? $d->user->display_name ?? '';
 
                 $description = '';
                 if ($post) {

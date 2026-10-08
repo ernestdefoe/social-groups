@@ -47,6 +47,8 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  * to resolve it. The `?include=firstPost` include already triggers
  * this through the `eagerLoad` configured in
  * SocialGroupDiscussionResource.
+ *
+ * @extends AbstractDatabaseResource<SocialGroupPost>
  */
 class SocialGroupPostResource extends AbstractDatabaseResource
 {
@@ -599,7 +601,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
      * the same group runs the underlying correlated subquery exactly
      * once (was N × 2 before the cache).
      */
-    protected function isInGroupModerator($actor, int $groupId): bool
+    protected function isInGroupModerator(User $actor, int $groupId): bool
     {
         if (! $actor->exists || $groupId <= 0) {
             return false;

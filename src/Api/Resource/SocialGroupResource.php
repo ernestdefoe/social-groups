@@ -18,6 +18,9 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
+/**
+ * @extends AbstractDatabaseResource<SocialGroup>
+ */
 class SocialGroupResource extends AbstractDatabaseResource
 {
     public function __construct(

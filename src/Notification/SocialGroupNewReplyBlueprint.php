@@ -40,7 +40,7 @@ class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInter
             'discussionId'    => $this->discussion->id,
             'discussionTitle' => $this->discussion->title ?? '',
             'groupId'         => $this->discussion->group_id,
-            'groupSlug'       => $this->discussion->group?->slug ?? '',
+            'groupSlug'       => $this->discussion->group->slug ?? '',
         ];
     }
 

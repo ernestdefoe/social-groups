@@ -76,7 +76,7 @@ class ShareDiscussionService
 
         if ($content === '') {
             $content = $this->translator->trans('ernestdefoe-social-groups.lib.shared_from', [
-                '{name}' => $source->group?->name
+                '{name}' => $source->group->name
                     ?? $this->translator->trans('ernestdefoe-social-groups.lib.another_group'),
             ]);
         }

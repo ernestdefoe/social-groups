@@ -20,7 +20,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
      * Edit: only the author, and only if they are still an active
      * (non-banned) member of the group. Global admin always passes.
      */
-    public function edit(User $actor, SocialGroupPost $post)
+    public function edit(User $actor, SocialGroupPost $post): ?string
     {
         if ($actor->isAdmin()) {
             return $this->allow();
@@ -43,7 +43,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
      * Delete: author, global admin, extension's global moderator, or
      * the group's own creator/moderator.
      */
-    public function delete(User $actor, SocialGroupPost $post)
+    public function delete(User $actor, SocialGroupPost $post): ?string
     {
         if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
             return $this->allow();
@@ -66,7 +66,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
      * post — only global admin, extension's global moderator, or the
      * creator/moderator of the group where the post lives.
      */
-    public function pin(User $actor, SocialGroupPost $post)
+    public function pin(User $actor, SocialGroupPost $post): ?string
     {
         if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
             return $this->allow();
@@ -85,7 +85,7 @@ class SocialGroupPostPolicy extends AbstractPolicy
      * React: any active (non-banned) group member can react. Blocks
      * sequential-ID enumeration by outsiders.
      */
-    public function react(User $actor, SocialGroupPost $post)
+    public function react(User $actor, SocialGroupPost $post): ?string
     {
         if ($actor->isAdmin()) {
             return $this->allow();

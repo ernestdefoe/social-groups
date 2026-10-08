@@ -100,11 +100,11 @@ class GroupAnalyticsController implements RequestHandlerInterface
                 ->take(5)
                 ->with('user')
                 ->get()
-                ->map(fn ($p) => [
+                ->map(fn (SocialGroupPost $p) => [
                     'postId'         => $p->id,
                     'discussionId'   => $p->discussion_id,
                     'snippet'        => mb_substr(strip_tags($p->content), 0, 120),
-                    'totalReactions' => $p->total_reactions,
+                    'totalReactions' => (int) $p->getAttribute('total_reactions'),
                     'user'           => $p->user ? [
                         'displayName' => $p->user->display_name,
                         'avatarUrl'   => $p->user->avatar_url,

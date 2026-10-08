@@ -248,6 +248,9 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 
         // Collect all <meta> tags
         foreach ($xpath->query('//head/meta') as $meta) {
+            if (! $meta instanceof \DOMElement) {
+                continue;
+            }
             $prop    = $meta->getAttribute('property') ?: $meta->getAttribute('name');
             $content = $meta->getAttribute('content');
             if ($prop && $content) {

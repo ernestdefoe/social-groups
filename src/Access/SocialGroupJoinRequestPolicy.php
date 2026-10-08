@@ -16,12 +16,12 @@ use Flarum\User\User;
  */
 class SocialGroupJoinRequestPolicy extends AbstractPolicy
 {
-    public function approve(User $actor, SocialGroupJoinRequest $request)
+    public function approve(User $actor, SocialGroupJoinRequest $request): ?string
     {
         return $this->canDecide($actor, $request) ? $this->allow() : null;
     }
 
-    public function delete(User $actor, SocialGroupJoinRequest $request)
+    public function delete(User $actor, SocialGroupJoinRequest $request): ?string
     {
         return $this->canDecide($actor, $request) ? $this->allow() : null;
     }

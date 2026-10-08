@@ -40,6 +40,8 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  * is_pinned only kick in when `SchemaCapabilities` reports the column
  * exists — installs that pre-date the migration creating it keep
  * working without a crash.
+ *
+ * @extends AbstractDatabaseResource<SocialGroupDiscussion>
  */
 class SocialGroupDiscussionResource extends AbstractDatabaseResource
 {
@@ -486,7 +488,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
             Schema\Arr::make('poll')
                 ->visible(fn () => $this->capabilities->polls)
-                ->writableOnCreate(fn () => $this->capabilities->polls)
+                ->writableOnCreate()
                 ->set(fn () => null)
                 ->get(function (SocialGroupDiscussion $d, Context $context) {
                     if (! $this->capabilities->polls) {
@@ -628,8 +630,8 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             'discussionId' => (int) $orig->id,
             'title'        => $orig->title,
             'groupId'      => (int) $orig->group_id,
-            'groupName'    => $orig->group?->name,
-            'groupSlug'    => $orig->group?->slug,
+            'groupName'    => $orig->group->name,
+            'groupSlug'    => $orig->group->slug,
             'snippet'      => $fp ? mb_substr(strip_tags($fp->content ?? ''), 0, 200) : '',
             'user'         => $orig->user ? [
                 'displayName' => $orig->user->display_name,
@@ -710,7 +712,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
     {
         /** @var SocialGroupDiscussion $model */
         $payload     = $model->_sgPending;
-        $content     = $payload?->content ?? '';
+        $content     = $payload->content ?? '';
         $linkPreview = $payload?->linkPreview;
         $pollData    = $payload?->poll;
 

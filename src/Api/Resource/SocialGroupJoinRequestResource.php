@@ -27,6 +27,8 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  * doesn't already exist. Delete (reject) marks the status as
  * 'rejected' instead of hard-deleting, preserving the history for
  * anti-spam purposes.
+ *
+ * @extends AbstractDatabaseResource<SocialGroupJoinRequest>
  */
 class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 {

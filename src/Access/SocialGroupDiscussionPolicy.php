@@ -25,7 +25,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
      * groups, requires being the owner, an active member, an admin or
      * the extension's global moderator.
      */
-    public function view(User $actor, SocialGroupDiscussion $discussion)
+    public function view(User $actor, SocialGroupDiscussion $discussion): ?string
     {
         $group = $discussion->group;
         if ($group === null) {
@@ -50,7 +50,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
      * back to "admin allows, everyone else denies", so ->can('create')
      * 403'd members and group creators before creating() ever ran.
      */
-    public function create(User $actor)
+    public function create(User $actor): ?string
     {
         return $actor->exists ? $this->allow() : $this->deny();
     }
@@ -63,7 +63,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
      * button and the endpoint agree — without it, group moderators saw
      * the control but got a 403 on click.
      */
-    public function delete(User $actor, SocialGroupDiscussion $discussion)
+    public function delete(User $actor, SocialGroupDiscussion $discussion): ?string
     {
         if ((int) $actor->id === (int) $discussion->user_id) {
             return $this->allow();
@@ -88,7 +88,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
      * Pin/unpin restricted to the group's own creator/moderator, an
      * admin or the extension's global moderator.
      */
-    public function pin(User $actor, SocialGroupDiscussion $discussion)
+    public function pin(User $actor, SocialGroupDiscussion $discussion): ?string
     {
         if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
             return $this->allow();

@@ -11,6 +11,7 @@ use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\PermissionDeniedException;
+use Flarum\User\User;
 use Illuminate\Database\Eloquent\Builder;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
@@ -28,6 +29,8 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  * Promote/demote are `Endpoint\Endpoint::make()` actions and require
  * being the creator of the group (`->can('promote'|'demote')` consults
  * SocialGroupMemberPolicy).
+ *
+ * @extends AbstractDatabaseResource<SocialGroupMember>
  */
 class SocialGroupMemberResource extends AbstractDatabaseResource
 {
@@ -161,7 +164,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             Schema\Str::make('role'),
 
             Schema\Str::make('displayName')
-                ->get(fn (SocialGroupMember $m) => $m->user?->display_name ?? ''),
+                ->get(fn (SocialGroupMember $m) => $m->user->display_name ?? ''),
 
             Schema\Str::make('avatarUrl')
                 ->nullable()
@@ -207,7 +210,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
      * $actor->can() — so the expensive moderator lookup memoizes across the
      * page. The endpoints still enforce the policy via ->can('delete'|'mute').
      */
-    protected function canManageMember(SocialGroupMember $m, $actor): bool
+    protected function canManageMember(SocialGroupMember $m, User $actor): bool
     {
         if (! $actor->exists) {
             return false;
@@ -230,7 +233,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
      * $this->moderatorCheckCache so a page of members in the same group runs
      * the correlated subquery once (was once per row × 2 gates).
      */
-    protected function isInGroupModerator($actor, int $groupId): bool
+    protected function isInGroupModerator(User $actor, int $groupId): bool
     {
         if (! $actor->exists || $groupId <= 0) {
             return false;

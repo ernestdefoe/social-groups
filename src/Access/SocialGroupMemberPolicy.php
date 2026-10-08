@@ -22,7 +22,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
      * owner can touch role levels. Exact mirror of the legacy
      * PromoteMemberController/DemoteMemberController.
      */
-    public function promote(User $actor, SocialGroupMember $member)
+    public function promote(User $actor, SocialGroupMember $member): ?string
     {
         if ($actor->isAdmin()) {
             return $this->allow();
@@ -30,7 +30,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
         return $this->isGroupCreator($actor, $member) ? $this->allow() : null;
     }
 
-    public function demote(User $actor, SocialGroupMember $member)
+    public function demote(User $actor, SocialGroupMember $member): ?string
     {
         if ($actor->isAdmin()) {
             return $this->allow();
@@ -44,7 +44,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
      * group's own creator nor the actor themselves (self-kick is
      * leave, not kick).
      */
-    public function delete(User $actor, SocialGroupMember $member)
+    public function delete(User $actor, SocialGroupMember $member): ?string
     {
         if ($member->role === 'creator') {
             return $this->deny();
@@ -70,7 +70,7 @@ class SocialGroupMemberPolicy extends AbstractPolicy
      * creator, or in-group moderator. The group's creator can never be
      * muted, and neither can the actor mute themselves.
      */
-    public function mute(User $actor, SocialGroupMember $member)
+    public function mute(User $actor, SocialGroupMember $member): ?string
     {
         return $this->delete($actor, $member);
     }

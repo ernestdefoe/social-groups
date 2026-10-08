@@ -63,7 +63,7 @@ trait HandlesDiscussionPoll
      * the SgPoll/SgPollOption inserts expect, or null if the input
      * doesn't pass the minimum validity bar (question + 2-6 options).
      */
-    protected function normalisePollInput($raw): ?array
+    protected function normalisePollInput(mixed $raw): ?array
     {
         if (! is_array($raw)) {
             return null;

@@ -6,6 +6,9 @@ use Flarum\Database\AbstractModel;
 use Flarum\User\User;
 use Ernestdefoe\SocialGroups\Model\SgPoll;
 use Ernestdefoe\SocialGroups\Support\PendingDiscussionPayload;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property int         $id
@@ -16,8 +19,18 @@ use Ernestdefoe\SocialGroups\Support\PendingDiscussionPayload;
  * @property int|null    $last_posted_user_id
  * @property \Carbon\Carbon|null $last_posted_at
  * @property bool        $is_locked
+ * @property bool        $is_pinned
+ * @property bool        $is_gallery
+ * @property int|null    $shared_from_discussion_id
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
+ * @property-read SocialGroup|null $group
+ * @property-read User|null $user
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupPost> $posts
+ * @property-read SocialGroupPost|null $firstPost
+ * @property-read User|null $lastPostedUser
+ * @property-read SocialGroupDiscussion|null $sharedFromDiscussion
+ * @property-read SgPoll|null $poll
  */
 class SocialGroupDiscussion extends AbstractModel
 {
@@ -43,17 +56,20 @@ class SocialGroupDiscussion extends AbstractModel
         'last_posted_at' => 'datetime',
     ];
 
-    public function group()
+    /** @return BelongsTo<SocialGroup, $this> */
+    public function group(): BelongsTo
     {
         return $this->belongsTo(SocialGroup::class, 'group_id');
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function posts()
+    /** @return HasMany<SocialGroupPost, $this> */
+    public function posts(): HasMany
     {
         return $this->hasMany(SocialGroupPost::class, 'discussion_id');
     }
@@ -63,19 +79,23 @@ class SocialGroupDiscussion extends AbstractModel
      * `created_at`. Uses Laravel's `oneOfMany` so that
      * SocialGroupDiscussionResource can eager-load via
      * `include=firstPost` without incurring N+1.
+     *
+     * @return HasOne<SocialGroupPost, $this>
      */
-    public function firstPost()
+    public function firstPost(): HasOne
     {
         return $this->hasOne(SocialGroupPost::class, 'discussion_id')
             ->oldestOfMany('created_at');
     }
 
-    public function lastPostedUser()
+    /** @return BelongsTo<User, $this> */
+    public function lastPostedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'last_posted_user_id');
     }
 
-    public function sharedFromDiscussion()
+    /** @return BelongsTo<SocialGroupDiscussion, $this> */
+    public function sharedFromDiscussion(): BelongsTo
     {
         return $this->belongsTo(self::class, 'shared_from_discussion_id');
     }
@@ -84,8 +104,10 @@ class SocialGroupDiscussion extends AbstractModel
      * Poll associated with the discussion (1:1). Present when
      * `sg_polls` is installed; SchemaCapabilities filters the call
      * sites.
+     *
+     * @return HasOne<SgPoll, $this>
      */
-    public function poll()
+    public function poll(): HasOne
     {
         return $this->hasOne(SgPoll::class, 'discussion_id');
     }

@@ -98,12 +98,13 @@ class UserGroupBatch
         $state = $this->byRequest[$request] ?? ['queued' => [], 'primary' => [], 'members' => []];
 
         if (! isset($state['actorGroups'])) {
-            $state['actorGroups'] = SocialGroupMember::query()
+            $groupIds = SocialGroupMember::query()
                 ->where('user_id', $actorId)
                 ->whereNull('banned_at')
                 ->pluck('group_id')
-                ->mapWithKeys(fn ($id) => [(int) $id => true])
+                ->map(fn ($id) => (int) $id)
                 ->all();
+            $state['actorGroups'] = array_fill_keys($groupIds, true);
             $this->byRequest[$request] = $state;
         }
 

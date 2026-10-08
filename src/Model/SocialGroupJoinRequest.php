@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Model;
 
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * @property int $id
@@ -12,6 +13,8 @@ use Flarum\User\User;
  * @property string $status  pending | approved | rejected
  * @property \Carbon\Carbon|null $created_at
  * @property \Carbon\Carbon|null $updated_at
+ * @property-read SocialGroup|null $group
+ * @property-read User|null $user
  */
 class SocialGroupJoinRequest extends AbstractModel
 {
@@ -33,12 +36,14 @@ class SocialGroupJoinRequest extends AbstractModel
         'updated_at' => 'datetime',
     ];
 
-    public function group()
+    /** @return BelongsTo<SocialGroup, $this> */
+    public function group(): BelongsTo
     {
         return $this->belongsTo(SocialGroup::class, 'group_id');
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }

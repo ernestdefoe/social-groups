@@ -4,6 +4,7 @@ namespace Ernestdefoe\SocialGroups\Model;
 
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A member's chosen primary social group — the badge shown on their profile.
@@ -13,6 +14,8 @@ use Flarum\User\User;
  *
  * @property int $user_id
  * @property int|null $group_id
+ * @property-read SocialGroup|null $group
+ * @property-read User|null $user
  */
 class SocialGroupUserPrimary extends AbstractModel
 {
@@ -26,12 +29,14 @@ class SocialGroupUserPrimary extends AbstractModel
 
     protected $guarded = [];
 
-    public function group()
+    /** @return BelongsTo<SocialGroup, $this> */
+    public function group(): BelongsTo
     {
         return $this->belongsTo(SocialGroup::class, 'group_id');
     }
 
-    public function user()
+    /** @return BelongsTo<User, $this> */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }

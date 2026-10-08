@@ -4,6 +4,9 @@ namespace Ernestdefoe\SocialGroups\Model;
 
 use Flarum\Database\AbstractModel;
 use Flarum\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property int $id
@@ -16,8 +19,15 @@ use Flarum\User\User;
  * @property string|null $banner_url
  * @property bool $is_private
  * @property int $member_count
+ * @property string $membership_type  open | approval | invite
+ * @property bool $is_featured
  * @property \Carbon\Carbon|null $created_at
  * @property \Carbon\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupJoinRequest> $joinRequests
+ * @property-read User|null $creator
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupMember> $members
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupDiscussion> $recentDiscussions
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $users
  */
 class SocialGroup extends AbstractModel
 {
@@ -38,22 +48,25 @@ class SocialGroup extends AbstractModel
      * anything that is not a plain hex colour reads as no colour at all. That
      * also defuses a value stored before writes were validated.
      */
-    public function getColorAttribute($value): ?string
+    public function getColorAttribute(mixed $value): ?string
     {
         return is_string($value) && preg_match(self::COLOR_PATTERN, $value) ? $value : null;
     }
 
-    public function joinRequests()
+    /** @return HasMany<SocialGroupJoinRequest, $this> */
+    public function joinRequests(): HasMany
     {
         return $this->hasMany(SocialGroupJoinRequest::class, 'group_id');
     }
 
-    public function creator()
+    /** @return BelongsTo<User, $this> */
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function members()
+    /** @return HasMany<SocialGroupMember, $this> */
+    public function members(): HasMany
     {
         return $this->hasMany(SocialGroupMember::class, 'group_id');
     }
@@ -62,8 +75,10 @@ class SocialGroup extends AbstractModel
      * Discussions ordered most-recently-active first. Eager-loaded on the
      * directory Index so the `recentDiscussions` teaser field reads the top
      * two from memory instead of firing one LIMIT query per group card.
+     *
+     * @return HasMany<SocialGroupDiscussion, $this>
      */
-    public function recentDiscussions()
+    public function recentDiscussions(): HasMany
     {
         return $this->hasMany(SocialGroupDiscussion::class, 'group_id')
             ->orderByDesc('last_posted_at');
@@ -74,8 +89,10 @@ class SocialGroup extends AbstractModel
      * Kick is a soft action that sets `banned_at` without deleting the row,
      * so every write-gating check must filter it out — route them through
      * here rather than re-deriving the `whereNull('banned_at')` filter.
+     *
+     * @return HasMany<SocialGroupMember, $this>
      */
-    public function activeMembership(int $userId)
+    public function activeMembership(int $userId): HasMany
     {
         return $this->members()
             ->where('user_id', $userId)
@@ -86,13 +103,16 @@ class SocialGroup extends AbstractModel
      * Muting is softer than a kick: the member stays in the group and can
      * read everything, but cannot post. Every WRITE gate (new discussion,
      * reply) routes through here; read gates keep using activeMembership.
+     *
+     * @return HasMany<SocialGroupMember, $this>
      */
-    public function postingMembership(int $userId)
+    public function postingMembership(int $userId): HasMany
     {
         return $this->activeMembership($userId)->whereNull('muted_at');
     }
 
-    public function users()
+    /** @return BelongsToMany<User, $this> */
+    public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'social_group_members', 'group_id', 'user_id')
             ->withPivot('role', 'joined_at');
