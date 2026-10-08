@@ -22,10 +22,16 @@ class LeaveGroupController implements RequestHandlerInterface
         $id    = $this->routeParam($request, 'id', '/social-groups/{id}');
         $group = SocialGroup::findOrFail($id);
 
-        // Creators cannot leave their own group — they must delete it
+        // Creators cannot leave their own group — they must delete it.
+        //
+        // 🚨 An active membership only. A kicked member's row (banned_at set)
+        // is what keeps them out: deleting it on "leave" let them join the
+        // group again straight away, and took a second member off a count
+        // the kick had already decremented.
         $deleted = $group->members()
             ->where('user_id', $actor->id)
             ->where('role', '!=', 'creator')
+            ->whereNull('banned_at')
             ->delete();
 
         if ($deleted) {
