@@ -91,7 +91,10 @@ class GroupAnalyticsController implements RequestHandlerInterface
             // ── Top 5 most-reacted posts ──────────────────────────────────
             $topPosts = SocialGroupPost::where('group_id', $groupId)
                 ->withCount('reactions as total_reactions')
-                ->having('total_reactions', '>', 0)
+                // whereHas, not HAVING on the count's alias: an alias in
+                // HAVING without a GROUP BY is MySQL only, and SQLite and
+                // PostgreSQL refused the whole analytics request.
+                ->whereHas('reactions')
                 ->orderByDesc('total_reactions')
                 ->take(5)
                 ->with('user')
