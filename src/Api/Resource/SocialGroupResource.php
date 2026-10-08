@@ -186,11 +186,16 @@ class SocialGroupResource extends AbstractDatabaseResource
         // Server-side search. The GroupsPage frontend used to pull every
         // group (page[limit]=200) and filter in JS — that silently
         // dropped matches past row 200 and shipped the full payload on
-        // every page load. Honor a `filter[q]` query param and push the
-        // LIKE into SQL. User wildcards (`%`, `_`) are escaped so they
-        // don't broaden the search beyond what was typed.
-        $rawFilter = $context->request->getQueryParams()['filter'] ?? [];
-        $q = is_array($rawFilter) ? trim((string) ($rawFilter['q'] ?? '')) : '';
+        // every page load. Honor a `searchTerm` query param and push the LIKE
+        // into SQL. User wildcards (`%`, `_`) are escaped so they don't
+        // broaden the search beyond what was typed.
+        //
+        // 🚨 Not `filter[q]` and not `q`. Core's Index endpoint hands any
+        // `filter[...]` to AbstractDatabaseResource::filters(), which is final
+        // and throws (a server error), and JSON:API reserves all-lowercase
+        // parameter names, which Flarum refuses with a 400. Either way every
+        // search failed.
+        $q = trim((string) ($context->request->getQueryParams()['searchTerm'] ?? ''));
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
             $query->where(function ($w) use ($like) {

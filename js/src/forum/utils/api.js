@@ -142,7 +142,8 @@ export function listDiscussions(groupId, { page = 1, q = '', sort = 'latest' } =
     page: { number: page, size: 20 },
     include: 'firstPost,firstPost.user,user,lastPostedUser',
   };
-  if (trimmed) params.q = trimmed;
+  // Not `q`: JSON:API reserves all-lowercase parameter names (Flarum 400s).
+  if (trimmed) params.searchTerm = trimmed;
   if (sort && sort !== 'latest') params.sortBy = sort;
 
   return app.store.find('social-group-discussions', params).then((results) => {

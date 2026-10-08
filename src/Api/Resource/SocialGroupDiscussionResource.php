@@ -153,7 +153,9 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             });
         }
 
-        $q = isset($params['q']) ? trim((string) $params['q']) : '';
+        // `searchTerm`, not `q`: JSON:API reserves all-lowercase parameter
+        // names and Flarum answers them with a 400, so a search never ran.
+        $q = isset($params['searchTerm']) ? trim((string) $params['searchTerm']) : '';
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
             $query->where(function ($w) use ($like) {

@@ -31,13 +31,13 @@ export default class GroupsPage extends Page {
     this.loading = true;
     m.redraw();
 
-    // Server-side search: SocialGroupResource.scope() honors filter[q]
+    // Server-side search: SocialGroupResource.scope() honors searchTerm
     // and pushes a LIKE into SQL. The previous approach (page[limit]=200
     // + JS filter) silently dropped matches past row 200 and shipped the
     // whole list on every page load.
     const params = { 'page[limit]': 60 };
     const q = this.searchValue.trim();
-    if (q) params['filter[q]'] = q;
+    if (q) params.searchTerm = q;
 
     app.store
       .find('social-groups', params)
