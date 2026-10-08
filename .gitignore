@@ -4,3 +4,6 @@ vendor/
 /.claude/
 js/dist/**/*.map
 js/src/forum/generated/
+.phpunit.result.cache
+/tests/integration/tmp
+/composer.lock
