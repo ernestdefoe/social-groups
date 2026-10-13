@@ -23,7 +23,6 @@ import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
-import LogInModal from 'flarum/forum/components/LogInModal';
 import SGSkeleton, { measure } from './SGSkeleton';
 
 export default class GroupFeed extends Component {
@@ -600,7 +599,7 @@ export default class GroupFeed extends Component {
                     Button,
                     {
                       class: 'Button Button--primary',
-                      onclick: () => app.modal.show(LogInModal),
+                      onclick: () => app.modal.show(() => import('flarum/forum/components/LogInModal')),
                     },
                     app.translator.trans('ernestdefoe-social-groups.forum.discussions.log_in_button')
                   )

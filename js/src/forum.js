@@ -118,22 +118,16 @@ app.initializers.add(
       }
     });
 
-    // ── Primary group selector in account settings (Flarum 2 SettingsPage) ────
-    // SettingsPage may or may not exist depending on Flarum version. Guard with
-    // try/require so a missing component never crashes the whole extension.
-    try {
-      const mod = require('flarum/forum/components/SettingsPage');
-      const SettingsPage = mod?.default ?? mod;
-      if (SettingsPage?.prototype) {
-        flarumExtend(SettingsPage.prototype, 'settingsItems', function (items) {
-          if (app.session.user) {
-            items.add('sg-primary-group', m(PrimaryGroupSelector), 10);
-          }
-        });
+    // ── Primary group selector in account settings ────────────────────────────
+    // 🚨 Extended BY PATH. SettingsPage is code-split in Flarum 2, so requiring
+    // it at boot returned undefined, the guard skipped the extend, and the
+    // selector silently never appeared. Core applies a path extend when the
+    // chunk loads.
+    flarumExtend('flarum/forum/components/SettingsPage', 'settingsItems', function (items) {
+      if (app.session.user) {
+        items.add('sg-primary-group', m(PrimaryGroupSelector), 10);
       }
-    } catch (_) {
-      // SettingsPage not available in this Flarum build — selector is on the profile card instead
-    }
+    });
 
     // ── Primary group chip on posts (fof/badges forums) ──────────────────────
     // Forums running fof/badges show badge art beside post authors; the
