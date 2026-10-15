@@ -131,7 +131,7 @@ function renderMenu(d, attrs, t) {
                     });
                   },
                 },
-                [m('i.fa-solid.fa-share'), ' Share post']
+                [m('i.fa-solid.fa-share'), ' ', t('share_post')]
               )
             : null,
           d.canPin
@@ -140,7 +140,7 @@ function renderMenu(d, attrs, t) {
                 {
                   onclick: () => attrs.onPin(),
                 },
-                d.isPinned ? [m('i.fa-solid.fa-thumbtack'), ' Unpin post'] : [m('i.fa-solid.fa-thumbtack'), ' Pin post']
+                d.isPinned ? [m('i.fa-solid.fa-thumbtack'), ' ', t('unpin_post')] : [m('i.fa-solid.fa-thumbtack'), ' ', t('pin_post')]
               )
             : null,
           d.canDelete

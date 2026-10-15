@@ -1,3 +1,4 @@
+import app from 'flarum/forum/app';
 import { apiGet } from './api';
 
 const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
@@ -58,7 +59,10 @@ export function clearLinkPreview(component) {
  */
 export function viewComposerLinkPreview(component) {
   if (component.previewLoading) {
-    return m('.SGLinkPreview.SGLinkPreview--loading', [m('i.fa-solid.fa-spinner.fa-spin'), m('span', ' Loading preview…')]);
+    return m('.SGLinkPreview.SGLinkPreview--loading', [
+      m('i.fa-solid.fa-spinner.fa-spin'),
+      m('span', [' ', app.translator.trans('ernestdefoe-social-groups.forum.composer.loading_preview')]),
+    ]);
   }
 
   const p = component.linkPreview;
