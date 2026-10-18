@@ -2,18 +2,17 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
-use Ernestdefoe\SocialGroups\Access\GroupAccess;
+use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Service\Post\PostNotifier;
 use Ernestdefoe\SocialGroups\Service\Post\PostWriter;
 use Ernestdefoe\SocialGroups\Service\Post\Reactions;
-use Ernestdefoe\SocialGroups\Support\RelationBatch;
 use Flarum\Api\Context;
-use Flarum\Api\Resource\NotificationResource;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
+use Flarum\Api\Resource\NotificationResource;
 use Flarum\Api\Schema;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
@@ -31,6 +30,8 @@ use Tobyz\JsonApiServer\Context as BaseContext;
  */
 class SocialGroupPostResource extends AbstractDatabaseResource
 {
+    use ResolvesServices;
+
     /** What the fields read, loaded for every post on the response at once. */
     private const FIELD_RELATIONS = ['reactions', 'group'];
 
@@ -42,8 +43,6 @@ class SocialGroupPostResource extends AbstractDatabaseResource
     private const NOTIFICATION_RELATIONS = ['discussion.group'];
 
     public function __construct(
-        protected GroupAccess $access,
-        protected RelationBatch $batch,
         protected Container $container,
     ) {
     }
@@ -63,10 +62,10 @@ class SocialGroupPostResource extends AbstractDatabaseResource
         $actor = RequestUtil::getActor($context->request);
 
         if (! $context->listing(self::class)) {
-            if (! $this->access->isPrivileged($actor)) {
+            if (! $this->access()->isPrivileged($actor)) {
                 $query->whereIn(
                     'social_group_posts.group_id',
-                    $this->access->scopeVisible(SocialGroup::query()->select('social_groups.id'), $actor)
+                    $this->access()->scopeVisible(SocialGroup::query()->select('social_groups.id'), $actor)
                 );
             }
 
@@ -82,7 +81,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
 
             return;
         }
-        if (! $this->access->canSee($actor, $discussion->group)) {
+        if (! $this->access()->canSee($actor, $discussion->group)) {
             throw new PermissionDeniedException();
         }
 
@@ -179,23 +178,23 @@ class SocialGroupPostResource extends AbstractDatabaseResource
                 ->get(fn (SocialGroupPost $post) => $this->render($post)),
 
             Schema\Arr::make('reactions')
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch->defer($context->request, $post, self::FIELD_RELATIONS, fn () => Reactions::counts($post))),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch()->defer($context->request, $post, self::FIELD_RELATIONS, fn () => Reactions::counts($post))),
 
             Schema\Str::make('actorReaction')
                 ->nullable()
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch->defer($context->request, $post, self::FIELD_RELATIONS, fn () => Reactions::actorReaction($post, $context->getActor()))),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch()->defer($context->request, $post, self::FIELD_RELATIONS, fn () => Reactions::actorReaction($post, $context->getActor()))),
 
             Schema\Boolean::make('isPinned')
                 ->property('is_pinned'),
 
             Schema\Boolean::make('canEdit')
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access->canEditPost($actor, $group, (int) $post->user_id))),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access()->canEditPost($actor, $group, (int) $post->user_id))),
 
             Schema\Boolean::make('canDelete')
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access->canDeleteContent($actor, $group, (int) $post->user_id))),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access()->canDeleteContent($actor, $group, (int) $post->user_id))),
 
             Schema\Boolean::make('canPin')
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access->isManager($actor, $group))),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->allows($post, $context, fn ($actor, $group) => $this->access()->isManager($actor, $group))),
 
             /*
              * What a notification about this post shows and links to. Only
@@ -203,11 +202,11 @@ class SocialGroupPostResource extends AbstractDatabaseResource
              */
             Schema\Str::make('threadTitle')
                 ->visible(fn ($post, Context $context) => $context->collection instanceof NotificationResource)
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch->defer($context->request, $post, self::NOTIFICATION_RELATIONS, fn () => $post->discussion?->title)),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch()->defer($context->request, $post, self::NOTIFICATION_RELATIONS, fn () => $post->discussion?->title)),
 
             Schema\Str::make('threadGroupSlug')
                 ->visible(fn ($post, Context $context) => $context->collection instanceof NotificationResource)
-                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch->defer($context->request, $post, self::NOTIFICATION_RELATIONS, fn () => $post->discussion?->group?->slug)),
+                ->get(fn (SocialGroupPost $post, Context $context) => $this->batch()->defer($context->request, $post, self::NOTIFICATION_RELATIONS, fn () => $post->discussion?->group?->slug)),
 
             Schema\DateTime::make('createdAt')
                 ->property('created_at'),
@@ -272,7 +271,7 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             return false;
         }
 
-        return $this->batch->defer($context->request, $post, self::FIELD_RELATIONS, fn () => $post->group !== null && $check($actor, $post->group));
+        return $this->batch()->defer($context->request, $post, self::FIELD_RELATIONS, fn () => $post->group !== null && $check($actor, $post->group));
     }
 
     /**

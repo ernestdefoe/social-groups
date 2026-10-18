@@ -3,7 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Carbon\Carbon;
-use Ernestdefoe\SocialGroups\Access\GroupAccess;
+use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Flarum\Api\Context;
@@ -12,8 +12,8 @@ use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\PermissionDeniedException;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
-use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
@@ -25,9 +25,10 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  */
 class SocialGroupMemberResource extends AbstractDatabaseResource
 {
+    use ResolvesServices;
+
     public function __construct(
-        protected GroupAccess $access,
-        protected TranslatorInterface $translator,
+        protected Container $container,
     ) {
     }
 
@@ -57,7 +58,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
 
             return;
         }
-        if (! $this->access->canSee($actor, $group)) {
+        if (! $this->access()->canSee($actor, $group)) {
             throw new PermissionDeniedException();
         }
 
@@ -144,7 +145,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             Schema\Boolean::make('canModerate')
                 ->get(fn (SocialGroupMember $m, Context $context) => $m->group !== null
                     && $m->role !== 'creator'
-                    && $this->access->canEditGroup($context->getActor(), $m->group)),
+                    && $this->access()->canEditGroup($context->getActor(), $m->group)),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
@@ -155,7 +156,7 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
     private function canManage(SocialGroupMember $m, Context $context): bool
     {
         return $m->group !== null
-            && $this->access->canManageMember($context->getActor(), $m->group, (int) $m->user_id, (string) $m->role);
+            && $this->access()->canManageMember($context->getActor(), $m->group, (int) $m->user_id, (string) $m->role);
     }
 
     private function setRole(SocialGroupMember $member, string $role): SocialGroupMember
@@ -204,6 +205,6 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
 
     private function error(string $key): string
     {
-        return $this->translator->trans('ernestdefoe-social-groups.lib.errors.'.$key);
+        return $this->translator()->trans('ernestdefoe-social-groups.lib.errors.'.$key);
     }
 }

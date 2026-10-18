@@ -3,7 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Carbon\Carbon;
-use Ernestdefoe\SocialGroups\Access\GroupAccess;
+use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
 use Flarum\Api\Context;
@@ -12,8 +12,8 @@ use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\PermissionDeniedException;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
-use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
@@ -26,9 +26,10 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  */
 class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 {
+    use ResolvesServices;
+
     public function __construct(
-        protected GroupAccess $access,
-        protected TranslatorInterface $translator,
+        protected Container $container,
     ) {
     }
 
@@ -59,7 +60,7 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 
             return;
         }
-        if (! $this->access->isManager($actor, $group)) {
+        if (! $this->access()->isManager($actor, $group)) {
             throw new PermissionDeniedException();
         }
 
@@ -128,7 +129,7 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
     private function approve(SocialGroupJoinRequest $request): SocialGroupJoinRequest
     {
         if ($request->status !== 'pending') {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.request_not_pending'));
+            throw new BadRequestException($this->translator()->trans('ernestdefoe-social-groups.lib.errors.request_not_pending'));
         }
 
         $request->status = 'approved';

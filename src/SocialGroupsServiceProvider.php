@@ -32,7 +32,7 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
     /**
      * A membership or primary choice written during a request (joining,
      * kicking, muting, picking a chip) must not be answered from the snapshot
-     * taken before it.
+     * taken before it. Listened to by name, so booting never loads the models.
      */
     public function boot(): void
     {
@@ -41,9 +41,11 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
             $this->container->make(UserGroupBatch::class)->flush();
         };
 
-        SocialGroupMember::saved($flush);
-        SocialGroupMember::deleted($flush);
-        SocialGroupUserPrimary::saved($flush);
-        SocialGroupUserPrimary::deleted($flush);
+        $this->container->make('events')->listen([
+            'eloquent.saved: '.SocialGroupMember::class,
+            'eloquent.deleted: '.SocialGroupMember::class,
+            'eloquent.saved: '.SocialGroupUserPrimary::class,
+            'eloquent.deleted: '.SocialGroupUserPrimary::class,
+        ], $flush);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
-use Ernestdefoe\SocialGroups\Access\GroupAccess;
+use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Service\Discussion\DiscussionCreator;
@@ -10,7 +10,6 @@ use Ernestdefoe\SocialGroups\Service\Discussion\FeedQuery;
 use Ernestdefoe\SocialGroups\Service\Discussion\ShareDiscussionService;
 use Ernestdefoe\SocialGroups\Service\Poll\Polls;
 use Ernestdefoe\SocialGroups\Service\Post\PostWriter;
-use Ernestdefoe\SocialGroups\Support\RelationBatch;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -33,9 +32,9 @@ use Tobyz\JsonApiServer\Context as BaseContext;
  */
 class SocialGroupDiscussionResource extends AbstractDatabaseResource
 {
+    use ResolvesServices;
+
     public function __construct(
-        protected GroupAccess $access,
-        protected RelationBatch $batch,
         protected Container $container,
     ) {
     }
@@ -74,7 +73,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
             return;
         }
-        if (! $this->access->canSee($actor, $group)) {
+        if (! $this->access()->canSee($actor, $group)) {
             throw new PermissionDeniedException();
         }
 
@@ -192,7 +191,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             Schema\Boolean::make('canDelete')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
                     ? $this->deferred($d, $context, fn () => $d->group !== null
-                    && $this->access->canDeleteContent($context->getActor(), $d->group, (int) $d->user_id))
+                    && $this->access()->canDeleteContent($context->getActor(), $d->group, (int) $d->user_id))
                     : false),
 
             /** A private group's threads stay in that group. */
@@ -206,13 +205,13 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
                     ? $this->deferred($d, $context, fn () => $d->group !== null
                     && ! $d->is_locked
-                    && $this->access->canPost($context->getActor(), $d->group))
+                    && $this->access()->canPost($context->getActor(), $d->group))
                     : false),
 
             Schema\Boolean::make('canPin')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
                     ? $this->deferred($d, $context, fn () => $d->group !== null
-                    && $this->access->isManager($context->getActor(), $d->group))
+                    && $this->access()->isManager($context->getActor(), $d->group))
                     : false),
 
             Schema\Arr::make('sharedFrom')
@@ -257,7 +256,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
      */
     private function deferred(SocialGroupDiscussion $d, Context $context, callable $build): \Closure
     {
-        return $this->batch->defer($context->request, $d, [
+        return $this->batch()->defer($context->request, $d, [
             'group',
             'sharedFromDiscussion.group',
             'sharedFromDiscussion.user',
@@ -286,7 +285,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
     private function sharedFrom(SocialGroupDiscussion $d, User $actor): ?array
     {
         $source = $d->sharedFromDiscussion;
-        if ($source === null || $source->group === null || ! $this->access->canSee($actor, $source->group)) {
+        if ($source === null || $source->group === null || ! $this->access()->canSee($actor, $source->group)) {
             return null;
         }
 

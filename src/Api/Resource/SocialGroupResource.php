@@ -3,10 +3,10 @@
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
+use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Service\Group\GroupImages;
 use Ernestdefoe\SocialGroups\Service\Group\Memberships;
-use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -16,8 +16,6 @@ use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
-use Psr\Log\LoggerInterface;
-use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
@@ -26,12 +24,10 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  */
 class SocialGroupResource extends AbstractDatabaseResource
 {
+    use ResolvesServices;
+
     public function __construct(
-        protected GroupAccess $access,
         protected Container $container,
-        protected LoggerInterface $log,
-        protected GroupAssetUrl $assetUrl,
-        protected TranslatorInterface $translator,
     ) {
     }
 
@@ -58,13 +54,13 @@ class SocialGroupResource extends AbstractDatabaseResource
             $group = SocialGroup::query()->where('slug', $id)->first()
                 ?? (ctype_digit($id) ? SocialGroup::query()->find((int) $id) : null);
 
-            if ($group === null || ! $this->access->canSee(RequestUtil::getActor($context->request), $group)) {
+            if ($group === null || ! $this->access()->canSee(RequestUtil::getActor($context->request), $group)) {
                 return null;
             }
 
             return $this->withActorCounts($group, $context);
         } catch (\Throwable $e) {
-            $this->log->error('[social-groups] SocialGroupResource::find failed', [
+            $this->log()->error('[social-groups] SocialGroupResource::find failed', [
                 'id' => $id,
                 'exception' => $e::class,
                 'message' => $e->getMessage(),
@@ -79,7 +75,7 @@ class SocialGroupResource extends AbstractDatabaseResource
     {
         $actor = RequestUtil::getActor($context->request);
 
-        $this->access->scopeVisible($query, $actor);
+        $this->access()->scopeVisible($query, $actor);
         $this->loadActorCounts($query, $context);
 
         /*
@@ -173,11 +169,11 @@ class SocialGroupResource extends AbstractDatabaseResource
 
             Schema\Str::make('imageUrl')
                 ->nullable()
-                ->get(fn (SocialGroup $group) => $this->assetUrl->resolve($group->image_url)),
+                ->get(fn (SocialGroup $group) => $this->assetUrl()->resolve($group->image_url)),
 
             Schema\Str::make('bannerUrl')
                 ->nullable()
-                ->get(fn (SocialGroup $group) => $this->assetUrl->resolve($group->banner_url)),
+                ->get(fn (SocialGroup $group) => $this->assetUrl()->resolve($group->banner_url)),
 
             Schema\Boolean::make('isPrivate')
                 ->property('is_private')
@@ -201,28 +197,28 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->writable(fn ($group, Context $context) => $context->getActor()->isAdmin()),
 
             Schema\Boolean::make('isCreator')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->isOwner($context->getActor(), $group)),
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->isOwner($context->getActor(), $group)),
 
             Schema\Boolean::make('isMember')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->isMember($context->getActor(), $group)),
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->isMember($context->getActor(), $group)),
 
             Schema\Boolean::make('actorIsMuted')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->membership($context->getActor(), (int) $group->id)['muted'] ?? false),
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->membership($context->getActor(), (int) $group->id)['muted'] ?? false),
 
             Schema\Boolean::make('isPending')
                 ->get(fn (SocialGroup $group) => (bool) $group->actor_is_pending),
 
             Schema\Boolean::make('canEdit')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->canEditGroup($context->getActor(), $group)),
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->canEditGroup($context->getActor(), $group)),
 
             Schema\Boolean::make('canManage')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->isManager($context->getActor(), $group)),
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->isManager($context->getActor(), $group)),
 
             Schema\Boolean::make('canFeature')
                 ->get(fn ($group, Context $context) => $context->getActor()->isAdmin()),
 
             Schema\Integer::make('pendingRequestCount')
-                ->get(fn (SocialGroup $group, Context $context) => $this->access->isManager($context->getActor(), $group)
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->isManager($context->getActor(), $group)
                     ? (int) $group->pending_req_count
                     : 0),
 
@@ -291,7 +287,7 @@ class SocialGroupResource extends AbstractDatabaseResource
                     throw $e;
                 }
                 if ($attempt >= 3) {
-                    throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.slug_conflict'));
+                    throw new BadRequestException($this->translator()->trans('ernestdefoe-social-groups.lib.errors.slug_conflict'));
                 }
                 $model->slug = SocialGroup::createSlug((string) $model->name);
             }
