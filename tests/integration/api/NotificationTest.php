@@ -57,7 +57,7 @@ class NotificationTest extends TestCase
         $this->json('POST', '/api/social-groups/3/join', 5);
 
         $post = json_decode($this->notified(2)[0], true);
-        $this->assertSame(['postId', 'discussionId', 'groupId'], array_keys($post));
+        $this->assertEqualsCanonicalizing(['postId', 'discussionId', 'groupId'], array_keys($post), 'MySQL reorders JSON keys');
 
         $request = json_decode($this->notified(3, 'socialGroupJoinRequest')[0], true);
         $this->assertSame(['groupId' => 3], $request);
