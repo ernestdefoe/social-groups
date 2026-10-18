@@ -114,6 +114,20 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                     return $context->model;
                 }),
 
+            Endpoint\Endpoint::make('social-groups.vote')
+                ->route('POST', '/{id}/vote')
+                ->authenticated()
+                ->can('vote')
+                ->action(function (Context $context) {
+                    $this->container->make(Polls::class)->vote(
+                        $context->model,
+                        $context->getActor(),
+                        (array) ($context->request->getParsedBody()['optionIds'] ?? [])
+                    );
+
+                    return $context->model;
+                }),
+
             Endpoint\Endpoint::make('social-groups.share')
                 ->route('POST', '/{id}/share')
                 ->authenticated()

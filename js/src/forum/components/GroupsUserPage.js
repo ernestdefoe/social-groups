@@ -2,7 +2,7 @@ import app from 'flarum/forum/app';
 import UserPage from 'flarum/forum/components/UserPage';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Link from 'flarum/common/components/Link';
-import { fetchUserGroups } from '../utils/userGroups';
+import { loadUserGroups } from '../utils/userGroups';
 import SGSkeleton, { measure } from './SGSkeleton';
 
 /**
@@ -20,7 +20,7 @@ export default class GroupsUserPage extends UserPage {
 
   show(user) {
     super.show(user);
-    fetchUserGroups(user.id()).then((groups) => {
+    loadUserGroups(user).then((groups) => {
       this.groups = groups;
       m.redraw();
     });

@@ -36,4 +36,11 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
 
         return $group !== null && $this->access->isManager($actor, $group) ? $this->allow() : $this->deny();
     }
+
+    public function vote(User $actor, SocialGroupDiscussion $discussion): ?string
+    {
+        $group = $discussion->group;
+
+        return $group !== null && $this->access->canParticipate($actor, $group) ? $this->allow() : null;
+    }
 }

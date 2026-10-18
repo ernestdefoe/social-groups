@@ -735,9 +735,9 @@ export default class GroupFeed extends Component {
     poll.totalVotes = poll.options.reduce((s, o) => s + o.voteCount, 0);
     m.redraw();
 
-    apiPost(`/sg-polls/${poll.id}/vote`, { optionIds: newVoteIds })
-      .then((updated) => {
-        d.poll = updated;
+    apiPost(`/social-group-discussions/${d.id}/vote`, { optionIds: newVoteIds })
+      .then((payload) => {
+        d.poll = payload.data.attributes.poll;
         m.redraw();
       })
       .catch(() => {

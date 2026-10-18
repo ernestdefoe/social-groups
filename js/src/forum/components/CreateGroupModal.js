@@ -1,4 +1,4 @@
-import { apiUpload } from '../utils/api';
+import { uploadGroupImage } from '../utils/membership';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import Switch from 'flarum/common/components/Switch';
@@ -238,10 +238,6 @@ export default class CreateGroupModal extends Modal {
   }
 
   uploadFile(file, groupId, type) {
-    const formData = new FormData();
-    formData.append('file', file);
-    const endpoint = type === 'banner' ? 'banner' : 'image';
-
-    return apiUpload(`/social-groups/${groupId}/${endpoint}`, formData).then((data) => ({ type, url: data.url }));
+    return uploadGroupImage(groupId, type === 'banner' ? 'banner' : 'image', file).then((url) => ({ type, url }));
   }
 }

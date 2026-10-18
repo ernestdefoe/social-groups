@@ -4,12 +4,15 @@ namespace Ernestdefoe\SocialGroups\Api\Resource;
 
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Service\Group\GroupImages;
+use Ernestdefoe\SocialGroups\Service\Group\Memberships;
 use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
@@ -25,6 +28,7 @@ class SocialGroupResource extends AbstractDatabaseResource
 {
     public function __construct(
         protected GroupAccess $access,
+        protected Container $container,
         protected LoggerInterface $log,
         protected GroupAssetUrl $assetUrl,
         protected TranslatorInterface $translator,
@@ -112,6 +116,36 @@ class SocialGroupResource extends AbstractDatabaseResource
             Endpoint\Delete::make()
                 ->authenticated()
                 ->can('delete'),
+
+            Endpoint\Endpoint::make('social-groups.join')
+                ->route('POST', '/{id}/join')
+                ->authenticated()
+                ->action(fn (Context $context) => $this->membership($context, fn (Memberships $m) => $m->join($context->model, $context->getActor()))),
+
+            Endpoint\Endpoint::make('social-groups.leave')
+                ->route('POST', '/{id}/leave')
+                ->authenticated()
+                ->action(fn (Context $context) => $this->membership($context, fn (Memberships $m) => $m->leave($context->model, $context->getActor()))),
+
+            Endpoint\Endpoint::make('social-groups.invite')
+                ->route('POST', '/{id}/invite')
+                ->authenticated()
+                ->can('manage')
+                ->action(fn (Context $context) => $this->membership($context, fn (Memberships $m) => $m->invite(
+                    $context->model,
+                    $context->getActor(),
+                    (string) ($context->request->getParsedBody()['username'] ?? '')
+                ))),
+
+            ...array_map(fn (string $slot) => Endpoint\Endpoint::make("social-groups.$slot")
+                ->route('POST', "/{id}/$slot")
+                ->authenticated()
+                ->can('edit')
+                ->action(function (Context $context) use ($slot) {
+                    $this->container->make(GroupImages::class)->store($context->model, $slot, $context->request->getUploadedFiles()['file'] ?? null);
+
+                    return $context->model;
+                }), ['image', 'banner']),
         ];
     }
 
@@ -262,6 +296,19 @@ class SocialGroupResource extends AbstractDatabaseResource
                 $model->slug = SocialGroup::createSlug((string) $model->name);
             }
         }
+    }
+
+    /**
+     * Runs a membership change and answers with the group as the actor now
+     * sees it, so the interface updates from the response.
+     *
+     * @param callable(Memberships): void $change
+     */
+    private function membership(Context $context, callable $change): SocialGroup
+    {
+        $change($this->container->make(Memberships::class));
+
+        return $this->withActorCounts($context->model->refresh(), $context);
     }
 
     private function bodyName(BaseContext $context): ?string

@@ -136,7 +136,7 @@ class GroupToolsTest extends TestCase
             ['id' => 1, 'poll_id' => 1, 'text' => 'Today', 'sort_order' => 0],
             ['id' => 2, 'poll_id' => 1, 'text' => 'Tomorrow', 'sort_order' => 1],
         ]);
-        $vote = fn (?int $actor, array $options) => $this->json('POST', '/api/sg-polls/1/vote', $actor, ['optionIds' => $options])[0];
+        $vote = fn (?int $actor, array $options) => $this->json('POST', '/api/social-group-discussions/2/vote', $actor, ['optionIds' => $options])[0];
 
         $this->assertSame(401, $vote(null, [1]));
         $this->assertSame(403, $vote(3, [1]), 'Not a member of the private group');
@@ -144,6 +144,7 @@ class GroupToolsTest extends TestCase
         $this->assertSame(422, $vote(5, [99]), 'Another poll\'s option');
         $this->assertSame(422, $vote(5, [1, 2]), 'One choice only');
 
+        $this->assertSame(422, $vote(5, [1, 1, 99]), 'Duplicates and strangers');
         $this->assertSame(200, $vote(5, [1]));
         $this->assertSame(200, $vote(5, [2]));
         $this->assertSame([2], $this->database()->table('sg_poll_votes')->where('user_id', 5)->pluck('option_id')->map(fn ($id) => (int) $id)->all(), 'A new vote replaces the old');
@@ -156,7 +157,7 @@ class GroupToolsTest extends TestCase
         $this->database()->table('sg_polls')->insert(['id' => 1, 'discussion_id' => 1, 'question' => 'Done?', 'is_multi_select' => false, 'ends_at' => Carbon::now()->subDay(), 'created_at' => Carbon::now()]);
         $this->database()->table('sg_poll_options')->insert(['id' => 1, 'poll_id' => 1, 'text' => 'Yes', 'sort_order' => 0]);
 
-        $this->assertSame(422, $this->json('POST', '/api/sg-polls/1/vote', 5, ['optionIds' => [1]])[0]);
+        $this->assertSame(422, $this->json('POST', '/api/social-group-discussions/1/vote', 5, ['optionIds' => [1]])[0]);
     }
 
     #[Test]

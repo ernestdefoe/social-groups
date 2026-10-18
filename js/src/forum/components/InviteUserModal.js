@@ -1,4 +1,5 @@
 import { apiPost } from '../utils/api';
+import { errorText } from '../utils/membership';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
@@ -67,16 +68,17 @@ export default class InviteUserModal extends Modal {
     this.success = null;
 
     apiPost(`/social-groups/${this.attrs.groupId}/invite`, { username })
-      .then((data) => {
-        this.loading = false;
-        this.success = app.translator.trans('ernestdefoe-social-groups.forum.invite.success', { username: data.displayName });
+      .then((payload) => {
+        app.store.pushPayload(payload);
+        this.success = app.translator.trans('ernestdefoe-social-groups.forum.invite.success', { username });
         this.username('');
-        if (this.attrs.onInvited) this.attrs.onInvited(data);
-        m.redraw();
+        if (this.attrs.onInvited) this.attrs.onInvited();
       })
       .catch((err) => {
+        this.error = errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.invite.error_generic'));
+      })
+      .finally(() => {
         this.loading = false;
-        this.error = err.response?.error || app.translator.trans('ernestdefoe-social-groups.forum.invite.error_generic');
         m.redraw();
       });
   }

@@ -5,11 +5,13 @@ namespace Ernestdefoe\SocialGroups\Api\Resource;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
+use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
 use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Api\Context;
 use Flarum\Api\Schema;
 use Flarum\User\User;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Every serialized user carries their primary-group chip and their group
@@ -26,12 +28,30 @@ class UserResourceFields
         protected GroupAccess $access,
         protected GroupAssetUrl $assetUrl,
         protected UserGroupBatch $batch,
+        protected TranslatorInterface $translator,
     ) {
     }
 
     public function __invoke(): array
     {
+        $self = fn (User $user, Context $context) => $context->getActor()->exists && (int) $context->getActor()->id === (int) $user->id;
+
         return [
+            /** The chip a member picks for their posts; set only by themselves, among their own groups. */
+            Schema\Integer::make('sgPrimaryGroupId')
+                ->nullable()
+                ->visible($self)
+                ->writable($self)
+                ->get(fn (User $user, Context $context) => $this->deferred($user, $context, fn (?int $primaryId) => $primaryId))
+                ->rule(fn (Context $context) => function (string $attribute, mixed $value, \Closure $fail) use ($context) {
+                    if ($value !== null && $this->access->membership($context->getActor(), (int) $value) === null) {
+                        $fail($this->translator->trans('ernestdefoe-social-groups.lib.errors.not_member'));
+                    }
+                })
+                ->save(fn (User $user, mixed $value) => $value === null
+                    ? SocialGroupUserPrimary::query()->where('user_id', $user->id)->delete()
+                    : SocialGroupUserPrimary::query()->updateOrCreate(['user_id' => $user->id], ['group_id' => (int) $value])),
+
             Schema\Arr::make('sgPrimaryGroup')
                 ->nullable()
                 ->get(fn (User $user, Context $context) => $this->deferred($user, $context, function (?int $primaryId, $memberships) use ($context) {

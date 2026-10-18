@@ -107,9 +107,9 @@ class AccessTest extends TestCase
         $this->database()->table('sg_poll_options')->insert(['id' => 1, 'poll_id' => 1, 'text' => 'Today', 'sort_order' => 0]);
 
         $this->assertSame(200, $this->json('POST', '/api/social-group-posts/1/react', 7, ['reaction' => 'like'])[0], 'React');
-        $this->assertSame(200, $this->json('POST', '/api/sg-polls/1/vote', 7, ['optionIds' => [1]])[0], 'Vote');
+        $this->assertSame(200, $this->json('POST', '/api/social-group-discussions/1/vote', 7, ['optionIds' => [1]])[0], 'Vote');
         $this->assertSame(200, $this->json('GET', '/api/sg-analytics/1', 7)[0], 'Analytics');
-        $this->assertSame(201, $this->json('POST', '/api/social-groups/1/invite', 7, ['username' => 'outsider'])[0], 'Invite');
+        $this->assertSame(200, $this->json('POST', '/api/social-groups/1/invite', 7, ['username' => 'outsider'])[0], 'Invite');
         $this->assertSame(422, $this->json('POST', '/api/social-groups/1/image', 7)[0], 'Image upload, refused only for the missing file');
         $this->assertSame(200, $this->json('GET', '/api/sg-analytics/1', 2)[0], 'The owner sees analytics too');
     }

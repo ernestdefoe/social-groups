@@ -1,4 +1,4 @@
-import { apiPost } from '../utils/api';
+import { changeMembership } from '../utils/membership';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 
@@ -139,56 +139,28 @@ export default class GroupHero extends Component {
   }
 
   doJoin(group, onJoin) {
-    if (this.joining) return;
-    this.joining = true;
-
-    apiPost(`/social-groups/${group.id()}/join`)
-      .then((data) => {
-        this.joining = false;
-        if (data.status === 'pending') {
-          this.isPending = true;
-          group.pushData({ attributes: { isPending: true } });
-        } else {
-          group.pushData({ attributes: { isMember: true, memberCount: data.memberCount, isPending: false } });
-          if (onJoin) onJoin(data);
-        }
-        m.redraw();
-      })
-      .catch(() => {
-        this.joining = false;
-        m.redraw();
-      });
+    this.runMembership(group, 'join', onJoin);
   }
 
   doLeave(group, onLeave) {
-    if (this.joining) return;
-    this.joining = true;
-
-    apiPost(`/social-groups/${group.id()}/leave`)
-      .then((data) => {
-        this.joining = false;
-        group.pushData({ attributes: { isMember: false, memberCount: data.memberCount } });
-        if (onLeave) onLeave(data);
-        m.redraw();
-      })
-      .catch(() => {
-        this.joining = false;
-        m.redraw();
-      });
+    this.runMembership(group, 'leave', onLeave);
   }
 
   cancelRequest(group) {
+    this.runMembership(group, 'leave');
+  }
+
+  runMembership(group, action, then) {
     if (this.joining) return;
     this.joining = true;
 
-    apiPost(`/social-groups/${group.id()}/leave`)
+    changeMembership(group, action)
       .then(() => {
-        this.joining = false;
         this.isPending = false;
-        group.pushData({ attributes: { isPending: false } });
-        m.redraw();
+        if (then && group.isMember() === (action === 'join')) then();
       })
-      .catch(() => {
+      .catch(() => {})
+      .finally(() => {
         this.joining = false;
         m.redraw();
       });

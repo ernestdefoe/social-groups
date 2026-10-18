@@ -1,5 +1,5 @@
-import { apiPost } from '../utils/http';
-import { fetchUserGroups, invalidateUserGroups } from '../utils/userGroups';
+import { loadUserGroups } from '../utils/userGroups';
+import { errorText } from '../utils/membership';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
@@ -25,55 +25,39 @@ export default class PrimaryGroupSelector extends Component {
   }
 
   loadGroups() {
-    if (!app.session.user) {
+    const user = app.session.user;
+    if (!user) {
       this.loading = false;
       return;
     }
 
-    /*
-     * Shared with the card badges and the profile Groups tab, which render on
-     * the same page — read through the cache or the profile fetches the same
-     * list twice. Copy the rows: `selected` is edited in place below.
-     */
-    fetchUserGroups(app.session.user.id()).then((groups) => {
-      this.groups = groups.map((g) => ({ ...g }));
-      // Restore saved selection from isPrimary flag returned by the API
-      const primary = this.groups.find((g) => g.isPrimary);
-      this.selected = primary ? String(primary.id) : '';
+    loadUserGroups(user).then((groups) => {
+      this.groups = groups;
+      this.selected = String(groups.find((g) => g.isPrimary)?.id ?? '');
       this.loading = false;
       m.redraw();
     });
   }
 
+  /**
+   * Saved through the user like any other preference; the response carries
+   * the updated badges, so every card on the page follows.
+   */
   save(groupId) {
+    const user = app.session.user;
     this.saving = true;
     this.selected = groupId ? String(groupId) : '';
     this.error = null;
-    m.redraw();
 
-    apiPost('/sg-primary-group', { groupId: groupId || null })
+    user
+      .save({ sgPrimaryGroupId: groupId ? Number(groupId) : null })
       .then(() => {
-        // Reflect new isPrimary state locally so the badge updates without a reload
-        if (this.groups) {
-          this.groups.forEach((g) => {
-            g.isPrimary = String(g.id) === this.selected;
-          });
-        }
-        // The cached list (and the sgGroups already on the serialized user)
-        // still carry the OLD isPrimary, so drop them — otherwise the next
-        // reader shows the previous badge until a full reload.
-        if (app.session.user) {
-          invalidateUserGroups(app.session.user.id());
-          app.session.user.pushAttributes({
-            sgGroups: this.groups.map((g) => ({ ...g })),
-          });
-        }
-        this.saving = false;
-        m.redraw();
+        this.groups = user.attribute('sgGroups') || this.groups;
       })
       .catch((err) => {
-        this.error =
-          err.response?.error || err.message || extractText(app.translator.trans('ernestdefoe-social-groups.forum.primary_group.save_failed'));
+        this.error = errorText(err, extractText(app.translator.trans('ernestdefoe-social-groups.forum.primary_group.save_failed')));
+      })
+      .finally(() => {
         this.saving = false;
         m.redraw();
       });

@@ -1,4 +1,4 @@
-import { apiPost } from '../utils/api';
+import { changeMembership } from '../utils/membership';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
@@ -238,7 +238,7 @@ export default class GroupCard extends Component {
           loading: this.joining,
           onclick: (e) => {
             e.stopPropagation();
-            this.toggleMembership(group, isApproval);
+            this.toggleMembership(group);
           },
         },
         app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')
@@ -267,7 +267,7 @@ export default class GroupCard extends Component {
         loading: this.joining,
         onclick: (e) => {
           e.stopPropagation();
-          this.toggleMembership(group, isApproval);
+          this.toggleMembership(group);
         },
       },
       isApproval
@@ -276,44 +276,26 @@ export default class GroupCard extends Component {
     );
   }
 
-  toggleMembership(group, isApproval) {
-    if (this.joining) return;
-    this.joining = true;
-
-    const action = this.isMember ? 'leave' : 'join';
-
-    apiPost(`/social-groups/${group.id()}/${action}`)
-      .then((data) => {
-        if (data.status === 'pending') {
-          this.isPending = true;
-          group.pushData({ attributes: { isPending: true } });
-        } else {
-          this.isMember = data.isMember ?? !this.isMember;
-          this.isPending = false;
-          this.memberCount = data.memberCount ?? this.memberCount;
-          group.pushData({ attributes: { isMember: this.isMember, memberCount: this.memberCount, isPending: false } });
-        }
-        this.joining = false;
-        m.redraw();
-      })
-      .catch(() => {
-        this.joining = false;
-        m.redraw();
-      });
+  toggleMembership(group) {
+    this.runMembership(group, this.isMember ? 'leave' : 'join');
   }
 
   cancelRequest(group) {
+    this.runMembership(group, 'leave');
+  }
+
+  runMembership(group, action) {
     if (this.joining) return;
     this.joining = true;
 
-    apiPost(`/social-groups/${group.id()}/leave`)
+    changeMembership(group, action)
       .then(() => {
-        this.isPending = false;
-        group.pushData({ attributes: { isPending: false } });
-        this.joining = false;
-        m.redraw();
+        this.isMember = group.isMember();
+        this.isPending = group.isPending();
+        this.memberCount = group.memberCount();
       })
-      .catch(() => {
+      .catch(() => {})
+      .finally(() => {
         this.joining = false;
         m.redraw();
       });

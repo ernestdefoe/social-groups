@@ -4,8 +4,11 @@ namespace Ernestdefoe\SocialGroups\Service\Poll;
 
 use Ernestdefoe\SocialGroups\Model\SgPoll;
 use Ernestdefoe\SocialGroups\Model\SgPollOption;
+use Ernestdefoe\SocialGroups\Model\SgPollVote;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
+use Flarum\Foundation\ValidationException;
 use Flarum\User\User;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * A discussion's poll: reading it out, creating it with the discussion, and
@@ -14,6 +17,10 @@ use Flarum\User\User;
  */
 class Polls
 {
+    public function __construct(protected TranslatorInterface $translator)
+    {
+    }
+
     /**
      * Vote counts per option and the actor's own votes, for a whole page.
      *
@@ -87,6 +94,41 @@ class Polls
     }
 
     /**
+     * Replaces the actor's votes. Every option must be this poll's, a
+     * single-choice poll takes one, and a finished poll takes none.
+     *
+     * @param list<mixed> $optionIds
+     */
+    public function vote(SocialGroupDiscussion $discussion, User $actor, array $optionIds): void
+    {
+        $poll = $discussion->poll()->with('options')->first();
+        if ($poll === null) {
+            throw new ValidationException(['poll' => $this->trans('poll_not_found')]);
+        }
+        if ($poll->ends_at?->isPast()) {
+            throw new ValidationException(['poll' => $this->trans('poll_ended')]);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $optionIds)));
+        if ($ids === [] || array_diff($ids, $poll->options->pluck('id')->map(fn ($id) => (int) $id)->all()) !== []) {
+            throw new ValidationException(['optionIds' => $this->trans('poll_invalid_option')]);
+        }
+        if (! $poll->is_multi_select && count($ids) > 1) {
+            throw new ValidationException(['optionIds' => $this->trans('poll_single_choice')]);
+        }
+
+        $poll->getConnection()->transaction(function () use ($poll, $actor, $ids) {
+            SgPollVote::query()->where('poll_id', $poll->id)->where('user_id', $actor->id)->delete();
+            SgPollVote::query()->insert(array_map(
+                fn (int $optionId) => ['poll_id' => $poll->id, 'option_id' => $optionId, 'user_id' => $actor->id],
+                $ids
+            ));
+        });
+
+        $discussion->load($this->eagerLoads($actor));
+    }
+
+    /**
      * @param array{question: string, options: list<string>, is_multi_select: bool} $data
      */
     public function create(int $discussionId, array $data): void
@@ -103,5 +145,10 @@ class Polls
             $data['options'],
             array_keys($data['options'])
         ));
+    }
+
+    private function trans(string $error): string
+    {
+        return $this->translator->trans('ernestdefoe-social-groups.lib.errors.'.$error);
     }
 }

@@ -1,4 +1,4 @@
-import { apiUpload } from '../utils/api';
+import { errorText, uploadGroupImage } from '../utils/membership';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 
@@ -90,28 +90,14 @@ export default class ImageUploadButton extends Component {
     this.loading = true;
     m.redraw();
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const type = this.attrs.type;
-    const endpoint = type === 'banner' ? 'banner' : 'image';
-
-    apiUpload(`/social-groups/${groupId}/${endpoint}`, formData)
-      .then((data) => {
-        this.loading = false;
-        if (data.url) {
-          this.previewUrl = data.url;
-          if (this.attrs.onUpload) {
-            this.attrs.onUpload(data.url);
-          }
-        } else {
-          console.error('Upload error:', data.error);
-        }
-        m.redraw();
+    uploadGroupImage(groupId, this.attrs.type === 'banner' ? 'banner' : 'image', file)
+      .then((url) => {
+        this.previewUrl = url;
+        if (this.attrs.onUpload) this.attrs.onUpload(url);
       })
-      .catch((err) => {
+      .catch((err) => app.alerts.show({ type: 'error' }, errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.upload.failed'))))
+      .finally(() => {
         this.loading = false;
-        console.error('Upload failed:', err);
         m.redraw();
       });
   }

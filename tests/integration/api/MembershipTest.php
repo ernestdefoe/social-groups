@@ -45,9 +45,9 @@ class MembershipTest extends TestCase
         [$again, $body2] = $this->json('POST', '/api/social-groups/1/join', 3);
 
         $this->assertSame(200, $status);
-        $this->assertSame(['status' => 'joined', 'memberCount' => 4, 'isMember' => true], $body);
+        $this->assertSame([4, true], [$body['data']['attributes']['memberCount'], $body['data']['attributes']['isMember']]);
         $this->assertSame(200, $again);
-        $this->assertSame(['status' => 'joined', 'memberCount' => 4, 'isMember' => true], $body2);
+        $this->assertSame([4, true], [$body2['data']['attributes']['memberCount'], $body2['data']['attributes']['isMember']]);
         $this->assertSame('member', $this->role(1, 3));
         $this->assertSame(4, $this->memberCount(1));
     }
@@ -79,7 +79,7 @@ class MembershipTest extends TestCase
         $this->database()->table('social_groups')->where('id', 2)->update(['membership_type' => 'open']);
 
         [$status] = $this->json('POST', '/api/social-groups/2/join', 3);
-        $this->assertSame(403, $status);
+        $this->assertSame(404, $status, 'A private group is not even found from outside');
         [$status] = $this->json('POST', '/api/social-groups/4/join', 2);
         $this->assertSame(403, $status);
 
@@ -93,7 +93,8 @@ class MembershipTest extends TestCase
         [$status, $body] = $this->json('POST', '/api/social-groups/3/join', 5);
 
         $this->assertSame(200, $status);
-        $this->assertSame('pending', $body['status']);
+        $this->assertTrue($body['data']['attributes']['isPending']);
+        $this->assertFalse($body['data']['attributes']['isMember']);
         $this->assertNull($this->role(3, 5), 'Not a member yet');
         $this->assertSame('pending', $this->database()->table('social_group_join_requests')->where('group_id', 3)->where('user_id', 5)->value('status'));
         $this->assertSame(1, $this->database()->table('notifications')->where('user_id', 3)->where('type', 'socialGroupJoinRequest')->count());
@@ -138,7 +139,8 @@ class MembershipTest extends TestCase
     {
         [$status, $body] = $this->json('POST', '/api/social-groups/1/leave', 5);
         $this->assertSame(200, $status);
-        $this->assertSame(2, $body['memberCount']);
+        $this->assertSame(2, $body['data']['attributes']['memberCount']);
+        $this->assertFalse($body['data']['attributes']['isMember']);
         $this->assertNull($this->role(1, 5));
 
         $this->json('POST', '/api/social-groups/1/leave', 2);
@@ -153,12 +155,12 @@ class MembershipTest extends TestCase
 
         $this->assertSame(401, $this->json('POST', '/api/social-groups/1/invite', null, ['username' => 'outsider'])[0]);
         $this->assertSame(403, $invite(6, 'outsider')[0], 'A member');
-        $this->assertSame(404, $invite(2, 'nobody')[0]);
+        $this->assertSame(422, $invite(2, 'nobody')[0], 'No such user');
         $this->assertSame(422, $invite(2, 'groupmod')[0], 'Already a member');
 
         [$status, $body] = $invite(5, 'outsider');
-        $this->assertSame(201, $status, 'A group moderator');
-        $this->assertSame(4, $body['memberCount']);
+        $this->assertSame(200, $status, 'A group moderator');
+        $this->assertSame(4, $body['data']['attributes']['memberCount']);
         $this->assertSame('member', $this->role(1, 3));
     }
 
@@ -170,8 +172,9 @@ class MembershipTest extends TestCase
         $this->assertSame(403, $invite(5), 'A group moderator cannot overturn a kick');
         $this->assertNull($this->role(1, 4));
 
-        $this->assertSame(201, $invite(2));
+        $this->assertSame(200, $invite(2));
         $this->assertSame('member', $this->role(1, 4));
+        $this->assertNull($this->database()->table('social_group_members')->where('id', 4)->value('banned_at'));
     }
 
     #[Test]
@@ -243,30 +246,33 @@ class MembershipTest extends TestCase
     #[Test]
     public function a_primary_group_must_be_one_you_belong_to()
     {
-        [$status] = $this->json('POST', '/api/sg-primary-group', 3, ['groupId' => 1]);
-        $this->assertSame(403, $status);
-        [$status] = $this->json('POST', '/api/sg-primary-group', 4, ['groupId' => 1]);
-        $this->assertSame(403, $status, 'Not after a kick');
+        $set = fn (int $actor, ?int $group, ?int $user = null) => $this->json('PATCH', '/api/users/'.($user ?? $actor), $actor, [
+            'data' => ['type' => 'users', 'id' => (string) ($user ?? $actor), 'attributes' => ['sgPrimaryGroupId' => $group]],
+        ]);
 
-        [$status, $body] = $this->json('POST', '/api/sg-primary-group', 5, ['groupId' => 2]);
+        $this->assertSame(422, $set(3, 1)[0], 'Not a member');
+        $this->assertSame(422, $set(4, 1)[0], 'Not after a kick');
+        $this->assertContains($set(6, 1, 5)[0], [400, 403], 'Nobody picks it for someone else');
+
+        [$status, $body] = $set(5, 2);
         $this->assertSame(200, $status);
-        $this->assertSame('Secret Club', $body['primaryGroupName']);
+        $this->assertSame(2, $body['data']['attributes']['sgPrimaryGroupId']);
+        $this->assertSame('Secret Club', $body['data']['attributes']['sgPrimaryGroup']['name']);
 
-        [, $body] = $this->json('POST', '/api/sg-primary-group', 5, ['groupId' => null]);
-        $this->assertNull($body['primaryGroupId']);
+        [, $body] = $set(5, null);
+        $this->assertNull($body['data']['attributes']['sgPrimaryGroupId']);
         $this->assertSame(0, $this->database()->table('social_group_user_primary')->count());
     }
 
     #[Test]
     public function a_profile_lists_a_private_group_only_to_those_inside_it()
     {
-        $groups = fn (?int $actor) => array_column($this->json('GET', '/api/sg-user-groups/5', $actor)[1]['data'], 'name');
+        $groups = fn (?int $actor) => array_column($this->json('GET', '/api/users/5', $actor)[1]['data']['attributes']['sgGroups'], 'name');
 
         $this->assertSame(['Public Open'], $groups(null));
         $this->assertSame(['Public Open'], $groups(3));
-        $this->assertSame(['Public Open', 'Secret Club'], $groups(2));
-        $this->assertSame(['Public Open', 'Secret Club'], $groups(1));
-        $this->assertSame(404, $this->json('GET', '/api/sg-user-groups/999')[0]);
+        $this->assertEqualsCanonicalizing(['Public Open', 'Secret Club'], $groups(2));
+        $this->assertEqualsCanonicalizing(['Public Open', 'Secret Club'], $groups(1));
     }
 
     #[Test]
