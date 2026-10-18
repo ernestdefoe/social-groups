@@ -13,6 +13,10 @@ use Flarum\User\Exception\PermissionDeniedException;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
+/**
+ * Sharing a thread into another group: a new thread there that points back
+ * at the source, answered as the new thread.
+ */
 class ShareDiscussionService
 {
     public function __construct(
@@ -23,67 +27,38 @@ class ShareDiscussionService
     }
 
     /**
-     * Creates a NEW discussion in the target group that references the
-     * source via shared_from_discussion_id. The body carries
-     * targetGroupId + optional content. Mirrors the legacy
-     * ShareGroupDiscussionController's auth (member of target group) and
-     * side effects (auto-title, first post creation).
-     *
-     * Hands the new discussion back to the response pipeline via
-     * $context->model so it re-serialises through the standard Resource
-     * fields, matching what GET /api/social-group-discussions/{id}
-     * would return.
+     * 🚨 A private group's thread stays in it: a share shows its title,
+     * group, author and opening lines to everyone who can see the target.
      */
     public function share(Context $context): SocialGroupDiscussion
     {
         $actor = $context->getActor();
         /** @var SocialGroupDiscussion $source */
         $source = $context->model;
-
         $body = (array) ($context->request->getParsedBody() ?? []);
-        $targetGroupId = (int) ($body['targetGroupId'] ?? 0);
-        $content = trim((string) ($body['content'] ?? ''));
 
-        if ($targetGroupId <= 0) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_required'));
-        }
-
-        /*
-         * 🚨 A private group's thread stays in it. Sharing copies its title
-         * into the target and shows its group, author and opening lines there,
-         * to everyone who can see the target — guests included for a public
-         * one, and members of the target who never joined the private group.
-         */
         if ($source->group === null || $source->group->is_private) {
-            throw new PermissionDeniedException($this->translator->trans('ernestdefoe-social-groups.lib.errors.share_private_refused'));
+            throw new PermissionDeniedException($this->trans('errors.share_private_refused'));
         }
 
-        $target = SocialGroup::find($targetGroupId);
+        $target = SocialGroup::query()->find((int) ($body['targetGroupId'] ?? 0));
         if ($target === null) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_not_found'));
+            throw new BadRequestException($this->trans('errors.target_group_not_found'));
         }
-
         if (! $this->access->canPost($actor, $target)) {
             throw new PermissionDeniedException();
         }
 
-        if ($content === '') {
-            $content = $this->translator->trans('ernestdefoe-social-groups.lib.shared_from', [
-                '{name}' => $source->group->name
-                    ?? $this->translator->trans('ernestdefoe-social-groups.lib.another_group'),
-            ]);
-        }
-        if (mb_strlen($content) > 20000) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.content_too_long'));
+        $content = trim((string) ($body['content'] ?? '')) ?: $this->trans('shared_from', ['{name}' => $source->group->name]);
+        if (mb_strlen($content) > DiscussionCreator::MAX_CONTENT) {
+            throw new BadRequestException($this->trans('errors.content_too_long'));
         }
 
         $now = Carbon::now();
-        $contentParsed = $this->formatter->parse($content);
-
-        $discussion = SocialGroupDiscussion::create([
+        $discussion = SocialGroupDiscussion::query()->create([
             'group_id' => $target->id,
             'user_id' => $actor->id,
-            'title' => mb_substr('Shared: '.$source->title, 0, 255),
+            'title' => mb_substr($this->trans('shared_title', ['{title}' => $source->title]), 0, 255),
             'comment_count' => 1,
             'last_posted_at' => $now,
             'last_posted_user_id' => $actor->id,
@@ -91,16 +66,22 @@ class ShareDiscussionService
             'shared_from_discussion_id' => $source->id,
         ]);
 
-        SocialGroupPost::create([
+        SocialGroupPost::query()->create([
             'discussion_id' => $discussion->id,
             'group_id' => $target->id,
             'user_id' => $actor->id,
             'content' => $content,
-            'content_parsed' => $contentParsed,
+            'content_parsed' => $this->formatter->parse($content),
         ]);
 
-        $context->model = $discussion;
+        return $context->model = $discussion;
+    }
 
-        return $discussion;
+    /**
+     * @param array<string, mixed> $parameters
+     */
+    private function trans(string $key, array $parameters = []): string
+    {
+        return $this->translator->trans('ernestdefoe-social-groups.lib.'.$key, $parameters);
     }
 }

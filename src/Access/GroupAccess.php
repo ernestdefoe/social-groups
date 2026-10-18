@@ -9,14 +9,10 @@ use Illuminate\Database\Eloquent\Builder;
 use WeakMap;
 
 /**
- * Every social-group permission decision, in one place. Policies, resource
- * fields and routes all ask here, so the button a member sees and the answer
- * the server gives can never drift apart.
- *
- * An actor's active memberships load once, in one query, the first time any
- * check needs them. They are keyed by the actor instance, so a long-lived
- * worker never hands one request's answers to the next, and any membership
- * write flushes them (see SocialGroupsServiceProvider).
+ * Every permission decision, in one place, so the button a member sees and
+ * the server's answer never drift apart. An actor's memberships load once, in
+ * one query, keyed by the actor instance (never shared between requests) and
+ * flushed by any membership write.
  */
 class GroupAccess
 {

@@ -1,6 +1,10 @@
 import app from 'flarum/forum/app';
 import Notification from 'flarum/forum/components/Notification';
 
+/**
+ * Its subject is the group. Older notifications stored the group's name and
+ * slug in their data, and still render from those.
+ */
 export default class SocialGroupJoinRequestNotification extends Notification {
   excerpt() {
     return null;
@@ -11,15 +15,16 @@ export default class SocialGroupJoinRequestNotification extends Notification {
   }
 
   href() {
-    const content = this.attrs.notification.attribute('content');
-    if (!content?.groupSlug) return '#';
-    return app.route('ernestdefoe-social-groups.show', { slug: content.groupSlug });
+    const group = this.attrs.notification.subject();
+    const slug = group?.slug?.() || this.attrs.notification.attribute('content')?.groupSlug;
+
+    return slug ? app.route('ernestdefoe-social-groups.show', { slug }) : '#';
   }
 
   content() {
-    const content = this.attrs.notification.attribute('content');
-    return app.translator.trans('ernestdefoe-social-groups.forum.notifications.join_request', {
-      groupName: m('strong', content?.groupName || ''),
-    });
+    const group = this.attrs.notification.subject();
+    const name = group?.name?.() || this.attrs.notification.attribute('content')?.groupName || '';
+
+    return app.translator.trans('ernestdefoe-social-groups.forum.notifications.join_request', { groupName: m('strong', name) });
   }
 }

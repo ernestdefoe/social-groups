@@ -30,25 +30,14 @@ class SocialGroupPost extends AbstractModel
     protected $table = 'social_group_posts';
 
     /**
-     * Transient discussion handle carried from SocialGroupPostResource::creating()
-     * to created(). Declared as a REAL (non-attribute) typed property so assigning
-     * it never routes through Eloquent's setAttribute() — an undeclared property
-     * would land in $attributes and break the INSERT.
+     * Hand-offs between the resource's lifecycle hooks. Real typed properties,
+     * so they never become attributes and break the INSERT.
      */
     public ?SocialGroupDiscussion $_sgDiscussionRef = null;
 
-    /**
-     * The discussion a deleted post belonged to, carried from deleting() to
-     * deleted(). A real property for the same reason as the one above.
-     */
     public ?int $_sgDeletedDiscussionId = null;
 
-    /**
-     * Explicit mass-assignment allowlist. Blocks a future caller passing
-     * `$request->getParsedBody()` straight into `create()/fill()` from
-     * being able to overwrite `is_pinned`, `group_id`, `parent_post_id`
-     * etc. with values from the client.
-     */
+    /** Defence in depth: a raw request body can never set is_pinned or group_id. */
     protected $fillable = [
         'discussion_id',
         'group_id',
@@ -63,9 +52,8 @@ class SocialGroupPost extends AbstractModel
     public $timestamps = true;
 
     /**
-     * `link_preview` stays out of the `array` cast because Laravel's
-     * cast throws `JsonException` on malformed JSON, taking down the
-     * entire feed query. We decode defensively in the accessor.
+     * link_preview is decoded by its accessor instead of the array cast, which
+     * throws on malformed JSON and would take the whole feed down.
      */
     protected $casts = [
         'is_pinned' => 'boolean',

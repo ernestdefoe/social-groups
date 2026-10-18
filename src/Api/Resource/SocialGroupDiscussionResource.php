@@ -164,6 +164,11 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 ->set(fn () => null)
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $this->container->make(Polls::class)->present($d, $context->getActor())),
 
+            /** Read only when the group is already loaded: a link target, never a query. */
+            Schema\Str::make('groupSlug')
+                ->nullable()
+                ->get(fn (SocialGroupDiscussion $d) => $d->relationLoaded('group') ? $d->group?->slug : null),
+
             Schema\Integer::make('commentCount')
                 ->property('comment_count'),
 

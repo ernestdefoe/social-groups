@@ -13,13 +13,9 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * POST /api/sg-typing.
- *
- * Body: { discussionId: int, isTyping: bool }
- *
- * Broadcasts a typing-status event to all connected WebSocket clients
- * watching the given discussion.  No-op if flarum/realtime is not
- * installed.  Returns 204 No Content on success.
+ * "Someone is typing" in a thread, for those who could post a reply. Sent on
+ * the group's private channel, never a public one, and a no-op without
+ * flarum/realtime.
  */
 class TypingStatusController implements RequestHandlerInterface
 {
@@ -34,7 +30,6 @@ class TypingStatusController implements RequestHandlerInterface
     {
         $actor = RequestUtil::getActor($request);
 
-        // Only registered users can appear in typing indicators.
         if ($actor->isGuest()) {
             return new EmptyResponse(403);
         }
@@ -47,7 +42,6 @@ class TypingStatusController implements RequestHandlerInterface
             return new EmptyResponse(422);
         }
 
-        // Verify the actor is a member of the group owning this discussion.
         $discussion = SocialGroupDiscussion::with('group')->find($discussionId);
         if (! $discussion) {
             return new EmptyResponse(404);
@@ -57,16 +51,6 @@ class TypingStatusController implements RequestHandlerInterface
             return new EmptyResponse(403);
         }
 
-        // Broadcast via Realtime on a group-scoped private channel.  The
-        // previous 'public' channel let any logged-in client — including
-        // non-members of the group — receive every typing event, which
-        // disclosed who was active in which private discussion. Pusher's
-        // protocol requires server-side auth for `private-*` subscriptions,
-        // so flarum/realtime's auth endpoint enforces the same membership
-        // gate at the WebSocket layer that this controller enforces at the
-        // HTTP layer above. Container is injected rather than reached for
-        // via app() so the dependency is discoverable and the listener
-        // stays testable.
         if ($this->container->bound('flarum-realtime.pusher')) {
             $channel = 'private-sg-group.'.(int) $discussion->group_id;
 

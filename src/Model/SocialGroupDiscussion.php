@@ -40,11 +40,8 @@ class SocialGroupDiscussion extends AbstractModel
     public $timestamps = true;
 
     /**
-     * Transient payload carried from SocialGroupDiscussionResource::creating()
-     * to created() so the first post + poll are spawned atomically with the
-     * discussion. Declared as a REAL (non-attribute) typed property so
-     * assigning it never routes through Eloquent's setAttribute() — an
-     * undeclared property would land in $attributes and break the INSERT.
+     * The first post and poll, carried from creating() to created(). A real
+     * typed property, so it never becomes an attribute and breaks the INSERT.
      */
     public ?PendingDiscussionPayload $_sgPending = null;
 
@@ -74,10 +71,7 @@ class SocialGroupDiscussion extends AbstractModel
     }
 
     /**
-     * Relation for the discussion's "first post" — the oldest by
-     * `created_at`. Uses Laravel's `oneOfMany` so that
-     * SocialGroupDiscussionResource can eager-load via
-     * `include=firstPost` without incurring N+1.
+     * The oldest post, eager-loadable as one query for a whole page.
      *
      * @return HasOne<SocialGroupPost, $this>
      */

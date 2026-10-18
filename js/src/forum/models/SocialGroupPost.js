@@ -66,7 +66,12 @@ export default class SocialGroupPost extends Model {
     return Model.hasOne('user').call(this);
   }
 
-  discussion() {
+  /**
+   * 🚨 Not `discussion()`: core's notification list treats any subject with a
+   * discussion() as a core discussion, groups by its id and calls its badges(),
+   * and the whole dropdown failed to render.
+   */
+  thread() {
     return Model.hasOne('discussion').call(this);
   }
 }

@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Service\Discussion\DiscussionCreator;
 use Ernestdefoe\SocialGroups\Service\Media\GalleryPostService;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\NotAuthenticatedException;
@@ -16,18 +17,19 @@ use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Creates a post inside a hidden per-group gallery discussion.
- * The gallery discussion is created automatically on first upload.
- * It is hidden from the discussion list (is_gallery = true).
- * ListGroupMediaController scans SocialGroupPost records for image URLs,
- * so these posts surface in the media gallery without polluting the feed.
+ * The Media tab's upload: the image URLs go into the group's hidden gallery
+ * thread, which shows in Media and never in the feed.
  */
 class StoreGroupMediaPostController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private GroupAccess $access, private LoggerInterface $log, private GalleryPostService $gallery, private TranslatorInterface $translator)
-    {
+    public function __construct(
+        private GroupAccess $access,
+        private LoggerInterface $log,
+        private GalleryPostService $gallery,
+        private TranslatorInterface $translator,
+    ) {
     }
 
     public function handle(ServerRequestInterface $request): ResponseInterface
@@ -41,7 +43,7 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
             $body = (array) ($request->getParsedBody() ?? []);
             $content = trim((string) ($body['content'] ?? ''));
 
-            if (! $groupId || ! $content) {
+            if (! $groupId || $content === '' || mb_strlen($content) > DiscussionCreator::MAX_CONTENT) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.media_required_fields')], 422);
             }
 
@@ -57,7 +59,6 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
         } catch (NotAuthenticatedException $e) {
-            // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] StoreGroupMediaPostController: '.$e->getMessage());

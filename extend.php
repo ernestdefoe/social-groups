@@ -25,6 +25,7 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Notification\OnlyThoseWhoCanSeeTheGroup;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupJoinRequestBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
@@ -93,7 +94,8 @@ return [
     (new Extend\Notification())
         ->type(SocialGroupNewPostBlueprint::class, ['alert'])
         ->type(SocialGroupNewReplyBlueprint::class, ['alert'])
-        ->type(SocialGroupJoinRequestBlueprint::class, ['alert']),
+        ->type(SocialGroupJoinRequestBlueprint::class, ['alert'])
+        ->beforeSending(OnlyThoseWhoCanSeeTheGroup::class),
 
     (new Extend\ServiceProvider())
         ->register(SocialGroupsServiceProvider::class),

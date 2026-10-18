@@ -11,13 +11,9 @@ use Flarum\User\User;
 class GalleryPostService
 {
     /**
-     * Create a media post inside the group's hidden gallery discussion,
-     * creating that gallery on first use. The find-or-create and the insert
-     * run in one transaction with the group row locked so two concurrent
-     * uploads can't each spawn a duplicate gallery — MySQL can't express the
-     * partial uniqueness (is_gallery = 1) a unique index would need. The
-     * connection is taken from the model layer rather than an injected
-     * ConnectionInterface, per the extension's data-access conventions.
+     * Adds a post to the group's hidden gallery thread, creating the thread on
+     * first use. The group row is locked so two uploads cannot each create
+     * one: MySQL has no partial unique index to prevent it.
      */
     public function createPost(SocialGroup $group, User $actor, string $content): SocialGroupPost
     {
@@ -42,10 +38,7 @@ class GalleryPostService
                 'content' => $content,
             ]);
 
-            $discussion->increment('comment_count');
-            $discussion->last_posted_at = Carbon::now();
-            $discussion->last_posted_user_id = $actor->id;
-            $discussion->save();
+            $discussion->increment('comment_count', 1, ['last_posted_at' => Carbon::now(), 'last_posted_user_id' => $actor->id]);
 
             return $post;
         });

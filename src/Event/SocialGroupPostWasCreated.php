@@ -7,9 +7,7 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Flarum\User\User;
 
 /**
- * Fired after a new SocialGroupPost is successfully saved.
- * Used by BroadcastGroupPost to push the post to connected
- * clients via the flarum/realtime WebSocket daemon.
+ * A reply was saved. BroadcastGroupPost announces it over flarum/realtime.
  */
 class SocialGroupPostWasCreated
 {

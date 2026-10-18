@@ -16,6 +16,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+/**
+ * A group's latest 20 threads as RSS. Feed readers are anonymous, so a group
+ * is offered only if a guest could see it.
+ */
 class GroupRssFeedController implements RequestHandlerInterface
 {
     public function __construct(
@@ -46,12 +50,9 @@ class GroupRssFeedController implements RequestHandlerInterface
             $groupUrl = $baseUrl.'/groups/'.rawurlencode($slug);
             $feedUrl = $groupUrl.'/feed.rss';
 
-            // Eager-load each discussion's oldest post via the firstPost
-            // relation (oldestOfMany). This fetches at most one post row per
-            // discussion instead of hydrating every post across all 20
-            // discussions just to keep the first of each.
-            $discussions = SocialGroupDiscussion::where('group_id', $group->id)
-                ->where('is_gallery', false)
+            $discussions = SocialGroupDiscussion::query()
+                ->where('group_id', $group->id)
+                ->where(fn ($q) => $q->whereNull('is_gallery')->orWhere('is_gallery', false))
                 ->with(['user', 'firstPost.user'])
                 ->orderByDesc('last_posted_at')
                 ->take(20)
@@ -126,11 +127,8 @@ class GroupRssFeedController implements RequestHandlerInterface
     }
 
     /**
-     * Resolves the forum's default locale to an RFC 5646 language tag
-     * suitable for the RSS `<language>` element. Flarum stores locales as
-     * `en`, `pt-BR`, `de`, `fr-FR`, etc. — which are already RFC 5646
-     * conformant. Normalizes the region segment to upper-case if present
-     * so feed validators don't complain about `pt-br` vs `pt-BR`.
+     * The forum's locale as an RFC 5646 tag, region upper-cased (pt-BR, not
+     * pt-br) so feed validators accept it.
      */
     private function resolveLanguageTag(): string
     {

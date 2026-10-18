@@ -22,13 +22,7 @@ class SocialGroupJoinRequest extends AbstractModel
 
     protected $guarded = [];
 
-    /**
-     * Without $timestamps=true (Flarum's AbstractModel defaults vary by row,
-     * and Laravel's auto-cast for created_at/updated_at only kicks in when
-     * timestamps are explicitly on for the model) Eloquent returns
-     * created_at as a raw string from the DB. ListJoinRequestsController
-     * then 500'd when it called ->toIso8601String() on a string.
-     */
+    /** Without it created_at comes back as a raw string, not a date. */
     public $timestamps = true;
 
     protected $casts = [

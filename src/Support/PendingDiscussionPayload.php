@@ -3,10 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Support;
 
 /**
- * Carries the first-post + poll payload from SocialGroupDiscussionResource's
- * creating() hook to its created() hook. Held on the discussion model as a
- * single declared, typed property so the hand-off is one explicit contract a
- * static analyzer can follow, rather than three loose magic properties.
+ * A new thread's first post and poll, carried from creating() to created().
  */
 class PendingDiscussionPayload
 {

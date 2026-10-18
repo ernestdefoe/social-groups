@@ -2,28 +2,27 @@
 
 namespace Ernestdefoe\SocialGroups\Notification;
 
+use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Flarum\Notification\AlertableInterface;
 use Flarum\Notification\Blueprint\BlueprintInterface;
 use Flarum\User\User;
 
-class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInterface
+/**
+ * An answer to the recipient's own post. The data holds ids only.
+ */
+class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInterface, GroupNotification
 {
     public function __construct(
-        private SocialGroupPost $post,
-        private User $actor,
-        private SocialGroupPost $parentPost,
-        private SocialGroupDiscussion $discussion
+        public readonly SocialGroupPost $post,
+        public readonly User $actor,
+        public readonly SocialGroupPost $parentPost,
+        public readonly SocialGroupDiscussion $discussion,
     ) {
     }
 
     public function getFromUser(): ?User
-    {
-        return $this->actor;
-    }
-
-    public function getSender(): User
     {
         return $this->actor;
     }
@@ -36,13 +35,16 @@ class SocialGroupNewReplyBlueprint implements BlueprintInterface, AlertableInter
     public function getData(): array
     {
         return [
-            'postId' => $this->post->id,
-            'parentPostId' => $this->parentPost->id,
-            'discussionId' => $this->discussion->id,
-            'discussionTitle' => $this->discussion->title ?? '',
-            'groupId' => $this->discussion->group_id,
-            'groupSlug' => $this->discussion->group->slug ?? '',
+            'postId' => (int) $this->post->id,
+            'parentPostId' => (int) $this->parentPost->id,
+            'discussionId' => (int) $this->discussion->id,
+            'groupId' => (int) $this->discussion->group_id,
         ];
+    }
+
+    public function group(): ?SocialGroup
+    {
+        return $this->discussion->group;
     }
 
     public static function getType(): string

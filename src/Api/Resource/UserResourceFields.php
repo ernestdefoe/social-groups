@@ -14,13 +14,10 @@ use Flarum\User\User;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
- * Every serialized user carries their primary-group chip and their group
- * badges, so no card fires a request of its own. One per rendered card once
- * exhausted shared hosts' connection limits.
- *
- * Each getter queues its user and returns a deferred value; UserGroupBatch
- * loads every queued user at once. A private group shows only to those who
- * can see it, and a stale primary (the member since left) shows nothing.
+ * Every serialized user carries their chip and badges, so no card fires a
+ * request of its own (one per card once exhausted shared hosts' connections).
+ * UserGroupBatch loads every queued user at once; a private group shows only
+ * to those who can see it.
  */
 class UserResourceFields
 {

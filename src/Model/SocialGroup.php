@@ -3,9 +3,6 @@
 namespace Ernestdefoe\SocialGroups\Model;
 
 use Flarum\Database\AbstractModel;
-use Flarum\User\User;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -26,10 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read int|null $actor_is_pending
  * @property-read int|null $pending_req_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupJoinRequest> $joinRequests
- * @property-read User|null $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupMember> $members
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupDiscussion> $recentDiscussions
- * @property-read \Illuminate\Database\Eloquent\Collection<int, User> $users
  */
 class SocialGroup extends AbstractModel
 {
@@ -61,12 +56,6 @@ class SocialGroup extends AbstractModel
         return $this->hasMany(SocialGroupJoinRequest::class, 'group_id');
     }
 
-    /** @return BelongsTo<User, $this> */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'user_id');
-    }
-
     /** @return HasMany<SocialGroupMember, $this> */
     public function members(): HasMany
     {
@@ -87,44 +76,13 @@ class SocialGroup extends AbstractModel
     }
 
     /**
-     * Membership query scoped to one actor, excluding kicked users.
-     * Kick is a soft action that sets `banned_at` without deleting the row,
-     * so every write-gating check must filter it out — route them through
-     * here rather than re-deriving the `whereNull('banned_at')` filter.
-     *
-     * @return HasMany<SocialGroupMember, $this>
+     * A unique, readable slug in one query. Cyrillic is mapped BGN/PCGN first
+     * (ICU alone turns Я into AA), other scripts go through ICU, a name with
+     * nothing Latin left falls back to a short hash, and a pure-digit slug gets
+     * a "g-" prefix so it can never be mistaken for an id.
      */
-    public function activeMembership(int $userId): HasMany
-    {
-        return $this->members()
-            ->where('user_id', $userId)
-            ->whereNull('banned_at');
-    }
-
-    /**
-     * Muting is softer than a kick: the member stays in the group and can
-     * read everything, but cannot post. Every WRITE gate (new discussion,
-     * reply) routes through here; read gates keep using activeMembership.
-     *
-     * @return HasMany<SocialGroupMember, $this>
-     */
-    public function postingMembership(int $userId): HasMany
-    {
-        return $this->activeMembership($userId)->whereNull('muted_at');
-    }
-
-    /** @return BelongsToMany<User, $this> */
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'social_group_members', 'group_id', 'user_id')
-            ->withPivot('role', 'joined_at');
-    }
-
     public static function createSlug(string $name): string
     {
-        // BGN/PCGN Cyrillic pre-processing: strtr() runs before ICU Any-Latin
-        // so that ICU never sees raw Cyrillic and cannot produce wrong output
-        // (e.g. ICU maps Я → AA; BGN/PCGN correctly maps Я → Ya).
         static $cyrillicMap = [
             'А' => 'A',  'Б' => 'B',  'В' => 'V',  'Г' => 'G',  'Д' => 'D',
             'Е' => 'Ye', 'Ё' => 'Yo', 'Ж' => 'Zh', 'З' => 'Z',  'И' => 'I',
@@ -143,7 +101,6 @@ class SocialGroup extends AbstractModel
         ];
         $name = strtr($name, $cyrillicMap);
 
-        // Transliterate remaining Unicode (Arabic, CJK, etc.) → Latin → ASCII
         if (function_exists('transliterator_transliterate')) {
             $ascii = transliterator_transliterate('Any-Latin; Latin-ASCII; Lower()', $name);
             $ascii = $ascii !== false ? $ascii : $name;
@@ -154,31 +111,16 @@ class SocialGroup extends AbstractModel
         $slug = strtolower(preg_replace('/[^a-z0-9]+/', '-', $ascii));
         $slug = trim($slug, '-');
 
-        // If the name was entirely non-Latin (e.g. emoji, unsupported script)
-        // the slug may be empty after stripping — fall back to a short hash.
         if ($slug === '') {
             $slug = 'group-'.substr(md5($name.uniqid('', true)), 0, 8);
         }
 
-        // A purely-numeric slug ("33333" for a group literally named "33333")
-        // is indistinguishable from a primary-key id in the URL path. The
-        // /api/social-groups/{id-or-slug} resolver previously short-circuited
-        // numeric input to a PK lookup and returned 404 for the actual row.
-        // SocialGroupResource::find() is now slug-first as a defensive read
-        // path, but we ALSO refuse to mint pure-digit slugs at write time so
-        // new groups never reproduce that ambiguity. A "g-" prefix keeps the
-        // URL readable while guaranteeing at least one non-digit character.
         if (preg_match('/^\d+$/', $slug)) {
             $slug = 'g-'.$slug;
         }
 
         $base = $slug;
 
-        // Fetch every colliding slug in ONE query (base + "base-N" variants) and
-        // pick the first free suffix in PHP, instead of a SELECT per iteration
-        // (an unbounded query loop on a popular base name). The base charset is
-        // slug-safe (letters/digits/hyphens), so the LIKE pattern needs no extra
-        // wildcard escaping.
         $taken = static::where('slug', $base)
             ->orWhere('slug', 'like', $base.'-%')
             ->pluck('slug')

@@ -8,16 +8,13 @@ use Flarum\Notification\Blueprint\BlueprintInterface;
 use Flarum\User\User;
 
 /**
- * Alerts a group's creator and moderators that someone asked to join an
- * approval-gated group. Subject is the GROUP (visibility-safe: recipients
- * are by definition members); data carries IDs and the group name only —
- * the requester is identified by the standard fromUser relation.
+ * Tells an approval group's managers that someone asked to join.
  */
-class SocialGroupJoinRequestBlueprint implements BlueprintInterface, AlertableInterface
+class SocialGroupJoinRequestBlueprint implements BlueprintInterface, AlertableInterface, GroupNotification
 {
     public function __construct(
-        private SocialGroup $group,
-        private User $requester,
+        public readonly SocialGroup $socialGroup,
+        public readonly User $requester,
     ) {
     }
 
@@ -28,16 +25,17 @@ class SocialGroupJoinRequestBlueprint implements BlueprintInterface, AlertableIn
 
     public function getSubject(): SocialGroup
     {
-        return $this->group;
+        return $this->socialGroup;
     }
 
     public function getData(): array
     {
-        return [
-            'groupId' => (int) $this->group->id,
-            'groupSlug' => (string) $this->group->slug,
-            'groupName' => (string) $this->group->name,
-        ];
+        return ['groupId' => (int) $this->socialGroup->id];
+    }
+
+    public function group(): ?SocialGroup
+    {
+        return $this->socialGroup;
     }
 
     public static function getType(): string

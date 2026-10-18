@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups\Api\Controller;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
@@ -16,6 +17,12 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
+/**
+ * A group's Media tab. Two sources feed it: the hidden gallery thread, where
+ * the tab's own upload button stores image URLs, and ordinary posts that
+ * embed an image. `isGallery` tells the lightbox there is no thread to link
+ * to. The LIKE markers keep the scan off posts with no image at all.
+ */
 class ListGroupMediaController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
@@ -47,13 +54,7 @@ class ListGroupMediaController implements RequestHandlerInterface
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_private')], 403);
             }
 
-            // Two sources feed the gallery:
-            //   1. Posts in the hidden "__gallery__" archive discussion — the
-            //      Media tab's own upload button stores raw image URLs there.
-            //   2. Ordinary feed posts that embed an uploaded image — so a
-            //      photo shared in the feed also shows up under Media (was the
-            //      reported "fof/upload images don't appear in the Media tab").
-            $galleryDiscussionIds = \Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion::where('group_id', $groupId)
+            $galleryDiscussionIds = SocialGroupDiscussion::query()->where('group_id', $groupId)
                 ->where('is_gallery', true)
                 ->pluck('id')
                 ->all();
@@ -64,10 +65,6 @@ class ListGroupMediaController implements RequestHandlerInterface
                     if (! empty($galleryDiscussionIds)) {
                         $q->whereIn('discussion_id', $galleryDiscussionIds);
                     }
-                    // Feed posts that contain an uploaded/embedded image. The
-                    // markers cover fof/upload previews, markdown/bbcode image
-                    // syntax, and raw <img> — narrowing the scan so we don't
-                    // render every post in the group through the formatter.
                     $q->orWhere(function ($w) {
                         $w->where('content', 'like', '%upl-image%')
                           ->orWhere('content', 'like', '%![%')
@@ -87,8 +84,6 @@ class ListGroupMediaController implements RequestHandlerInterface
 
             $items = [];
             foreach ($posts as $post) {
-                // New gallery posts store direct image URLs in `content` (no formatter).
-                // Old posts (if any) may have gone through the formatter and have content_parsed.
                 try {
                     if ($post->content_parsed !== null) {
                         $rendered = $this->formatter->render($post->content_parsed);
@@ -105,10 +100,6 @@ class ListGroupMediaController implements RequestHandlerInterface
                         'url' => $url,
                         'postId' => $post->id,
                         'discussionId' => $post->discussion_id,
-                        // Gallery-archive items live in the hidden "__gallery__"
-                        // discussion, which isn't a navigable thread — the
-                        // lightbox uses this to suppress its "View post" link
-                        // (was the reported broken edit/reply on that thread).
                         'isGallery' => isset($gallerySet[$post->discussion_id]),
                         'createdAt' => $post->created_at?->toIso8601String(),
                         'user' => $post->user ? [
@@ -129,7 +120,6 @@ class ListGroupMediaController implements RequestHandlerInterface
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
         } catch (NotAuthenticatedException $e) {
-            // A guest is told to log in (401), not that something broke.
             throw $e;
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] ListGroupMediaController: '.$e->getMessage(), ['exception' => $e]);
@@ -139,19 +129,20 @@ class ListGroupMediaController implements RequestHandlerInterface
     }
 
     /**
-     * Extract https?:// URLs from raw gallery post content.
-     * Excludes brackets/quotes so bbcode wrappers like [upl-file]URL[/upl-file]
-     * don't bleed ] or [/tag] onto the matched URL.
+     * URLs in raw content, stopping at brackets and quotes so a BBCode
+     * wrapper never bleeds onto the match.
      */
     private function extractRawUrls(string $content): array
     {
         preg_match_all('#https?://[^\s\[\]<>"\']+#i', $content, $matches);
-        // Strip any trailing punctuation that may still be attached
         $urls = array_map(fn ($u) => rtrim($u, '.,;:!?)}"\''), $matches[0]);
 
         return array_values(array_unique(array_filter($urls)));
     }
 
+    /**
+     * Photos only: emoji glyphs and data: URIs would flood the grid.
+     */
     private function extractImageUrls(string $html): array
     {
         if ($html === '') {
@@ -166,9 +157,6 @@ class ListGroupMediaController implements RequestHandlerInterface
             /** @var \DOMElement $img */
             $src = $img->getAttribute('src');
             $class = $img->getAttribute('class');
-            // Skip inline emoji (Flarum renders them as <img class="emoji">),
-            // data: URIs, and any other non-photo glyph — they aren't gallery
-            // media and would otherwise flood the grid with tiny icons.
             if ($src === '' || str_starts_with($src, 'data:')) {
                 continue;
             }

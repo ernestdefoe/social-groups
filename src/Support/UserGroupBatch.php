@@ -8,18 +8,11 @@ use Psr\Http\Message\ServerRequestInterface;
 use WeakMap;
 
 /**
- * Every serialized user's group badges, loaded for the whole request at once.
+ * Every serialized user's badges in two queries per request, however many
+ * users the page has and whichever include paths they arrive by.
  *
- * The user fields queue each user id, then return a deferred value; the first
- * one the serializer resolves loads every queued user in two queries (active
- * memberships with their primary flag, their groups). That is the same
- * two queries whether the page has one author or fifty, and whether they
- * arrive as `user`, `lastPostedUser` or `mostRelevantPost.user`. Eager loading
- * through each of those include paths cost up to four queries per path.
- *
- * 🚨 State is keyed by the request in a WeakMap, never set on a model and never
- * held in a plain property: a long-lived worker serving many requests must not
- * hand one request's badges to the next.
+ * 🚨 State is keyed by the request in a WeakMap: a long-lived worker must
+ * never hand one request's badges to the next.
  */
 class UserGroupBatch
 {
@@ -43,8 +36,9 @@ class UserGroupBatch
     }
 
     /**
-     * The user's primary group id and active (non-banned) memberships, each
-     * with its group loaded.
+     * The user's primary group id and active memberships, each with its group.
+     * A primary only counts while it is one of those memberships, so it rides
+     * on the same query as a join.
      *
      * @return array{0: int|null, 1: Collection<int, SocialGroupMember>}
      */
@@ -56,11 +50,6 @@ class UserGroupBatch
         if ($state['queued']) {
             $ids = array_keys($state['queued']);
 
-            /*
-             * The primary choice rides on the membership rows: a primary
-             * only counts while it is one of the user's active memberships,
-             * so a join on (user_id, group_id) drops stale choices too.
-             */
             $members = SocialGroupMember::query()
                 ->select('social_group_members.*', 'social_group_user_primary.group_id as sg_primary_of')
                 ->leftJoin('social_group_user_primary', function ($join) {

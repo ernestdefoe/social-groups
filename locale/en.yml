@@ -242,7 +242,7 @@ ernestdefoe-social-groups:
 
   lib:
     shared_from: "Shared from {name}"
-    another_group: another group
+    shared_title: "Shared: {title}"
     errors:
       unexpected: An unexpected error occurred.
       request_not_pending: This join request has already been handled.
@@ -253,26 +253,20 @@ ernestdefoe-social-groups:
       user_not_found: User not found.
       discussion_not_found: Discussion not found.
       no_file: No valid file uploaded
-      invalid_file_type: "Invalid file type. Allowed: jpg, jpeg, png, gif, webp"
       file_too_large: "File too large. Maximum size is {max}MB"
       invalid_file_content: Invalid file content. Only image files are allowed.
       invalid_url: Invalid URL.
       url_host_not_allowed: URL host is not allowed.
       fetch_failed: Could not fetch URL.
-      analytics_forbidden: Only group moderators and admins can view analytics.
-      invite_required_fields: Group ID and username are required.
-      invite_forbidden: Only group moderators can invite users.
       already_member: That user is already a member of this group.
       group_private: This group is private.
       removed_from_group: You have been removed from this group.
       invite_only: This group is invite-only.
       poll_not_found: Poll not found.
-      poll_member_required: You must be a member of this group to vote.
       poll_ended: This poll has ended.
       poll_invalid_option: Invalid option.
       poll_single_choice: This poll only allows one choice.
       not_member: You are not a member of this group.
-      target_group_required: targetGroupId is required.
       invite_banned: This member was removed from the group. Only the group's creator can invite them back.
       too_many_previews: Too many link previews at once. Try again in a minute.
       share_private_refused: Posts in a private group can't be shared outside it.
@@ -283,7 +277,6 @@ ernestdefoe-social-groups:
       parent_post_not_found: Parent post not found.
       content_empty: Content cannot be empty.
       invalid_reaction: Invalid reaction type.
-      group_id_required: groupId is required.
       media_required_fields: groupId and content are required.
       media_member_required: You must be a member to upload media.
       content_or_poll_required: Content or a poll is required.
