@@ -245,6 +245,7 @@ ernestdefoe-social-groups:
       group_private: This group is private.
       removed_from_group: You have been removed from this group.
       invite_only: This group is invite-only.
+      join_request_rejected: Your request to join was declined. You can ask again later.
       poll_not_found: Poll not found.
       poll_ended: This poll has ended.
       poll_invalid_option: Invalid option.

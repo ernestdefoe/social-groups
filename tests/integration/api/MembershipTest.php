@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Tests\integration\api;
 
+use Carbon\Carbon;
 use Ernestdefoe\SocialGroups\Tests\integration\SeedsGroups;
 use Flarum\Testing\integration\RetrievesAuthorizedUsers;
 use Flarum\Testing\integration\TestCase;
@@ -132,6 +133,14 @@ class MembershipTest extends TestCase
         $this->assertSame(200, $status, 'A global moderator decides');
         $this->assertSame('rejected', $this->database()->table('social_group_join_requests')->where('id', $request)->value('status'));
         $this->assertNull($this->role(3, 5));
+
+        $this->json('POST', '/api/social-groups/3/leave', 5);
+        $this->assertSame(403, $this->json('POST', '/api/social-groups/3/join', 5)[0], 'Asking again straight away, even after "leaving"');
+        $this->assertSame('rejected', $this->database()->table('social_group_join_requests')->where('id', $request)->value('status'));
+
+        $this->database()->table('social_group_join_requests')->where('id', $request)->update(['updated_at' => Carbon::now()->subDays(31)]);
+        $this->assertSame(200, $this->json('POST', '/api/social-groups/3/join', 5)[0], 'A month later');
+        $this->assertSame('pending', $this->database()->table('social_group_join_requests')->where('id', $request)->value('status'));
     }
 
     #[Test]

@@ -12,7 +12,8 @@ class GalleryPostService
 {
     /**
      * Adds a post to the group's hidden gallery thread, creating the thread on
-     * first use. The group row is locked so two uploads cannot each create
+     * first use, stamped with the group's creator rather than the first
+     * uploader. The group row is locked so two uploads cannot each create
      * one: MySQL has no partial unique index to prevent it.
      */
     public function createPost(SocialGroup $group, User $actor, string $content): SocialGroupPost
@@ -23,7 +24,7 @@ class GalleryPostService
             $discussion = SocialGroupDiscussion::firstOrCreate(
                 ['group_id' => $group->id, 'is_gallery' => true],
                 [
-                    'user_id' => $actor->id,
+                    'user_id' => $group->user_id,
                     'title' => '__gallery__',
                     'is_locked' => false,
                     'comment_count' => 0,

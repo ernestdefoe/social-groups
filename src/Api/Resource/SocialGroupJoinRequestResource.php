@@ -19,8 +19,8 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
  * Pending requests to join an approval-only group (`?groupId=`), decided by
- * its managers. A rejection is kept, so the same member cannot flood the
- * queue.
+ * its managers. A rejection is kept and stands for 30 days, so the same
+ * member cannot flood the queue.
  *
  * @extends AbstractDatabaseResource<SocialGroupJoinRequest>
  */

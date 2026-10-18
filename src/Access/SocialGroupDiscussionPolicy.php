@@ -27,7 +27,7 @@ class SocialGroupDiscussionPolicy extends AbstractPolicy
     {
         $group = $discussion->group;
 
-        return $group !== null && $this->access->canDeleteContent($actor, $group, (int) $discussion->user_id) ? $this->allow() : null;
+        return $group !== null && $this->access->canDeleteThread($actor, $discussion, $group) ? $this->allow() : null;
     }
 
     public function pin(User $actor, SocialGroupDiscussion $discussion): ?string

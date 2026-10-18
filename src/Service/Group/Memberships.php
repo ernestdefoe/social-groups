@@ -19,6 +19,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
  */
 class Memberships
 {
+    private const REJECTION_DAYS = 30;
+
     public function __construct(
         protected GroupAccess $access,
         protected NotificationSyncer $notifications,
@@ -79,7 +81,7 @@ class Memberships
             $group->decrement('member_count');
         }
 
-        $group->joinRequests()->where('user_id', $actor->id)->delete();
+        $group->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->delete();
         $this->access->flush();
     }
 
@@ -127,11 +129,19 @@ class Memberships
      * Only a pending request counts: an old approved or rejected one is
      * reopened, so a member who left and asks again reaches the managers.
      */
+    /**
+     * A rejection stands for REJECTION_DAYS, so a turned-down member cannot
+     * keep re-filing and re-alerting the managers.
+     */
     private function requestToJoin(SocialGroup $group, User $actor): void
     {
         $request = $group->joinRequests()->where('user_id', $actor->id)->first();
         if ($request?->status === 'pending') {
             return;
+        }
+
+        if ($request?->status === 'rejected' && $request->updated_at?->gt(Carbon::now()->subDays(self::REJECTION_DAYS))) {
+            throw new PermissionDeniedException($this->trans('join_request_rejected'));
         }
 
         if ($request !== null) {

@@ -191,7 +191,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             Schema\Boolean::make('canDelete')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
                     ? $this->deferred($d, $context, fn () => $d->group !== null
-                    && $this->access()->canDeleteContent($context->getActor(), $d->group, (int) $d->user_id))
+                    && $this->access()->canDeleteThread($context->getActor(), $d, $d->group))
                     : false),
 
             /** A private group's threads stay in that group. */

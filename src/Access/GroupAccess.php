@@ -3,6 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Access;
 
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
+use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Flarum\User\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -133,28 +134,45 @@ class GroupAccess
 
     /**
      * Kicking or muting another member. Never the group's creator, never
-     * yourself: leaving is its own action.
+     * yourself (leaving is its own action), and a moderator only by those
+     * who appoint them.
      */
     public function canManageMember(User $actor, SocialGroup $group, int $targetUserId, string $targetRole): bool
     {
         return $targetRole !== 'creator'
             && (int) $actor->id !== $targetUserId
-            && $this->isManager($actor, $group);
+            && ($targetRole === 'moderator' ? $this->canEditGroup($actor, $group) : $this->isManager($actor, $group));
     }
 
     /**
      * A kicked author keeps their words but loses the edit button with the
-     * membership.
+     * membership; a muted one keeps the button but cannot use it.
      */
     public function canEditPost(User $actor, SocialGroup $group, int $authorId): bool
     {
         return $actor->isAdmin()
-            || ((int) $actor->id === $authorId && $this->isMember($actor, $group));
+            || ((int) $actor->id === $authorId && $this->canPost($actor, $group));
     }
 
+    /**
+     * An author deletes their own content only while still a member:
+     * deleting a thread takes everyone's replies with it.
+     */
     public function canDeleteContent(User $actor, SocialGroup $group, int $authorId): bool
     {
-        return ($actor->exists && (int) $actor->id === $authorId) || $this->isManager($actor, $group);
+        return ($actor->exists && (int) $actor->id === $authorId && $this->isMember($actor, $group))
+            || $this->isManager($actor, $group);
+    }
+
+    /**
+     * The hidden gallery thread holds every member's media, so only a
+     * manager may delete it, whoever it is stamped with.
+     */
+    public function canDeleteThread(User $actor, SocialGroupDiscussion $discussion, SocialGroup $group): bool
+    {
+        return $discussion->is_gallery
+            ? $this->isManager($actor, $group)
+            : $this->canDeleteContent($actor, $group, (int) $discussion->user_id);
     }
 
     /**
