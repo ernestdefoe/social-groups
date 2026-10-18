@@ -1,4 +1,5 @@
-import { errorText, uploadGroupImage } from '../utils/membership';
+import { uploadGroupImage } from '../utils/membership';
+import { errorText } from '../utils/errors';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 

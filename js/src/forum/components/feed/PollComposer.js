@@ -1,17 +1,8 @@
 import app from 'flarum/forum/app';
 
 /**
- * Inline poll-builder rendered inside PostComposer when the user opens
- * the poll panel. Pure renderer — the parent owns the poll object
- * `{ question, options: string[], isMultiSelect }` and triggers a
- * redraw after every mutation via the onChange callback.
- *
- *   attrs = { poll, onChange() }
- *
- * Options are mutated in place because the original GroupFeed code did
- * the same, and the parent's `submitPost()` reads back from the same
- * reference. If/when the parent moves to immutable state, swap to a
- * mapped clone here.
+ * The poll builder inside the feed composer. It edits the composer's
+ * `{ question, options, isMultiSelect }` in place.
  */
 export function PollComposer(attrs) {
   const p = attrs.poll;

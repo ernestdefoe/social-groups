@@ -1,9 +1,9 @@
 import app from 'flarum/forum/app';
-import { apiGet } from './api';
+import { apiGet } from './http';
 
 const URL_RE = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
 
-export function detectFirstUrl(text) {
+function detectFirstUrl(text) {
   URL_RE.lastIndex = 0;
   const match = URL_RE.exec(text);
   if (!match) return null;
@@ -100,9 +100,8 @@ export function viewComposerLinkPreview(component) {
   ]);
 }
 
-/** Render the read-only link preview card inside a rendered post. */
-export function viewPostLinkPreview(post) {
-  const p = post?.linkPreview;
+/** The read-only card under a post that linked a page. */
+export function viewPostLinkPreview(p) {
   if (!p?.url) return null;
 
   return m('a.SGLinkPreview.SGLinkPreview--post', { href: p.url, target: '_blank', rel: 'noopener noreferrer' }, [

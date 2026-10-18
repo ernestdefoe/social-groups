@@ -1,5 +1,5 @@
 import { loadUserGroups } from '../utils/userGroups';
-import { errorText } from '../utils/membership';
+import { errorText } from '../utils/errors';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';

@@ -55,11 +55,11 @@ export default class SocialGroupPost extends Model {
   }
 
   createdAt() {
-    return this.attribute('createdAt', Model.transformDate);
+    return Model.attribute('createdAt', Model.transformDate).call(this);
   }
 
   updatedAt() {
-    return this.attribute('updatedAt', Model.transformDate);
+    return Model.attribute('updatedAt', Model.transformDate).call(this);
   }
 
   user() {

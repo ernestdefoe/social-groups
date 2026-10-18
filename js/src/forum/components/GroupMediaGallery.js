@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiUpload } from '../utils/api';
+import { apiGet, apiPost, apiUpload } from '../utils/http';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';

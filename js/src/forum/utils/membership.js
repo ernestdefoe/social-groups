@@ -1,6 +1,5 @@
 import app from 'flarum/forum/app';
-import { apiPost } from './http';
-import { apiUpload } from './api';
+import { apiPost, apiUpload } from './http';
 
 /**
  * Joins, leaves or withdraws a request. The response is the group as the
@@ -10,10 +9,7 @@ export function changeMembership(group, action) {
   return apiPost(`/social-groups/${group.id()}/${action}`).then((payload) => app.store.pushPayload(payload));
 }
 
-/**
- * Uploads a group's picture or banner and returns its new URL. The response
- * is the updated group, pushed to the store like any other.
- */
+/** Uploads a group's picture or banner and returns its new URL. */
 export function uploadGroupImage(groupId, slot, file) {
   const body = new FormData();
   body.append('file', file);
@@ -23,9 +19,4 @@ export function uploadGroupImage(groupId, slot, file) {
 
     return payload.data.attributes[slot === 'banner' ? 'bannerUrl' : 'imageUrl'];
   });
-}
-
-/** The first error a JSON:API failure carries, or the fallback text. */
-export function errorText(err, fallback) {
-  return err?.response?.errors?.[0]?.detail || err?.message || fallback;
 }

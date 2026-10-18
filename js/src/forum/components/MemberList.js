@@ -1,253 +1,154 @@
-import { listMembers, promoteMember, demoteMember, kickMember, muteMember, unmuteMember } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
-import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
+import extractText from 'flarum/common/utils/extractText';
+import Avatar from './common/Avatar';
 import InviteUserModal from './InviteUserModal';
-import SGSkeleton, { measure } from './SGSkeleton';
+import SGSkeleton from './SGSkeleton';
+import { act } from '../utils/http';
+import { errorText } from '../utils/errors';
 
+const t = (key, params) => app.translator.trans(`ernestdefoe-social-groups.forum.group.${key}`, params);
+
+/**
+ * A group's members in the sidebar, with the moderation each row allows. Who
+ * may do what comes from the server on every row.
+ *
+ *   m(MemberList, { group })
+ */
 export default class MemberList extends Component {
   oninit(vnode) {
     super.oninit(vnode);
-    this.members = [];
-    this.loading = true;
-    this.error = null;
-    this.actioning = {}; // userId → 'promote'|'demote'|'remove'
+    this.members = null;
+    this.busy = {};
+    this.load();
   }
 
-  oncreate(vnode) {
-    super.oncreate(vnode);
-    this.loadMembers();
+  onupdate() {
+    if (this.countFor !== this.attrs.group.memberCount()) this.load();
   }
 
-  loadMembers() {
-    const { groupId } = this.attrs;
-    this.loading = true;
+  /**
+   * Reloads when the group's count moves (a join, an invite, an approval), so
+   * the list never lags the number above it.
+   */
+  load() {
+    this.countFor = this.attrs.group.memberCount();
 
-    listMembers(groupId)
-      .then((data) => {
-        this.members = data.data || [];
-        this.loading = false;
-        m.redraw();
-      })
-      .catch(() => {
-        this.error = true;
-        this.loading = false;
+    app.store
+      .find('social-group-members', { groupId: this.attrs.group.id(), include: 'user' })
+      .then((members) => (this.members = members))
+      .catch(() => (this.members = false))
+      .finally(() => m.redraw());
+  }
+
+  run(member, action, request) {
+    this.busy[member.id()] = action;
+
+    request
+      .catch((err) =>
+        app.alerts.show({ type: 'error' }, errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error')))
+      )
+      .finally(() => {
+        delete this.busy[member.id()];
         m.redraw();
       });
   }
 
-  promote(member) {
-    this.actioning[member.userId] = 'promote';
+  remove(member) {
+    if (!confirm(extractText(t('remove_member_confirm', { displayName: member.attribute('displayName') })))) return;
 
-    promoteMember(member.id)
-      .then((data) => {
-        const idx = this.members.findIndex((m) => m.userId === member.userId);
-        if (idx !== -1) this.members[idx] = { ...this.members[idx], role: data.role || 'moderator' };
-        delete this.actioning[member.userId];
-        m.redraw();
+    this.run(
+      member,
+      'remove',
+      member.delete().then(() => {
+        this.members = this.members.filter((row) => row !== member);
+        this.attrs.group.pushAttributes({ memberCount: Math.max(0, this.attrs.group.memberCount() - 1) });
+        this.countFor = this.attrs.group.memberCount();
       })
-      .catch(() => {
-        delete this.actioning[member.userId];
-        m.redraw();
-      });
-  }
-
-  demote(member) {
-    this.actioning[member.userId] = 'demote';
-
-    demoteMember(member.id)
-      .then((data) => {
-        const idx = this.members.findIndex((m) => m.userId === member.userId);
-        if (idx !== -1) this.members[idx] = { ...this.members[idx], role: data.role || 'member' };
-        delete this.actioning[member.userId];
-        m.redraw();
-      })
-      .catch(() => {
-        delete this.actioning[member.userId];
-        m.redraw();
-      });
-  }
-
-  toggleMute(member) {
-    const muted = !!member.mutedAt;
-    this.actioning[member.userId] = 'mute';
-    m.redraw();
-
-    (muted ? unmuteMember(member.id) : muteMember(member.id))
-      .then((data) => {
-        const idx = this.members.findIndex((m) => m.userId === member.userId);
-        if (idx !== -1) this.members[idx] = { ...this.members[idx], mutedAt: data.mutedAt };
-        delete this.actioning[member.userId];
-        m.redraw();
-      })
-      .catch(() => {
-        delete this.actioning[member.userId];
-        m.redraw();
-      });
-  }
-
-  removeMember(member) {
-    if (!confirm(app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member_confirm', { displayName: member.displayName }))) return;
-
-    this.actioning[member.userId] = 'remove';
-    m.redraw();
-
-    kickMember(member.id)
-      .then(() => {
-        this.members = this.members.filter((m) => m.userId !== member.userId);
-        delete this.actioning[member.userId];
-        m.redraw();
-      })
-      .catch(() => {
-        delete this.actioning[member.userId];
-        m.redraw();
-      });
-  }
-
-  openInvite() {
-    app.modal.show(InviteUserModal, {
-      groupId: this.attrs.groupId,
-      // Reload from the Resource so the new membership row carries its
-      // real `id` (used by promote/demote/kick action URLs). Optimistic
-      // append would have a missing `id` field and break those actions
-      // until the next page refresh.
-      onInvited: () => this.loadMembers(),
-    });
+    );
   }
 
   view() {
-    const { isCreator } = this.attrs;
+    const group = this.attrs.group;
 
     return m('div.MemberList', [
       m('div.MemberList-header', [
-        m('div.MemberList-title', app.translator.trans('ernestdefoe-social-groups.forum.group.members_section')),
-        isCreator
+        m('div.MemberList-title', t('members_section')),
+        group.attribute('canManage')
           ? m(
               Button,
               {
-                class: 'Button Button--sm Button--primary MemberList-inviteBtn',
-                'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.invite.title'),
-                onclick: () => this.openInvite(),
+                className: 'Button Button--sm Button--primary MemberList-inviteBtn',
+                'aria-label': extractText(app.translator.trans('ernestdefoe-social-groups.forum.invite.title')),
+                onclick: () => app.modal.show(InviteUserModal, { groupId: group.id() }),
               },
               [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.invite.button')]
             )
           : null,
       ]),
-
-      this.loading
-        ? m(SGSkeleton, { surface: 'members', fallback: 240, rows: 5, variant: 'rows' })
-        : this.error
-          ? m('div.MemberList-error', app.translator.trans('ernestdefoe-social-groups.forum.group.members_load_error'))
-          : this.members.length === 0
-            ? m('div.MemberList-empty', app.translator.trans('ernestdefoe-social-groups.forum.group.members_empty'))
-            : m(
-                'div.MemberList-list',
-                this.members.map((member) => this.renderMember(member, isCreator))
-              ),
-
-      this.members.length > 0
-        ? m('div.MemberList-count', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.members.length }))
-        : null,
+      this.list(),
     ]);
   }
 
-  renderMember(member, isCreator) {
-    const profileUrl = app.route('user', { username: member.slug });
-    const acting = this.actioning[member.userId];
-    const canModerate = isCreator && member.role !== 'creator';
-    const canRemove = member.canRemove;
+  list() {
+    if (this.members === null) return m(SGSkeleton, { surface: 'members', fallback: 240, rows: 5, variant: 'rows' });
+    if (this.members === false) return m('div.MemberList-error', t('members_load_error'));
+    if (!this.members.length) return m('div.MemberList-empty', t('members_empty'));
 
-    return m('div.MemberList-row', { key: member.userId }, [
-      // Avatar + name
-      m(Link, { href: profileUrl, class: 'MemberList-userLink' }, [
-        m('div.MemberList-avatar', [
-          member.avatarUrl
-            ? m('img', { src: member.avatarUrl, alt: member.displayName })
-            : m('span.MemberList-avatarInitial', (member.displayName || '?')[0].toUpperCase()),
-        ]),
+    return [
+      m(
+        'div.MemberList-list',
+        this.members.map((member) => this.row(member))
+      ),
+      m('div.MemberList-count', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.members.length })),
+    ];
+  }
+
+  row(member) {
+    const role = member.attribute('role');
+    const muted = !!member.attribute('mutedAt');
+    const busy = this.busy[member.id()];
+    const button = (action, label, icon, onclick) =>
+      m(
+        Button,
+        {
+          className: `Button Button--sm MemberList-${action}Btn`,
+          'aria-label': extractText(label),
+          title: extractText(label),
+          loading: busy === action,
+          disabled: !!busy,
+          onclick,
+        },
+        m(`i.fa-solid.${icon}`)
+      );
+
+    return m('div.MemberList-row', { key: member.id() }, [
+      m(Link, { href: app.route('user', { username: member.attribute('slug') }), className: 'MemberList-userLink' }, [
+        m(
+          'div.MemberList-avatar',
+          Avatar({ displayName: member.attribute('displayName'), avatarUrl: member.attribute('avatarUrl') }, 'MemberList-avatarInitial')
+        ),
         m('div.MemberList-info', [
-          m('span.MemberList-name', member.displayName),
-          member.role !== 'member'
-            ? m(
-                'span.MemberList-role',
-                {
-                  class: `MemberList-role--${member.role}`,
-                },
-                member.role === 'creator'
-                  ? app.translator.trans('ernestdefoe-social-groups.forum.group.role_creator')
-                  : app.translator.trans('ernestdefoe-social-groups.forum.group.role_admin')
-              )
-            : null,
-          member.mutedAt && member.canMute
-            ? m('span.MemberList-role.MemberList-role--muted', app.translator.trans('ernestdefoe-social-groups.forum.group.muted_badge'))
-            : null,
+          m('span.MemberList-name', member.attribute('displayName')),
+          role !== 'member' ? m(`span.MemberList-role.MemberList-role--${role}`, t(role === 'creator' ? 'role_creator' : 'role_admin')) : null,
+          muted && member.attribute('canMute') ? m('span.MemberList-role.MemberList-role--muted', t('muted_badge')) : null,
         ]),
       ]),
-
-      // Moderation buttons
-      canModerate || canRemove || member.canMute
-        ? m('div.MemberList-actions', [
-            canModerate
-              ? member.role === 'member'
-                ? m(
-                    Button,
-                    {
-                      class: 'Button Button--sm MemberList-promoteBtn',
-                      'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.promote_member'),
-                      loading: acting === 'promote',
-                      disabled: !!acting,
-                      onclick: () => this.promote(member),
-                    },
-                    m('i.fa-solid.fa-shield')
-                  )
-                : m(
-                    Button,
-                    {
-                      class: 'Button Button--sm MemberList-demoteBtn',
-                      'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.demote_member'),
-                      loading: acting === 'demote',
-                      disabled: !!acting,
-                      onclick: () => this.demote(member),
-                    },
-                    m('i.fa-solid.fa-user')
-                  )
-              : null,
-            member.canMute
-              ? m(
-                  Button,
-                  {
-                    class: 'Button Button--sm MemberList-muteBtn',
-                    'aria-label': app.translator.trans(
-                      member.mutedAt ? 'ernestdefoe-social-groups.forum.group.unmute_member' : 'ernestdefoe-social-groups.forum.group.mute_member'
-                    ),
-                    title: app.translator.trans(
-                      member.mutedAt ? 'ernestdefoe-social-groups.forum.group.unmute_member' : 'ernestdefoe-social-groups.forum.group.mute_member'
-                    ),
-                    loading: acting === 'mute',
-                    disabled: !!acting,
-                    onclick: () => this.toggleMute(member),
-                  },
-                  m(member.mutedAt ? 'i.fa-solid.fa-volume-high' : 'i.fa-solid.fa-volume-xmark')
-                )
-              : null,
-            canRemove
-              ? m(
-                  Button,
-                  {
-                    class: 'Button Button--sm MemberList-removeBtn',
-                    'aria-label': app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
-                    title: app.translator.trans('ernestdefoe-social-groups.forum.group.remove_member'),
-                    loading: acting === 'remove',
-                    disabled: !!acting,
-                    onclick: () => this.removeMember(member),
-                  },
-                  m('i.fa-solid.fa-user-xmark')
-                )
-              : null,
-          ])
-        : null,
+      m('div.MemberList-actions', [
+        member.attribute('canModerate')
+          ? role === 'member'
+            ? button('promote', t('promote_member'), 'fa-shield', () => this.run(member, 'promote', act(member, 'promote')))
+            : button('demote', t('demote_member'), 'fa-user', () => this.run(member, 'demote', act(member, 'demote')))
+          : null,
+        member.attribute('canMute')
+          ? button('mute', t(muted ? 'unmute_member' : 'mute_member'), muted ? 'fa-volume-high' : 'fa-volume-xmark', () =>
+              this.run(member, 'mute', act(member, muted ? 'unmute' : 'mute'))
+            )
+          : null,
+        member.attribute('canRemove') ? button('remove', t('remove_member'), 'fa-user-xmark', () => this.remove(member)) : null,
+      ]),
     ]);
   }
 }

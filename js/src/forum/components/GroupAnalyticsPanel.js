@@ -1,4 +1,4 @@
-import { apiGet } from '../utils/api';
+import { apiGet } from '../utils/http';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';

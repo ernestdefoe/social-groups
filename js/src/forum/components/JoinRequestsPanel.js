@@ -1,85 +1,55 @@
-import { listJoinRequests, approveJoinRequest, rejectJoinRequest } from '../utils/api';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
-import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
-import SGSkeleton, { measure } from './SGSkeleton';
+import Avatar from './common/Avatar';
+import SGSkeleton from './SGSkeleton';
+import { act } from '../utils/http';
+import { errorText } from '../utils/errors';
 
 /**
- * Shown inside the group sidebar for the creator/admins when there are
- * pending join requests (approval-required groups).
+ * Pending requests to join an approval-only group, for its managers. Hidden
+ * when there are none.
+ *
+ *   m(JoinRequestsPanel, { group })
  */
 export default class JoinRequestsPanel extends Component {
   oninit(vnode) {
     super.oninit(vnode);
     this.requests = null;
-    this.loading = true;
-    this.actioning = {};
+    this.busy = {};
+
+    app.store
+      .find('social-group-join-requests', { groupId: this.attrs.group.id(), include: 'user' })
+      .then((requests) => (this.requests = requests))
+      .catch(() => (this.requests = []))
+      .finally(() => m.redraw());
   }
 
-  oncreate(vnode) {
-    super.oncreate(vnode);
-    this.load();
-  }
+  /**
+   * An approval adds a member, so the group's count (and its member list)
+   * follows.
+   */
+  decide(request, approve) {
+    this.busy[request.id()] = approve ? 'approve' : 'reject';
+    const group = this.attrs.group;
 
-  load() {
-    const groupId = this.attrs.groupId;
-    this.loading = true;
-
-    listJoinRequests(groupId)
-      .then((data) => {
-        this.requests = data.data || [];
-        this.loading = false;
-        m.redraw();
-      })
-      .catch(() => {
-        this.requests = [];
-        this.loading = false;
-        m.redraw();
-      });
-  }
-
-  approve(request) {
-    this.actioning[request.id] = 'approve';
-
-    approveJoinRequest(request.id)
+    (approve ? act(request, 'approve') : request.delete())
       .then(() => {
-        this.requests = this.requests.filter((r) => r.id !== request.id);
-        delete this.actioning[request.id];
-        // Resource action returns the join-request itself, not a memberCount.
-        // Parent caller increments optimistically (+1) — approval always
-        // grows the count unless the user was already a member, which the
-        // server guards against.
-        if (this.attrs.onApproved) this.attrs.onApproved();
-        m.redraw();
+        this.requests = this.requests.filter((r) => r !== request);
+        group.pushAttributes({ pendingRequestCount: this.requests.length, memberCount: group.memberCount() + (approve ? 1 : 0) });
       })
-      .catch(() => {
-        delete this.actioning[request.id];
-        m.redraw();
-      });
-  }
-
-  reject(request) {
-    this.actioning[request.id] = 'reject';
-
-    rejectJoinRequest(request.id)
-      .then(() => {
-        this.requests = this.requests.filter((r) => r.id !== request.id);
-        delete this.actioning[request.id];
-        m.redraw();
-      })
-      .catch(() => {
-        delete this.actioning[request.id];
+      .catch((err) =>
+        app.alerts.show({ type: 'error' }, errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error')))
+      )
+      .finally(() => {
+        delete this.busy[request.id()];
         m.redraw();
       });
   }
 
   view() {
-    if (this.loading) {
-      return m('.SGJoinRequests', m(SGSkeleton, { surface: 'joinRequests', fallback: 120, rows: 2, variant: 'rows' }));
-    }
-
-    if (!this.requests || this.requests.length === 0) return null;
+    if (this.requests === null) return m('.SGJoinRequests', m(SGSkeleton, { surface: 'joinRequests', fallback: 120, rows: 2, variant: 'rows' }));
+    if (!this.requests.length) return null;
 
     return m('.SGJoinRequests', [
       m('.SGJoinRequests-header', [
@@ -88,38 +58,42 @@ export default class JoinRequestsPanel extends Component {
       ]),
       m(
         '.SGJoinRequests-list',
-        this.requests.map((req) =>
-          m('.SGJoinRequests-row', { key: req.id }, [
+        this.requests.map((request) => {
+          const name = request.attribute('displayName') || '';
+          const busy = this.busy[request.id()];
+
+          return m('.SGJoinRequests-row', { key: request.id() }, [
             m('.SGJoinRequests-user', [
-              req.user.avatarUrl
-                ? m('img.SGJoinRequests-avatar', { src: req.user.avatarUrl, alt: req.user.displayName })
-                : m('span.SGJoinRequests-avatarInitial', (req.user.displayName || '?')[0].toUpperCase()),
-              m('span.SGJoinRequests-name', req.user.displayName),
+              Avatar(
+                { displayName: name, avatarUrl: request.attribute('avatarUrl') },
+                request.attribute('avatarUrl') ? 'SGJoinRequests-avatar' : 'SGJoinRequests-avatarInitial'
+              ),
+              m('span.SGJoinRequests-name', name),
             ]),
             m('.SGJoinRequests-actions', [
               m(
                 Button,
                 {
-                  class: 'Button Button--primary Button--sm SGJoinRequests-approveBtn',
-                  loading: this.actioning[req.id] === 'approve',
-                  disabled: !!this.actioning[req.id],
-                  onclick: () => this.approve(req),
+                  className: 'Button Button--primary Button--sm SGJoinRequests-approveBtn',
+                  loading: busy === 'approve',
+                  disabled: !!busy,
+                  onclick: () => this.decide(request, true),
                 },
                 m('i.fa-solid.fa-check')
               ),
               m(
                 Button,
                 {
-                  class: 'Button Button--sm SGJoinRequests-rejectBtn',
-                  loading: this.actioning[req.id] === 'reject',
-                  disabled: !!this.actioning[req.id],
-                  onclick: () => this.reject(req),
+                  className: 'Button Button--sm SGJoinRequests-rejectBtn',
+                  loading: busy === 'reject',
+                  disabled: !!busy,
+                  onclick: () => this.decide(request, false),
                 },
                 m('i.fa-solid.fa-xmark')
               ),
             ]),
-          ])
-        )
+          ]);
+        })
       ),
     ]);
   }

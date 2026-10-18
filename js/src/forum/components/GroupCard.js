@@ -1,4 +1,5 @@
 import { changeMembership } from '../utils/membership';
+import { shade } from '../utils/colors';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
@@ -57,7 +58,7 @@ export default class GroupCard extends Component {
         m(
           'div.GroupCard-banner',
           {
-            style: bannerUrl ? `background-image: url('${bannerUrl}')` : `background: linear-gradient(135deg, ${color}, ${this.darken(color)})`,
+            style: bannerUrl ? `background-image: url('${bannerUrl}')` : `background: linear-gradient(135deg, ${color}, ${shade(color)})`,
           },
           [m('div.GroupCard-avatar', { style: imageUrl ? '' : `background: ${color}` }, imageUrl ? m('img', { src: imageUrl, alt: name }) : initial)]
         ),
@@ -299,17 +300,5 @@ export default class GroupCard extends Component {
         this.joining = false;
         m.redraw();
       });
-  }
-
-  darken(hex) {
-    const map = {
-      '#4A90E2': '#2c5f9e',
-      '#7b5ea7': '#543d74',
-      '#e2574a': '#9e3c32',
-      '#e2a24a': '#9e7032',
-      '#4ae28a': '#32a060',
-      '#4ae2d4': '#3299b0',
-    };
-    return map[hex] || '#2c5f9e';
   }
 }

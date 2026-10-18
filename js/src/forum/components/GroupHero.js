@@ -1,4 +1,5 @@
 import { changeMembership } from '../utils/membership';
+import { hueShift } from '../utils/colors';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
 
@@ -6,11 +7,10 @@ export default class GroupHero extends Component {
   oninit(vnode) {
     super.oninit(vnode);
     this.joining = false;
-    this.isPending = false; // local override after request
   }
 
   view() {
-    const { group, onEdit, onJoin, onLeave } = this.attrs;
+    const { group, onEdit } = this.attrs;
     if (!group) return null;
 
     const name = group.name() || '';
@@ -23,14 +23,12 @@ export default class GroupHero extends Component {
     const isCreator = group.isCreator();
     const canEdit = group.canEdit();
     const isApproval = group.membershipType() === 'approval';
-    const isPending = this.isPending || group.isPending();
+    const isPending = group.isPending();
 
     return m('div.GroupHero', [
       // Full-width banner
       m('div.GroupHero-banner', {
-        style: bannerUrl
-          ? `background-image: url('${bannerUrl}')`
-          : `background: linear-gradient(135deg, ${color}, ${this.complementaryColor(color)})`,
+        style: bannerUrl ? `background-image: url('${bannerUrl}')` : `background: linear-gradient(135deg, ${color}, ${hueShift(color)})`,
       }),
 
       // Info bar beneath banner
@@ -83,21 +81,21 @@ export default class GroupHero extends Component {
                 )
               : null,
 
-            app.session.user && !isCreator ? this.renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave) : null,
+            app.session.user && !isCreator ? this.renderMembershipButton(group, isMember, isApproval, isPending) : null,
           ]),
         ]),
       ]),
     ]);
   }
 
-  renderMembershipButton(group, isMember, isApproval, isPending, onJoin, onLeave) {
+  renderMembershipButton(group, isMember, isApproval, isPending) {
     if (isMember) {
       return m(
         Button,
         {
           class: 'Button Button--default',
           loading: this.joining,
-          onclick: () => this.doLeave(group, onLeave),
+          onclick: () => this.runMembership(group, 'leave'),
         },
         [m('i.fa-solid.fa-arrow-right-from-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.leave')]
       );
@@ -109,7 +107,7 @@ export default class GroupHero extends Component {
         {
           class: 'Button Button--default GroupHero-pendingBtn',
           loading: this.joining,
-          onclick: () => this.cancelRequest(group),
+          onclick: () => this.runMembership(group, 'leave'),
         },
         [m('i.fa-solid.fa-clock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.pending')]
       );
@@ -121,7 +119,7 @@ export default class GroupHero extends Component {
         {
           class: 'Button Button--primary',
           loading: this.joining,
-          onclick: () => this.doJoin(group, onJoin),
+          onclick: () => this.runMembership(group, 'join'),
         },
         [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]
       );
@@ -132,49 +130,21 @@ export default class GroupHero extends Component {
       {
         class: 'Button Button--primary',
         loading: this.joining,
-        onclick: () => this.doJoin(group, onJoin),
+        onclick: () => this.runMembership(group, 'join'),
       },
       [m('i.fa-solid.fa-arrow-right-to-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]
     );
   }
 
-  doJoin(group, onJoin) {
-    this.runMembership(group, 'join', onJoin);
-  }
-
-  doLeave(group, onLeave) {
-    this.runMembership(group, 'leave', onLeave);
-  }
-
-  cancelRequest(group) {
-    this.runMembership(group, 'leave');
-  }
-
-  runMembership(group, action, then) {
+  runMembership(group, action) {
     if (this.joining) return;
     this.joining = true;
 
     changeMembership(group, action)
-      .then(() => {
-        this.isPending = false;
-        if (then && group.isMember() === (action === 'join')) then();
-      })
       .catch(() => {})
       .finally(() => {
         this.joining = false;
         m.redraw();
       });
-  }
-
-  complementaryColor(hex) {
-    const map = {
-      '#4A90E2': '#7b5ea7',
-      '#7b5ea7': '#4A90E2',
-      '#e2574a': '#7b5ea7',
-      '#e2a24a': '#e2574a',
-      '#4ae28a': '#4A90E2',
-      '#4ae2d4': '#4ae28a',
-    };
-    return map[hex] || '#7b5ea7';
   }
 }

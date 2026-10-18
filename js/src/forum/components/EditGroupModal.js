@@ -196,16 +196,10 @@ export default class EditGroupModal extends Modal {
         isPrivate: this.isPrivate(),
         membershipType: this.membershipType(),
       })
-      .then(() => {
-        this.submitting = false;
-        if (this.attrs.onSaved) {
-          this.attrs.onSaved(group);
-        }
-        this.hide();
-      })
+      .then(() => this.hide())
       .catch((err) => {
         this.submitting = false;
-        console.error('Edit group error:', err);
+        app.alerts.show({ type: 'error' }, errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error')));
         m.redraw();
       });
   }

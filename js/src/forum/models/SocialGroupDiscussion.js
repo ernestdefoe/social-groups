@@ -52,11 +52,11 @@ export default class SocialGroupDiscussion extends Model {
   }
 
   lastPostedAt() {
-    return this.attribute('lastPostedAt', Model.transformDate);
+    return Model.attribute('lastPostedAt', Model.transformDate).call(this);
   }
 
   createdAt() {
-    return this.attribute('createdAt', Model.transformDate);
+    return Model.attribute('createdAt', Model.transformDate).call(this);
   }
 
   user() {

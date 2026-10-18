@@ -1,5 +1,5 @@
-import { apiPost } from '../utils/api';
-import { errorText } from '../utils/membership';
+import { apiPost } from '../utils/http';
+import { errorText } from '../utils/errors';
 import app from 'flarum/forum/app';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';

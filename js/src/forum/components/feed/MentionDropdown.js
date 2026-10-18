@@ -1,17 +1,6 @@
 /**
- * @-autocomplete dropdown rendered below a textarea while the user is
- * typing a mention. Pure renderer — the parent owns members[],
- * mentionQuery, and the selection handler.
- *
- *   attrs = {
- *     members: Member[] | null,     // null = not yet loaded
- *     loading: boolean,
- *     query:   string | null,        // null = dropdown closed
- *     onSelect(member),
- *   }
- *
- * The button uses `onmousedown` (with preventDefault) instead of
- * `onclick` so the textarea doesn't blur before the selection registers.
+ * The @-mention suggestions under a textarea. Items act on mousedown, so the
+ * textarea keeps focus until the choice lands.
  */
 export function MentionDropdown(attrs) {
   if (attrs.query === null) return null;

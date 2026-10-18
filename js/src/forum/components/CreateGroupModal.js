@@ -1,4 +1,5 @@
 import { uploadGroupImage } from '../utils/membership';
+import { errorText } from '../utils/errors';
 import Modal from 'flarum/common/components/Modal';
 import Button from 'flarum/common/components/Button';
 import Switch from 'flarum/common/components/Switch';
@@ -224,7 +225,6 @@ export default class CreateGroupModal extends Modal {
       })
       .then((group) => {
         this.submitting = false;
-        // Pass newly created group back to parent via callback
         if (this.attrs.onCreated) {
           this.attrs.onCreated(group);
         }
@@ -232,7 +232,7 @@ export default class CreateGroupModal extends Modal {
       })
       .catch((err) => {
         this.submitting = false;
-        console.error('Create group error:', err);
+        app.alerts.show({ type: 'error' }, errorText(err, app.translator.trans('ernestdefoe-social-groups.forum.groups.generic_error')));
         m.redraw();
       });
   }

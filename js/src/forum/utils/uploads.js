@@ -1,6 +1,7 @@
-import { apiUpload } from './api';
+import { apiUpload } from './http';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
+import { errorText } from './errors';
 
 /**
  * Returns any image files found in a paste event's clipboardData.
@@ -42,11 +43,7 @@ export function handleFiles(component, files, uploadsKey, textKey) {
         const upload = component[uploadsKey].find((u) => u.id === id);
         if (upload) {
           upload.uploading = false;
-          upload.error =
-            err.response?.errors?.[0]?.detail ||
-            err.response?.error ||
-            err.message ||
-            extractText(app.translator.trans('ernestdefoe-social-groups.forum.upload.failed'));
+          upload.error = errorText(err, extractText(app.translator.trans('ernestdefoe-social-groups.forum.upload.failed')));
         }
         m.redraw();
       });

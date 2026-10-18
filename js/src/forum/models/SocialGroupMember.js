@@ -32,7 +32,7 @@ export default class SocialGroupMember extends Model {
   }
 
   joinedAt() {
-    return this.attribute('joinedAt', Model.transformDate);
+    return Model.attribute('joinedAt', Model.transformDate).call(this);
   }
 
   canModerate() {
@@ -44,7 +44,7 @@ export default class SocialGroupMember extends Model {
   }
 
   mutedAt() {
-    return this.attribute('mutedAt', Model.transformDate);
+    return Model.attribute('mutedAt', Model.transformDate).call(this);
   }
 
   canMute() {

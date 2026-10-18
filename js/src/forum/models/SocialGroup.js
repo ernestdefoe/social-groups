@@ -34,7 +34,7 @@ export default class SocialGroup extends Model {
   }
 
   createdAt() {
-    return this.attribute('createdAt', Model.transformDate);
+    return Model.attribute('createdAt', Model.transformDate).call(this);
   }
 
   canEdit() {
