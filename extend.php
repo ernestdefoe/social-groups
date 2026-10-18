@@ -18,6 +18,7 @@ use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupMemberResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupPostResource;
 use Ernestdefoe\SocialGroups\Api\Resource\SocialGroupResource;
 use Ernestdefoe\SocialGroups\Api\Resource\UserResourceFields;
+use Ernestdefoe\SocialGroups\Api\ThrottleGroupWrites;
 use Ernestdefoe\SocialGroups\Event\SocialGroupPostWasCreated;
 use Ernestdefoe\SocialGroups\Listener\BroadcastGroupPost;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
@@ -68,6 +69,12 @@ return [
         ->get('/sg-media/{groupId}', 'sg-media.list', ListGroupMediaController::class)
         ->post('/sg-media-post/{groupId}', 'sg-media-post.store', StoreGroupMediaPostController::class)
         ->post('/sg-typing', 'sg.typing', TypingStatusController::class),
+
+    (new Extend\ThrottleApi())
+        ->set('socialGroupWrites', ThrottleGroupWrites::class),
+
+    (new Extend\Middleware('api'))
+        ->add(ThrottleGroupWrites::class),
 
     (new Extend\Event())
         ->listen(SocialGroupPostWasCreated::class, BroadcastGroupPost::class),
