@@ -108,7 +108,7 @@ class GroupToolsTest extends TestCase
         $this->assertSame(422, $preview(2, 'file:///etc/passwd'));
         $this->assertSame(422, $preview(2, 'not a url'));
 
-        foreach (['http://127.0.0.1/', 'http://169.254.169.254/latest/meta-data/', 'http://10.0.0.5/', 'http://192.168.1.1/', 'http://0177.0.0.1/', 'http://[::1]/', 'http://localhost/'] as $url) {
+        foreach (['http://127.0.0.1/', 'http://169.254.169.254/latest/meta-data/', 'http://10.0.0.5/', 'http://192.168.1.1/', 'http://0177.0.0.1/', 'http://[::1]/', 'http://[::7f00:1]/', 'http://[64:ff9b::a9fe:a9fe]/', 'http://[2002:7f00:1::]/', 'http://localhost/'] as $url) {
             $this->assertSame(422, $preview(2, $url), $url);
         }
 

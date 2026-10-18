@@ -15,13 +15,20 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * A group's picture and banner. The upload is decoded and re-encoded, as core
  * does for avatars, so no bytes the browser sent reach the public disk as
- * they came: no polyglot file, no EXIF location.
+ * they came: no polyglot file, no EXIF location. It is scaled down to the
+ * size it is shown at on the way.
  */
 class GroupImages
 {
     public const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 
     public const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+    /** Read from the header before decoding: a small file can unpack to gigabytes. */
+    private const MAX_PIXELS = 40_000_000;
+
+    /** What each slot is shown at, with room for high-density screens. */
+    private const BOUNDS = ['image' => [512, 512], 'banner' => [1920, 1080]];
 
     public function __construct(
         protected FilesystemFactory $filesystem,
@@ -51,12 +58,18 @@ class GroupImages
             $this->fail('invalid_file_content');
         }
 
+        $dimensions = @getimagesizefromstring($bytes);
+        if ($dimensions === false || $dimensions[0] * $dimensions[1] > self::MAX_PIXELS) {
+            $this->fail('invalid_file_content');
+        }
+
         try {
             $image = $this->images->read($bytes);
         } catch (\Throwable) {
             $this->fail('invalid_file_content');
         }
 
+        $image->scaleDown(...self::BOUNDS[$slot]);
         $animated = $image->isAnimated();
         $key = 'social-groups/'.$group->id.'-'.$slot.'-'.Str::random(8).($animated ? '.gif' : '.webp');
         $disk = $this->filesystem->disk('flarum-assets');

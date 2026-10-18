@@ -7,10 +7,13 @@ use Ernestdefoe\SocialGroups\Service\LinkPreview\PublicHost;
 use Flarum\Http\RequestUtil;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Laminas\Diactoros\Response\JsonResponse;
+use LengthException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Message\StreamInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
@@ -18,7 +21,8 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 /**
  * The composer's link card. The forum fetches the page for the member, so
  * the fetch is guarded: public hosts on ports 80 and 443 only, addresses
- * pinned, no redirects, a size and time cap, and a per-member rate limit.
+ * pinned (over cURL, see the service provider), no redirects, a size and
+ * time cap, and a per-member rate limit.
  */
 class FetchLinkPreviewController implements RequestHandlerInterface
 {
@@ -52,7 +56,7 @@ class FetchLinkPreviewController implements RequestHandlerInterface
 
         $parts = parse_url($url);
         $host = (string) ($parts['host'] ?? '');
-        $port = (int) ($parts['port'] ?? ($parts['scheme'] === 'http' ? 80 : 443));
+        $port = (int) ($parts['port'] ?? (strtolower((string) $parts['scheme']) === 'http' ? 80 : 443));
         $ips = PublicHost::resolve($host);
 
         if ($ips === null || ! in_array($port, [80, 443], true)) {
@@ -70,37 +74,61 @@ class FetchLinkPreviewController implements RequestHandlerInterface
             return $this->error('too_many_previews', 429);
         }
 
+        $sink = Utils::streamFor(fopen('php://temp', 'w+'));
+
         try {
-            /*
-             * Redirects stay off: following one would dial a new host that
-             * never passed the guard.
-             */
-            $html = $this->http->request('GET', $url, [
-                'stream' => true,
-                'allow_redirects' => false,
-                'timeout' => 5,
-                'connect_timeout' => 3,
-                'curl' => [
-                    CURLOPT_RESOLVE => [sprintf('%s:%d:%s', strtolower($host), $port, implode(',', $ips))],
-                    CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-                ],
-                'headers' => [
-                    'User-Agent' => self::USER_AGENT,
-                    'Accept' => 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
-                ],
-            ])->getBody()->read(self::MAX_BYTES);
-        } catch (RequestException) {
-            return $this->error('fetch_failed', 502);
+            $this->fetch($url, $host, $port, $ips, $sink);
+        } catch (RequestException $e) {
+            if (! $e->getPrevious() instanceof LengthException) {
+                return $this->error('fetch_failed', 502);
+            }
+        } catch (LengthException) {
         } catch (\Throwable $e) {
             $this->log->error('[social-groups] link preview failed: '.$e->getMessage(), ['exception' => $e]);
 
             return $this->error('unexpected', 500);
         }
 
+        $sink->rewind();
+        $html = $sink->read(self::MAX_BYTES);
+        $sink->close();
+
         $preview = OpenGraph::parse($html, $url);
         $this->cache->put($cacheKey, $preview, self::CACHE_TTL);
 
         return new JsonResponse($preview);
+    }
+
+    /**
+     * Redirects stay off: following one would dial a new host that never
+     * passed the guard. A page past the size cap stops downloading and keeps
+     * what arrived, which holds the Open Graph tags in its <head>.
+     *
+     * @param list<string> $ips
+     */
+    private function fetch(string $url, string $host, int $port, array $ips, StreamInterface $sink): void
+    {
+        $pinned = array_map(fn (string $ip) => str_contains($ip, ':') ? "[$ip]" : $ip, $ips);
+
+        $this->http->request('GET', $url, [
+            'sink' => $sink,
+            'progress' => function (int $total, int $downloaded) {
+                if ($downloaded > self::MAX_BYTES) {
+                    throw new LengthException();
+                }
+            },
+            'allow_redirects' => false,
+            'timeout' => 5,
+            'connect_timeout' => 3,
+            'curl' => [
+                CURLOPT_RESOLVE => [sprintf('%s:%d:%s', strtolower($host), $port, implode(',', $pinned))],
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            ],
+            'headers' => [
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8',
+            ],
+        ]);
     }
 
     private function error(string $key, int $status): JsonResponse

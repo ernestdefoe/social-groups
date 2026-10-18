@@ -14,13 +14,13 @@ final class LinkPreviewSanitizer
      */
     public static function sanitize(array $raw): ?array
     {
-        $url = filter_var($raw['url'] ?? '', FILTER_VALIDATE_URL);
-        if (! $url || ! in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)) {
+        $url = self::webUrl($raw['url'] ?? '');
+        if ($url === null) {
             return null;
         }
 
-        $image = filter_var($raw['image'] ?? '', FILTER_VALIDATE_URL);
-        if (! $image) {
+        $image = self::webUrl($raw['image'] ?? '');
+        if ($image === null) {
             $path = (string) ($raw['image'] ?? '');
             $image = str_starts_with($path, '/') && ! str_starts_with($path, '//') ? $path : null;
         }
@@ -32,5 +32,12 @@ final class LinkPreviewSanitizer
             'image' => $image ?: null,
             'siteName' => mb_substr(strip_tags((string) ($raw['siteName'] ?? '')), 0, 100),
         ];
+    }
+
+    private static function webUrl(mixed $value): ?string
+    {
+        $url = filter_var($value, FILTER_VALIDATE_URL);
+
+        return $url && in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true) ? $url : null;
     }
 }

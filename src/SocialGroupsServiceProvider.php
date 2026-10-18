@@ -11,6 +11,8 @@ use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Foundation\AbstractServiceProvider;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Handler\CurlHandler;
+use GuzzleHttp\HandlerStack;
 
 class SocialGroupsServiceProvider extends AbstractServiceProvider
 {
@@ -21,12 +23,14 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
         $this->container->singleton(RelationBatch::class);
 
         /**
-         * The link-preview fetch gets its own short timeouts, scoped to that
-         * controller so the global client binding stays untouched.
+         * The link-preview fetch gets its own client, scoped to that
+         * controller so the global binding stays untouched. 🚨 cURL only:
+         * Guzzle's stream fallback ignores the `curl` options, and with them
+         * the pinned address that stops DNS rebinding.
          */
         $this->container->when(FetchLinkPreviewController::class)
             ->needs(ClientInterface::class)
-            ->give(fn () => new Client(['timeout' => 8, 'connect_timeout' => 5]));
+            ->give(fn () => new Client(['handler' => HandlerStack::create(new CurlHandler()), 'timeout' => 8, 'connect_timeout' => 5]));
     }
 
     /**

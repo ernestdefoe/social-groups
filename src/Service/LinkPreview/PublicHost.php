@@ -11,6 +11,23 @@ namespace Ernestdefoe\SocialGroups\Service\LinkPreview;
 final class PublicHost
 {
     /**
+     * IPv6 ranges that carry or stand in for an IPv4 address, or never route:
+     * IPv4-compatible and unspecified/loopback (::/96), NAT64 (64:ff9b::/96,
+     * 64:ff9b:1::/48), discard (100::/64), Teredo (2001::/32), documentation
+     * (2001:db8::/32) and 6to4 (2002::/16). A preview never needs them, and
+     * ::7f00:1 is 127.0.0.1 to some stacks.
+     */
+    private const TRANSITION_PREFIXES = [
+        '000000000000000000000000',
+        '0064ff9b0000000000000000',
+        '0064ff9b0001',
+        '0100000000000000',
+        '20010000',
+        '20010db8',
+        '2002',
+    ];
+
+    /**
      * @return list<string>|null the addresses to pin, or null to refuse
      */
     public static function resolve(string $host): ?array
@@ -88,11 +105,16 @@ final class PublicHost
             return self::isPublic((string) long2ip((int) hexdec(substr($hex, 24, 8))));
         }
 
+        foreach (self::TRANSITION_PREFIXES as $prefix) {
+            if (str_starts_with($hex, $prefix)) {
+                return false;
+            }
+        }
+
         $firstByte = hexdec(substr($hex, 0, 2));
         $firstWord = hexdec(substr($hex, 0, 4));
 
-        return ! str_starts_with($hex, '0000000000000000000000000000000')
-            && ($firstByte & 0xFE) !== 0xFC
+        return ($firstByte & 0xFE) !== 0xFC
             && $firstByte !== 0xFF
             && ($firstWord & 0xFFC0) !== 0xFE80;
     }
