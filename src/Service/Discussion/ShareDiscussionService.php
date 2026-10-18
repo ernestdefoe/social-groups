@@ -3,6 +3,7 @@
 namespace Ernestdefoe\SocialGroups\Service\Discussion;
 
 use Carbon\Carbon;
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
@@ -15,6 +16,7 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
 class ShareDiscussionService
 {
     public function __construct(
+        protected GroupAccess $access,
         protected Formatter $formatter,
         protected TranslatorInterface $translator,
     ) {
@@ -61,11 +63,7 @@ class ShareDiscussionService
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_not_found'));
         }
 
-        $isMember = $target->members()
-            ->where('user_id', $actor->id)
-            ->whereNull('banned_at')
-            ->exists();
-        if (! $isMember) {
+        if (! $this->access->canPost($actor, $target)) {
             throw new PermissionDeniedException();
         }
 

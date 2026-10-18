@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Service\Media\GalleryPostService;
@@ -25,7 +26,7 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private GalleryPostService $gallery, private TranslatorInterface $translator)
+    public function __construct(private GroupAccess $access, private LoggerInterface $log, private GalleryPostService $gallery, private TranslatorInterface $translator)
     {
     }
 
@@ -46,8 +47,7 @@ class StoreGroupMediaPostController implements RequestHandlerInterface
 
             $group = SocialGroup::findOrFail($groupId);
 
-            $isMember = $group->activeMembership($actor->id)->exists();
-            if (! $isMember && ! $actor->isAdmin()) {
+            if (! $this->access->canPost($actor, $group)) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.media_member_required')], 403);
             }
 

@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
@@ -18,7 +19,7 @@ class ListUserGroupsController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private GroupAssetUrl $assetUrl, private TranslatorInterface $translator)
+    public function __construct(private GroupAccess $access, private LoggerInterface $log, private GroupAssetUrl $assetUrl, private TranslatorInterface $translator)
     {
     }
 
@@ -41,31 +42,15 @@ class ListUserGroupsController implements RequestHandlerInterface
                 ->with('group')
                 ->get();
 
-            // Preload the viewing actor's own active memberships once, so the
-            // private-group gate below is an in-memory check instead of one
-            // query per private group in the list.
-            $actorGroupIds = $actor->exists
-                ? SocialGroupMember::where('user_id', $actor->id)
-                    ->whereNull('banned_at')
-                    ->pluck('group_id')
-                    ->map(fn ($id) => (int) $id)
-                    ->all()
-                : [];
 
-            $groups = $memberships->map(function ($membership) use ($actor, $primaryGroupId, $actorGroupIds) {
+            $groups = $memberships->map(function ($membership) use ($actor, $primaryGroupId) {
                 $group = $membership->group;
                 if (! $group) {
                     return null;
                 }
 
-                if ($group->is_private) {
-                    if (! $actor->exists) {
-                        return null;
-                    }
-                    $isMember = in_array((int) $group->id, $actorGroupIds, true);
-                    if (! $isMember && ! $actor->isAdmin()) {
-                        return null;
-                    }
+                if ($group->is_private && ! $this->access->canSee($actor, $group)) {
+                    return null;
                 }
 
                 return [

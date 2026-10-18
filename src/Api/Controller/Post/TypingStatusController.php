@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller\Post;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Flarum\Http\RequestUtil;
 use Illuminate\Contracts\Container\Container;
@@ -23,6 +24,7 @@ use Psr\Log\LoggerInterface;
 class TypingStatusController implements RequestHandlerInterface
 {
     public function __construct(
+        private GroupAccess $access,
         private LoggerInterface $log,
         private Container $container,
     ) {
@@ -51,11 +53,7 @@ class TypingStatusController implements RequestHandlerInterface
             return new EmptyResponse(404);
         }
 
-        $isMember = (bool) $discussion->group
-            ?->activeMembership($actor->id)
-            ->exists();
-
-        if (! $isMember) {
+        if ($discussion->group === null || ! $this->access->canPost($actor, $discussion->group)) {
             return new EmptyResponse(403);
         }
 

@@ -2,6 +2,8 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
+use Carbon\Carbon;
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
 use Flarum\Api\Context;
@@ -16,24 +18,18 @@ use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
- * JSON:API resource for pending membership requests against a group.
- * Replaces ListJoinRequestsController + ApproveJoinRequestController
- * + RejectJoinRequestController.
- *
- * Index requires `?filter[group]=<id>` and that the actor be the group
- * owner or an admin (additional filters such as `status=pending` live
- * in scope). Approve is an Endpoint\Endpoint::make() action that flips
- * the status to 'approved' and creates the membership row if it
- * doesn't already exist. Delete (reject) marks the status as
- * 'rejected' instead of hard-deleting, preserving the history for
- * anti-spam purposes.
+ * Pending requests to join an approval-only group (`?groupId=`), decided by
+ * its managers. A rejection is kept, so the same member cannot flood the
+ * queue.
  *
  * @extends AbstractDatabaseResource<SocialGroupJoinRequest>
  */
 class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 {
-    public function __construct(protected TranslatorInterface $translator)
-    {
+    public function __construct(
+        protected GroupAccess $access,
+        protected TranslatorInterface $translator,
+    ) {
     }
 
     public function type(): string
@@ -48,48 +44,27 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
+        $query->with('user');
+
+        if (! $context->listing(self::class)) {
+            return;
+        }
+
         $actor = RequestUtil::getActor($context->request);
-        $params = $context->request->getQueryParams();
+        $actor->assertRegistered();
 
-        // scope() runs for Index AND for approve/reject action endpoints
-        // which load $context->model by PK. Only Index needs the
-        // ?groupId=N filter; PK-lookup paths apply ->can('approve'|'delete')
-        // through the policy.
-        $isIndex = $context->endpoint instanceof Endpoint\Index;
-        if (! $isIndex) {
-            $query->with('user');
-
-            return;
-        }
-
-        // `?groupId=N` plain query param — not JSON:API filter[group]
-        // because AbstractDatabaseResource::filters() is final + throws.
-        $groupId = isset($params['groupId']) ? (int) $params['groupId'] : 0;
-        if ($groupId <= 0) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $group = SocialGroup::find($groupId);
+        $group = SocialGroup::query()->find((int) ($context->request->getQueryParams()['groupId'] ?? 0));
         if ($group === null) {
             $query->whereRaw('1 = 0');
 
             return;
         }
-
-        $actor->assertRegistered();
-        // Gate on the same `edit` ability that drives the frontend's `canEdit`
-        // (owner, global admin, or the `moderate` permission). Restricting this
-        // to owner+admin while the JoinRequestsPanel renders for every canEdit
-        // actor meant group moderators saw the panel but got a 403 on load.
-        if (! $actor->can('edit', $group)) {
+        if (! $this->access->isManager($actor, $group)) {
             throw new PermissionDeniedException();
         }
 
-        $query->where('social_group_join_requests.group_id', $groupId)
-              ->where('social_group_join_requests.status', 'pending')
-              ->with('user');
+        $query->where('social_group_join_requests.group_id', $group->id)
+            ->where('social_group_join_requests.status', 'pending');
     }
 
     public function endpoints(): array
@@ -102,17 +77,18 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
                 ->route('POST', '/{id}/approve')
                 ->authenticated()
                 ->can('approve')
-                ->action(fn (Context $context) => $this->doApprove($context)),
+                ->action(fn (Context $context) => $this->approve($context->model)),
 
-            // Reject is soft (status='rejected') instead of a hard
-            // delete so that repeated attempts by the same user don't
-            // create floods of pending requests — the owner already
-            // decided.
             Endpoint\Endpoint::make('social-group-join-requests.reject')
                 ->route('DELETE', '/{id}')
                 ->authenticated()
                 ->can('delete')
-                ->action(fn (Context $context) => $this->doReject($context)),
+                ->action(function (Context $context) {
+                    $context->model->status = 'rejected';
+                    $context->model->save();
+
+                    return $context->model;
+                }),
         ];
     }
 
@@ -146,45 +122,24 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
     }
 
     /**
-     * Approves the request + creates the membership row idempotently +
-     * increments the denormalised member_count. Mirrors the legacy
-     * ApproveJoinRequestController.
+     * Approving twice is refused; approving someone who is already a member
+     * only closes the request.
      */
-    protected function doApprove(Context $context): SocialGroupJoinRequest
+    private function approve(SocialGroupJoinRequest $request): SocialGroupJoinRequest
     {
-        /** @var SocialGroupJoinRequest $req */
-        $req = $context->model;
-
-        if ($req->status !== 'pending') {
+        if ($request->status !== 'pending') {
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.request_not_pending'));
         }
 
-        $req->status = 'approved';
-        $req->save();
+        $request->status = 'approved';
+        $request->save();
 
-        $group = $req->group;
-        if ($group !== null) {
-            $existing = $group->members()->where('user_id', $req->user_id)->first();
-            if ($existing === null) {
-                $group->members()->create([
-                    'user_id' => $req->user_id,
-                    'role' => 'member',
-                    'joined_at' => \Carbon\Carbon::now(),
-                ]);
-                $group->increment('member_count');
-            }
+        $group = $request->group;
+        if ($group !== null && ! $group->members()->where('user_id', $request->user_id)->exists()) {
+            $group->members()->create(['user_id' => $request->user_id, 'role' => 'member', 'joined_at' => Carbon::now()]);
+            $group->increment('member_count');
         }
 
-        return $req;
-    }
-
-    protected function doReject(Context $context): SocialGroupJoinRequest
-    {
-        /** @var SocialGroupJoinRequest $req */
-        $req = $context->model;
-        $req->status = 'rejected';
-        $req->save();
-
-        return $req;
+        return $request;
     }
 }

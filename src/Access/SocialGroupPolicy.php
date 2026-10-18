@@ -8,22 +8,22 @@ use Flarum\User\User;
 
 class SocialGroupPolicy extends AbstractPolicy
 {
-    public function create(User $actor): bool
+    public function __construct(protected GroupAccess $access)
     {
-        return $actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.create');
     }
 
-    public function edit(User $actor, SocialGroup $group): bool
+    public function edit(User $actor, SocialGroup $group): ?string
     {
-        return $actor->id === $group->user_id
-            || $actor->isAdmin()
-            || $actor->hasPermission('ernestdefoe-social-groups.moderate');
+        return $this->access->canEditGroup($actor, $group) ? $this->allow() : $this->deny();
     }
 
-    public function delete(User $actor, SocialGroup $group): bool
+    public function delete(User $actor, SocialGroup $group): ?string
     {
-        return $actor->id === $group->user_id
-            || $actor->isAdmin()
-            || $actor->hasPermission('ernestdefoe-social-groups.moderate');
+        return $this->edit($actor, $group);
+    }
+
+    public function manage(User $actor, SocialGroup $group): ?string
+    {
+        return $this->access->isManager($actor, $group) ? $this->allow() : $this->deny();
     }
 }

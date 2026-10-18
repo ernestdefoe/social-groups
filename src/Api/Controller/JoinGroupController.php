@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupJoinRequestBlueprint;
@@ -19,6 +20,7 @@ class JoinGroupController implements RequestHandlerInterface
     use ReadsRouteParam;
 
     public function __construct(
+        private GroupAccess $access,
         private TranslatorInterface $translator,
         private NotificationSyncer $notifications,
     ) {
@@ -33,7 +35,7 @@ class JoinGroupController implements RequestHandlerInterface
         $group = SocialGroup::findOrFail($id);
 
         // Private groups require an invite — for now just block joining
-        if ($group->is_private && $actor->id !== $group->user_id && ! $actor->isAdmin()) {
+        if ($group->is_private && ! $this->access->canEditGroup($actor, $group)) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_private')], 403);
         }
 

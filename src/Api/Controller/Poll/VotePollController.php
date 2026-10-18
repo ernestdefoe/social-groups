@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller\Poll;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Api\Concern\SerializesPoll;
 use Ernestdefoe\SocialGroups\Model\SgPoll;
@@ -22,6 +23,7 @@ class VotePollController implements RequestHandlerInterface
     use SerializesPoll;
 
     public function __construct(
+        private GroupAccess $access,
         private LoggerInterface $log,
         private TranslatorInterface $translator,
     ) {
@@ -42,20 +44,11 @@ class VotePollController implements RequestHandlerInterface
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.poll_not_found')], 404);
             }
 
-            // Actor must be a member of the group that owns the discussion.
-            // Eager-load `group` so the membership check below reads it from
-            // the loaded relation instead of a second SELECT.
             $discussion = SocialGroupDiscussion::with('group')->find($poll->discussion_id);
             if (! $discussion) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.discussion_not_found')], 404);
             }
-            $isMember = $discussion->group
-                ? $discussion->group->members()
-                    ->where('user_id', $actor->id)
-                    ->whereNull('banned_at')
-                    ->exists()
-                : false;
-            if (! $isMember && ! $actor->isAdmin()) {
+            if ($discussion->group === null || ! $this->access->canParticipate($actor, $discussion->group)) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.poll_member_required')], 403);
             }
 

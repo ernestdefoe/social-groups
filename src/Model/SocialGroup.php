@@ -23,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property bool $is_featured
  * @property \Carbon\Carbon|null $created_at
  * @property \Carbon\Carbon|null $updated_at
+ * @property-read int|null $actor_is_pending
+ * @property-read int|null $pending_req_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupJoinRequest> $joinRequests
  * @property-read User|null $creator
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupMember> $members

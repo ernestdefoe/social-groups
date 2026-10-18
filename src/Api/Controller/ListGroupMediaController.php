@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
@@ -22,6 +23,7 @@ class ListGroupMediaController implements RequestHandlerInterface
     private const PER_PAGE = 24;
 
     public function __construct(
+        private GroupAccess $access,
         private Formatter $formatter,
         private LoggerInterface $log,
         private TranslatorInterface $translator,
@@ -39,12 +41,10 @@ class ListGroupMediaController implements RequestHandlerInterface
 
             $group = SocialGroup::findOrFail($groupId);
 
-            if ($group->is_private) {
+            if (! $this->access->canSee($actor, $group)) {
                 $actor->assertRegistered();
-                $isMember = $group->activeMembership($actor->id)->exists();
-                if (! $isMember && ! $actor->isAdmin()) {
-                    return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_private')], 403);
-                }
+
+                return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_private')], 403);
             }
 
             // Two sources feed the gallery:

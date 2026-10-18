@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Carbon\Carbon;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
@@ -20,7 +21,7 @@ class GroupAnalyticsController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator)
+    public function __construct(private GroupAccess $access, private LoggerInterface $log, private TranslatorInterface $translator)
     {
     }
 
@@ -33,13 +34,7 @@ class GroupAnalyticsController implements RequestHandlerInterface
             $groupId = $this->routeParam($request, 'groupId', '/sg-analytics/{groupId}');
             $group = SocialGroup::findOrFail($groupId);
 
-            $actorMember = $group->activeMembership($actor->id)->first();
-            $actorRole = $actorMember?->role;
-
-            $canView = $actor->isAdmin()
-                || in_array($actorRole, ['creator', 'moderator'], true);
-
-            if (! $canView) {
+            if (! $this->access->isManager($actor, $group)) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.analytics_forbidden')], 403);
             }
 

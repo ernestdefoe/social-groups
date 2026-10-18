@@ -2,7 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
-use Ernestdefoe\SocialGroups\Access\GroupVisibility;
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Support\GroupAssetUrl;
 use Flarum\Api\Context;
@@ -24,9 +24,10 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
 class SocialGroupResource extends AbstractDatabaseResource
 {
     public function __construct(
+        protected GroupAccess $access,
         protected LoggerInterface $log,
         protected GroupAssetUrl $assetUrl,
-        protected TranslatorInterface $translator
+        protected TranslatorInterface $translator,
     ) {
     }
 
@@ -40,78 +41,28 @@ class SocialGroupResource extends AbstractDatabaseResource
         return SocialGroup::class;
     }
 
+    /**
+     * Slug first, then id. Groups made before pure-digit slugs were refused
+     * can still have one ("33333"), and an id-first lookup 404'd them. Kept
+     * apart from scope() because its composite query returned null for some
+     * creators on some MySQL modes; failures are logged, since the framework
+     * reports them only as "not found".
+     */
     public function find(string $id, BaseContext $context): ?object
     {
-        // Earlier shape ran parent::find($id, $context), which routes through
-        // scope()'s composite WHERE/withCount/ORDER-BY pipeline. That worked
-        // locally but reproducibly returned null for users hitting their own
-        // freshly-created group on production installs — different MySQL
-        // versions / sql_modes / opcache states each interact with the scope
-        // SQL differently, and the failure mode is silent (find → null → 404
-        // → "Unable to load the group").
-        //
-        // Decouple the two concerns: scope() stays the Index endpoint's
-        // visibility/ordering source of truth; find() does a direct lookup
-        // plus a small inline access check. Field-level visibility on the
-        // Schema fields still gates per-field reads.
         try {
-            // Always try slug first. createSlug() now refuses pure-digit
-            // slugs (see SocialGroup::createSlug) so new groups can't
-            // collide with primary-key ids, but PRE-EXISTING groups on
-            // production installs may already have all-numeric slugs from
-            // before the fix — e.g., an admin named a group "33333" and
-            // the slug landed as "33333" too. Without trying the slug
-            // index first, /api/social-groups/33333 short-circuits to a
-            // primary-key lookup, misses the row entirely, and 404s for
-            // the creator (who, being admin, would otherwise satisfy
-            // canSeeGroup unconditionally).
-            //
-            // Slug column is uniquely indexed (see the create migration),
-            // so the extra query is O(1). When the input IS a real
-            // numeric id and no slug matches, we fall through to the
-            // standard primary-key find().
-            $resolvedId = SocialGroup::where('slug', $id)->value('id');
-            if ($resolvedId !== null) {
-                $id = (string) $resolvedId;
-            } elseif (! is_numeric($id)) {
-                // Non-numeric input that doesn't match any slug — genuinely
-                // not found. Skip the (guaranteed-to-miss) PK lookup.
+            $group = SocialGroup::query()->where('slug', $id)->first()
+                ?? (ctype_digit($id) ? SocialGroup::query()->find((int) $id) : null);
+
+            if ($group === null || ! $this->access->canSee(RequestUtil::getActor($context->request), $group)) {
                 return null;
             }
 
-            /** @var SocialGroup|null $group */
-            $group = SocialGroup::find($id);
-            if ($group === null) {
-                return null;
-            }
-
-            $actor = RequestUtil::getActor($context->request);
-
-            if (! $this->canSeeGroup($group, $actor)) {
-                return null;
-            }
-
-            if ($actor->exists) {
-                // Mirror the withCount() in scope() so isMember / isPending /
-                // pendingRequestCount schema fields read from pre-loaded
-                // attributes instead of issuing a fresh per-field query.
-                $group->loadCount([
-                    'members as actor_is_member' => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at'),
-                    'members as actor_is_muted' => fn ($q) => $q->where('user_id', $actor->id)->whereNull('banned_at')->whereNotNull('muted_at'),
-                    'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
-                    'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
-                ]);
-            }
-
-            return $group;
+            return $this->withActorCounts($group, $context);
         } catch (\Throwable $e) {
-            // Operators have hit "Unable to load the group" with no
-            // server-side trace because the find() failure is treated as
-            // "not found" by the framework. Log so the next failure surfaces
-            // a real cause in flarum.log.
             $this->log->error('[social-groups] SocialGroupResource::find failed', [
                 'id' => $id,
-                'exception' => get_class($e),
+                'exception' => $e::class,
                 'message' => $e->getMessage(),
                 'file' => $e->getFile().':'.$e->getLine(),
             ]);
@@ -120,97 +71,22 @@ class SocialGroupResource extends AbstractDatabaseResource
         }
     }
 
-    /**
-     * Wrapper for the Show endpoint. The real check lives in
-     * `Access\GroupVisibility::canSee` so it stays identical across all
-     * call sites (Resource Show, Resource Index, Policy, legacy
-     * controllers).
-     */
-    protected function canSeeGroup(SocialGroup $group, \Flarum\User\User $actor): bool
-    {
-        return GroupVisibility::canSee($actor, $group);
-    }
-
     public function scope(Builder $query, BaseContext $context): void
     {
         $actor = RequestUtil::getActor($context->request);
-        $actorId = $actor->exists ? $actor->id : null;
 
-        if ($actorId) {
-            // Batch all three per-actor lookups as correlated subqueries on the
-            // main SELECT so the Index endpoint never issues O(n) extra queries.
-            $query->withCount([
-                'members as actor_is_member' => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at'),
-                'members as actor_is_muted' => fn ($q) => $q->where('user_id', $actorId)->whereNull('banned_at')->whereNotNull('muted_at'),
-                'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actorId)->where('status', 'pending'),
-                'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
-            ]);
-        }
+        $this->access->scopeVisible($query, $actor);
+        $this->loadActorCounts($query, $context);
 
-        // -- Visibility ---------------------------------------------------
-        //
-        // `is_private = 1` means the group is hidden from anyone who isn't
-        // already a member, the creator, a moderator, or an admin. Without
-        // this filter the Index endpoint listed private groups to everyone
-        // (including guests) — the bug a user reported on the live site.
-        //
-        // Moderators/admins keep full visibility so they can manage every
-        // group on the forum. Plain members see public groups + their own
-        // private groups + groups they created.
-        $canSeePrivate = $actor->isAdmin()
-            || $actor->hasPermission('ernestdefoe-social-groups.moderate');
-
-        // Mirror GroupVisibility::canSee's viewForum gate. Without it, a
-        // login-restricted forum (guest viewForum revoked) still listed
-        // public groups' names and descriptions to guests via this Index —
-        // and then the discussions endpoint 403'd, leaving a broken group
-        // page with a raw permission toast.
-        if (! $canSeePrivate && ! $actor->hasPermission('viewForum')) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        if (! $canSeePrivate) {
-            $query->where(function ($q) use ($actorId) {
-                $q->where('is_private', false);
-                if ($actorId) {
-                    $q->orWhere('user_id', $actorId)
-                      ->orWhereExists(function ($sub) use ($actorId) {
-                          // An active membership, as GroupVisibility::canSee
-                          // has it: a kicked member's row stays behind with
-                          // banned_at set, and must not keep listing the group.
-                          $sub->from('social_group_members')
-                              ->whereColumn('social_group_members.group_id', 'social_groups.id')
-                              ->where('social_group_members.user_id', $actorId)
-                              ->whereNull('social_group_members.banned_at');
-                      });
-                }
-            });
-        }
-
-        // Server-side search. The GroupsPage frontend used to pull every
-        // group (page[limit]=200) and filter in JS — that silently
-        // dropped matches past row 200 and shipped the full payload on
-        // every page load. Honor a `searchTerm` query param and push the LIKE
-        // into SQL. User wildcards (`%`, `_`) are escaped so they don't
-        // broaden the search beyond what was typed.
-        //
-        // 🚨 Not `filter[q]` and not `q`. Core's Index endpoint hands any
-        // `filter[...]` to AbstractDatabaseResource::filters(), which is final
-        // and throws (a server error), and JSON:API reserves all-lowercase
-        // parameter names, which Flarum refuses with a 400. Either way every
-        // search failed.
-        $q = trim((string) ($context->request->getQueryParams()['searchTerm'] ?? ''));
-        if ($q !== '') {
-            $like = '%'.addcslashes($q, '%_\\').'%';
-            // PostgreSQL's LIKE is case-sensitive; its ILIKE is what the
-            // other databases' LIKE already is.
+        /*
+         * `searchTerm`, not `filter[q]` or `q`: core's filters() is final and
+         * throws, and JSON:API refuses all-lowercase parameter names.
+         */
+        $term = trim((string) ($context->request->getQueryParams()['searchTerm'] ?? ''));
+        if ($term !== '') {
+            $like = '%'.addcslashes($term, '%_\\').'%';
             $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
-            $query->where(function ($w) use ($like, $op) {
-                $w->where('name', $op, $like)
-                  ->orWhere('description', $op, $like);
-            });
+            $query->where(fn (Builder $w) => $w->where('name', $op, $like)->orWhere('description', $op, $like));
         }
 
         $query->orderByDesc('is_featured')->orderByDesc('member_count');
@@ -220,7 +96,8 @@ class SocialGroupResource extends AbstractDatabaseResource
     {
         return [
             Endpoint\Index::make()
-                ->paginate(),
+                ->paginate()
+                ->eagerLoad(['recentDiscussions']),
 
             Endpoint\Show::make(),
 
@@ -247,16 +124,14 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->maxLength(100),
 
             Schema\Str::make('slug')
-                ->nullable()
-                ->get(fn ($group) => $group->slug),
+                ->nullable(),
 
             Schema\Str::make('description')
                 ->nullable()
                 ->writable()
                 ->maxLength(2000),
 
-            // A hex colour and nothing else: it is spliced into inline styles
-            // on every byline chip, badge and group page.
+            /** A hex colour only: it is spliced into inline styles. */
             Schema\Str::make('color')
                 ->nullable()
                 ->writable()
@@ -264,128 +139,64 @@ class SocialGroupResource extends AbstractDatabaseResource
 
             Schema\Str::make('imageUrl')
                 ->nullable()
-                ->get(fn ($group) => $this->assetUrl->resolve($group->image_url)),
+                ->get(fn (SocialGroup $group) => $this->assetUrl->resolve($group->image_url)),
 
             Schema\Str::make('bannerUrl')
                 ->nullable()
-                ->get(fn ($group) => $this->assetUrl->resolve($group->banner_url)),
+                ->get(fn (SocialGroup $group) => $this->assetUrl->resolve($group->banner_url)),
 
             Schema\Boolean::make('isPrivate')
+                ->property('is_private')
                 ->writable()
-                ->default(false)
-                ->get(fn ($group) => (bool) $group->is_private)
-                ->set(fn ($model, $value) => $model->is_private = (bool) $value),
-
-            Schema\Integer::make('memberCount')
-                ->get(fn ($group) => (int) $group->member_count),
-
-            Schema\DateTime::make('createdAt'),
-
-            Schema\Boolean::make('canEdit')
-                ->get(function ($group, Context $context) {
-                    $actor = $context->getActor();
-
-                    return $actor->id === $group->user_id
-                        || $actor->isAdmin()
-                        || $actor->hasPermission('ernestdefoe-social-groups.moderate');
-                }),
-
-            Schema\Boolean::make('isMember')
-                ->get(function ($group, Context $context) {
-                    $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    $pre = $group->actor_is_member;
-
-                    return $pre !== null ? (bool) $pre : $group->activeMembership($actor->id)->exists();
-                }),
-
-            Schema\Boolean::make('isCreator')
-                ->get(function ($group, Context $context) {
-                    $actor = $context->getActor();
-
-                    return $actor->id === $group->user_id;
-                }),
-
-            // Directory teasers: the two most recently active discussions,
-            // so group cards promote real conversations instead of bare
-            // counts. Only computed on the Index (the group page has the
-            // full feed); one LIMIT-2 index scan per card, bounded by the
-            // directory page size. Visibility rides on the row itself —
-            // any group the scope lets you list, you may see titles for.
-            Schema\Arr::make('recentDiscussions')
-                ->get(function ($group, Context $context) {
-                    if (! ($context->endpoint instanceof Endpoint\Index)) {
-                        return [];
-                    }
-
-                    // Eager-loaded on the Index endpoint (extend.php), so the
-                    // whole directory page batches into one load instead of a
-                    // LIMIT query per group card.
-                    return $group->recentDiscussions
-                        ->take(2)
-                        ->map(fn ($d) => ['id' => (int) $d->id, 'title' => (string) $d->title])
-                        ->values()
-                        ->all();
-                }),
-
-            // Drives the feed composer for muted members: still a member,
-            // still reads everything, but the composer is replaced with a
-            // notice instead of 403ing on submit.
-            Schema\Boolean::make('actorIsMuted')
-                ->get(function ($group, Context $context) {
-                    $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    $pre = $group->actor_is_muted;
-
-                    return $pre !== null
-                        ? (bool) $pre
-                        : $group->activeMembership($actor->id)->whereNotNull('muted_at')->exists();
-                }),
+                ->default(false),
 
             Schema\Str::make('membershipType')
-                ->get(fn ($g) => $g->membership_type ?? 'open')
-                ->set(fn ($model, $value) => $model->membership_type = $value)
+                ->property('membership_type')
+                ->get(fn (SocialGroup $group) => $group->membership_type ?? 'open')
                 ->writable()
                 ->nullable()
                 ->in(['open', 'approval', 'invite']),
 
-            Schema\Boolean::make('isPending')
-                ->get(function ($g, Context $context) {
-                    $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    $pre = $g->actor_is_pending;
+            Schema\Integer::make('memberCount')
+                ->property('member_count'),
 
-                    return $pre !== null ? (bool) $pre : $g->joinRequests()->where('user_id', $actor->id)->where('status', 'pending')->exists();
-                }),
-
-            Schema\Integer::make('pendingRequestCount')
-                ->get(function ($g, Context $context) {
-                    $actor = $context->getActor();
-                    if ($actor->id !== $g->user_id
-                        && ! $actor->isAdmin()
-                        && ! $actor->hasPermission('ernestdefoe-social-groups.moderate')
-                    ) {
-                        return 0;
-                    }
-                    $pre = $g->pending_req_count;
-
-                    return $pre !== null ? (int) $pre : $g->joinRequests()->where('status', 'pending')->count();
-                }),
+            Schema\DateTime::make('createdAt'),
 
             Schema\Boolean::make('isFeatured')
                 ->property('is_featured')
-                ->get(fn ($group) => (bool) $group->is_featured)
-                ->set(fn ($model, $value) => $model->is_featured = (bool) $value)
-                ->writable(fn ($model, Context $context) => $context->getActor()->isAdmin()),
+                ->writable(fn ($group, Context $context) => $context->getActor()->isAdmin()),
+
+            Schema\Boolean::make('isCreator')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->isOwner($context->getActor(), $group)),
+
+            Schema\Boolean::make('isMember')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->isMember($context->getActor(), $group)),
+
+            Schema\Boolean::make('actorIsMuted')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->membership($context->getActor(), (int) $group->id)['muted'] ?? false),
+
+            Schema\Boolean::make('isPending')
+                ->get(fn (SocialGroup $group) => (bool) $group->actor_is_pending),
+
+            Schema\Boolean::make('canEdit')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->canEditGroup($context->getActor(), $group)),
+
+            Schema\Boolean::make('canManage')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->isManager($context->getActor(), $group)),
 
             Schema\Boolean::make('canFeature')
                 ->get(fn ($group, Context $context) => $context->getActor()->isAdmin()),
+
+            Schema\Integer::make('pendingRequestCount')
+                ->get(fn (SocialGroup $group, Context $context) => $this->access->isManager($context->getActor(), $group)
+                    ? (int) $group->pending_req_count
+                    : 0),
+
+            /** The directory cards' teaser: the two most recently active threads. */
+            Schema\Arr::make('recentDiscussions')
+                ->get(fn (SocialGroup $group, Context $context) => $context->endpoint instanceof Endpoint\Index
+                    ? $group->recentDiscussions->take(2)->map(fn ($d) => ['id' => (int) $d->id, 'title' => (string) $d->title])->values()->all()
+                    : []),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
@@ -393,15 +204,15 @@ class SocialGroupResource extends AbstractDatabaseResource
         ];
     }
 
+    /**
+     * creating() and updating() run before the field setters, so the name
+     * comes from the request body.
+     */
     public function creating(object $model, BaseContext $context): ?object
     {
         /** @var Context $context */
-        $actor = $context->getActor();
-        $model->user_id = $actor->id;
-        // creating() runs before field setters, so read name from the raw body
-        $body = $context->request->getParsedBody();
-        $name = $body['data']['attributes']['name'] ?? '';
-        $model->slug = SocialGroup::createSlug($name);
+        $model->user_id = $context->getActor()->id;
+        $model->slug = SocialGroup::createSlug((string) $this->bodyName($context));
         $model->member_count = 1;
 
         return null;
@@ -409,8 +220,7 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function created(object $model, BaseContext $context): ?object
     {
-        /** @var Context $context */
-        // Creator automatically joins as 'creator' role
+        /** @var SocialGroup $model */
         $model->members()->create([
             'user_id' => $context->getActor()->id,
             'role' => 'creator',
@@ -422,25 +232,18 @@ class SocialGroupResource extends AbstractDatabaseResource
 
     public function updating(object $model, BaseContext $context): ?object
     {
-        // updating() also runs before field setters, so read name from request body
-        $body = $context->request->getParsedBody();
-        $newName = $body['data']['attributes']['name'] ?? null;
-        if ($newName !== null && $newName !== $model->name) {
-            $model->slug = SocialGroup::createSlug($newName);
+        $name = $this->bodyName($context);
+        if ($name !== null && $name !== $model->name) {
+            $model->slug = SocialGroup::createSlug($name);
         }
 
         return null;
     }
 
     /**
-     * createSlug() guarantees uniqueness at check time, but two concurrent
-     * creates with the same name can both observe the base slug as free and
-     * race to INSERT — the second hits the `slug` unique index and Eloquent
-     * raises a QueryException (SQLSTATE 23000) that would otherwise surface
-     * as a bare 500. Catch the integrity violation, regenerate the slug
-     * (which now sees the committed conflicting row and appends a numeric
-     * suffix), and retry a bounded number of times before degrading to a
-     * user-facing BadRequestException.
+     * Two creates with the same name can both see the slug as free; the loser
+     * hits the unique index. Regenerate (now seeing the winner) a few times
+     * before refusing.
      */
     protected function saveModel(Model $model, BaseContext $context): void
     {
@@ -459,5 +262,45 @@ class SocialGroupResource extends AbstractDatabaseResource
                 $model->slug = SocialGroup::createSlug((string) $model->name);
             }
         }
+    }
+
+    private function bodyName(BaseContext $context): ?string
+    {
+        $name = $context->request->getParsedBody()['data']['attributes']['name'] ?? null;
+
+        return $name === null ? null : (string) $name;
+    }
+
+    /**
+     * Join-request counts for the actor, as subqueries on the page's own
+     * query. Memberships come from GroupAccess, which loads them once.
+     *
+     * @param Builder<SocialGroup> $query
+     * @return Builder<SocialGroup>
+     */
+    private function loadActorCounts(Builder $query, BaseContext $context): Builder
+    {
+        $actor = RequestUtil::getActor($context->request);
+        if (! $actor->exists) {
+            return $query;
+        }
+
+        return $query->withCount([
+            'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
+            'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
+        ]);
+    }
+
+    private function withActorCounts(SocialGroup $group, BaseContext $context): SocialGroup
+    {
+        $actor = RequestUtil::getActor($context->request);
+        if ($actor->exists) {
+            $group->loadCount([
+                'joinRequests as actor_is_pending' => fn ($q) => $q->where('user_id', $actor->id)->where('status', 'pending'),
+                'joinRequests as pending_req_count' => fn ($q) => $q->where('status', 'pending'),
+            ]);
+        }
+
+        return $group;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Flarum\Http\RequestUtil;
@@ -18,7 +19,7 @@ class InviteUserController implements RequestHandlerInterface
 {
     use ReadsRouteParam;
 
-    public function __construct(private LoggerInterface $log, private TranslatorInterface $translator)
+    public function __construct(private GroupAccess $access, private LoggerInterface $log, private TranslatorInterface $translator)
     {
     }
 
@@ -39,16 +40,7 @@ class InviteUserController implements RequestHandlerInterface
 
             $group = SocialGroup::findOrFail($groupId);
 
-            // Only creator/moderator/forum-admin can invite. The audit
-            // caught a role-name drift here: PromoteMemberController
-            // sets role='moderator', but this check used the obsolete
-            // 'admin' role, silently denying invite rights to every
-            // user promoted through the normal flow.
-            $actorMember = $group->activeMembership($actor->id)->first();
-            $canInvite = $actor->isAdmin()
-                || ($actorMember && in_array($actorMember->role, ['creator', 'moderator'], true));
-
-            if (! $canInvite) {
+            if (! $this->access->isManager($actor, $group)) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.invite_forbidden')], 403);
             }
 
@@ -72,7 +64,7 @@ class InviteUserController implements RequestHandlerInterface
             // Re-inviting reverses a ban, so only the group's creator (or a
             // forum admin) may do it; any moderator could otherwise undo
             // the creator's ban.
-            if ($existing && ! $actor->isAdmin() && ! ($actorMember && $actorMember->role === 'creator')) {
+            if ($existing && ! $this->access->canEditGroup($actor, $group)) {
                 return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.invite_banned')], 403);
             }
 

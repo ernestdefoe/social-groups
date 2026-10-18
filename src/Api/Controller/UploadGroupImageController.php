@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Flarum\Http\RequestUtil;
@@ -22,6 +23,7 @@ class UploadGroupImageController implements RequestHandlerInterface
     protected const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 
     public function __construct(
+        protected GroupAccess $access,
         protected FilesystemFactory $filesystem,
         protected SettingsRepositoryInterface $settings,
         protected TranslatorInterface $translator
@@ -45,7 +47,7 @@ class UploadGroupImageController implements RequestHandlerInterface
 
         $group = SocialGroup::findOrFail($id);
 
-        if ($actor->id !== $group->user_id && ! $actor->isAdmin()) {
+        if (! $this->access->canEditGroup($actor, $group)) {
             throw new PermissionDeniedException();
         }
 

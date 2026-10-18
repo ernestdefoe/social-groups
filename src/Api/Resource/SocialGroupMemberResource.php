@@ -2,7 +2,8 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
-use Ernestdefoe\SocialGroups\Access\GroupVisibility;
+use Carbon\Carbon;
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
 use Flarum\Api\Context;
@@ -11,42 +12,23 @@ use Flarum\Api\Resource\AbstractDatabaseResource;
 use Flarum\Api\Schema;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\PermissionDeniedException;
-use Flarum\User\User;
 use Illuminate\Database\Eloquent\Builder;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
- * JSON:API resource for SocialGroupMember (one group-membership row).
- * Replaced ListGroupMembersController + Promote/Demote/Kick controllers
- * — all of them became Index/Delete/Endpoint actions here.
- *
- * Index requires `?filter[group]=<id>` (without it responds empty). The
- * group privacy check runs in scope(); banned members (banned_at != null)
- * are excluded by default.
- *
- * Promote/demote are `Endpoint\Endpoint::make()` actions and require
- * being the creator of the group (`->can('promote'|'demote')` consults
- * SocialGroupMemberPolicy).
+ * A group's members (`?groupId=`), and the moderation actions on one of them.
+ * Kicked members keep their row with `banned_at` set and are not listed.
  *
  * @extends AbstractDatabaseResource<SocialGroupMember>
  */
 class SocialGroupMemberResource extends AbstractDatabaseResource
 {
-    /**
-     * "Is (actor, group) a group creator/moderator?" memo. canMute and
-     * canRemove resolve the same moderator gate for every member row; a
-     * 20-member page shares one group, so caching by (actor_id, group_id)
-     * collapses what was 40 correlated subqueries into one. Reset on each
-     * scope() call in case the Resource is container-cached (CLAUDE.md §44.2).
-     *
-     * @var array<string, bool>
-     */
-    protected array $moderatorCheckCache = [];
-
-    public function __construct(protected TranslatorInterface $translator)
-    {
+    public function __construct(
+        protected GroupAccess $access,
+        protected TranslatorInterface $translator,
+    ) {
     }
 
     public function type(): string
@@ -61,52 +43,25 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
 
     public function scope(Builder $query, BaseContext $context): void
     {
-        $this->moderatorCheckCache = [];
+        $query->with(['user', 'group']);
+
+        if (! $context->listing(self::class)) {
+            return;
+        }
 
         $actor = RequestUtil::getActor($context->request);
-        $params = $context->request->getQueryParams();
+        $group = SocialGroup::query()->find((int) ($context->request->getQueryParams()['groupId'] ?? 0));
 
-        // scope() runs for Index AND for the action endpoints
-        // (kick/promote/demote) which load $context->model by PK. The
-        // `?groupId=N` requirement only makes sense for Index — on the
-        // PK-lookup path we still want to load the row so the action's
-        // ->can('delete'|'promote'|'demote') policy gate can evaluate.
-        $isIndex = $context->endpoint instanceof Endpoint\Index;
-        if (! $isIndex) {
-            $query->with('user');
-
-            return;
-        }
-
-        // `?groupId=N` plain query param — not JSON:API filter[group]
-        // because AbstractDatabaseResource::filters() is final + throws.
-        $groupId = isset($params['groupId']) ? (int) $params['groupId'] : 0;
-        if ($groupId <= 0) {
-            $query->whereRaw('1 = 0');
-
-            return;
-        }
-
-        $group = SocialGroup::find($groupId);
         if ($group === null) {
             $query->whereRaw('1 = 0');
 
             return;
         }
-
-        if (! GroupVisibility::canSee($actor, $group)) {
+        if (! $this->access->canSee($actor, $group)) {
             throw new PermissionDeniedException();
         }
 
-        // Eager-load both `user` and `group`. The latter feeds the
-        // `canModerate` and `canRemove` field getters, which each read
-        // `$m->group` once per row; without this `with`, a page of N
-        // members emits N+N extra group queries (all returning the same
-        // row, since every member of an Index page belongs to the same
-        // group). 41 queries → 3.
-        $query->where('social_group_members.group_id', $groupId)
-              ->whereNull('social_group_members.banned_at')
-              ->with(['user', 'group']);
+        $query->where('social_group_members.group_id', $group->id)->whereNull('social_group_members.banned_at');
     }
 
     public function endpoints(): array
@@ -115,43 +70,37 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             Endpoint\Index::make()
                 ->defaultInclude(['user']),
 
-            // "Kick" is soft-delete (set banned_at) rather than a hard
-            // row removal — preserves the membership history and lets
-            // other features ("this user was banned, don't re-admit")
-            // consult the reason. Endpoint\Delete would hard-delete, so
-            // we use a custom Endpoint with verb DELETE but soft
-            // semantics.
+            /** Kick: a soft delete, so a kicked member cannot simply rejoin. */
             Endpoint\Endpoint::make('social-group-members.kick')
                 ->route('DELETE', '/{id}')
                 ->authenticated()
                 ->can('delete')
-                ->action(fn (Context $context) => $this->doKick($context)),
+                ->action(fn (Context $context) => $this->kick($context->model)),
 
             Endpoint\Endpoint::make('social-group-members.promote')
                 ->route('POST', '/{id}/promote')
                 ->authenticated()
                 ->can('promote')
-                ->action(fn (Context $context) => $this->doSetRole($context, 'moderator')),
+                ->action(fn (Context $context) => $this->setRole($context->model, 'moderator')),
 
             Endpoint\Endpoint::make('social-group-members.demote')
                 ->route('POST', '/{id}/demote')
                 ->authenticated()
                 ->can('demote')
-                ->action(fn (Context $context) => $this->doSetRole($context, 'member')),
+                ->action(fn (Context $context) => $this->setRole($context->model, 'member')),
 
-            // Mute is the soft moderation tier below kick: the member keeps
-            // reading, but every write gate (new discussion, reply) refuses.
+            /** Mute: the member keeps reading but cannot post. */
             Endpoint\Endpoint::make('social-group-members.mute')
                 ->route('POST', '/{id}/mute')
                 ->authenticated()
                 ->can('mute')
-                ->action(fn (Context $context) => $this->doSetMuted($context, true)),
+                ->action(fn (Context $context) => $this->setMuted($context->model, true)),
 
             Endpoint\Endpoint::make('social-group-members.unmute')
                 ->route('POST', '/{id}/unmute')
                 ->authenticated()
                 ->can('mute')
-                ->action(fn (Context $context) => $this->doSetMuted($context, false)),
+                ->action(fn (Context $context) => $this->setMuted($context->model, false)),
         ];
     }
 
@@ -186,21 +135,16 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                 ->nullable(),
 
             Schema\Boolean::make('canMute')
-                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManageMember($m, $context->getActor())),
-
-            Schema\Boolean::make('canModerate')
-                ->get(function (SocialGroupMember $m, Context $context) {
-                    $actor = $context->getActor();
-                    if (! $actor->exists) {
-                        return false;
-                    }
-                    $group = $m->group;
-
-                    return $group !== null && (int) $actor->id === (int) $group->user_id;
-                }),
+                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManage($m, $context)),
 
             Schema\Boolean::make('canRemove')
-                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManageMember($m, $context->getActor())),
+                ->get(fn (SocialGroupMember $m, Context $context) => $this->canManage($m, $context)),
+
+            /** Changing roles: the owner and the privileged, never on the creator. */
+            Schema\Boolean::make('canModerate')
+                ->get(fn (SocialGroupMember $m, Context $context) => $m->group !== null
+                    && $m->role !== 'creator'
+                    && $this->access->canEditGroup($context->getActor(), $m->group)),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
@@ -208,114 +152,58 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
         ];
     }
 
-    /**
-     * UI gate mirroring SocialGroupMemberPolicy::delete/mute (both share the
-     * same circle). Kept in the Resource — rather than a per-row
-     * $actor->can() — so the expensive moderator lookup memoizes across the
-     * page. The endpoints still enforce the policy via ->can('delete'|'mute').
-     */
-    protected function canManageMember(SocialGroupMember $m, User $actor): bool
+    private function canManage(SocialGroupMember $m, Context $context): bool
     {
-        if (! $actor->exists) {
-            return false;
-        }
-        if ($m->role === 'creator') {
-            return false;
-        }
-        if ((int) $m->user_id === (int) $actor->id) {
-            return false;
-        }
-        if ($actor->isAdmin() || $actor->hasPermission('ernestdefoe-social-groups.moderate')) {
-            return true;
+        return $m->group !== null
+            && $this->access->canManageMember($context->getActor(), $m->group, (int) $m->user_id, (string) $m->role);
+    }
+
+    private function setRole(SocialGroupMember $member, string $role): SocialGroupMember
+    {
+        $this->assertActive($member);
+        if ($member->role === 'creator') {
+            throw new BadRequestException($this->error($role === 'moderator' ? 'cannot_promote_creator' : 'cannot_demote_creator'));
         }
 
-        return $this->isInGroupModerator($actor, (int) $m->group_id);
+        $member->role = $role;
+        $member->save();
+
+        return $member;
+    }
+
+    private function setMuted(SocialGroupMember $member, bool $muted): SocialGroupMember
+    {
+        $this->assertActive($member);
+
+        $member->muted_at = $muted ? Carbon::now() : null;
+        $member->save();
+
+        return $member;
     }
 
     /**
-     * "Is the actor a non-banned creator/moderator of this group?" Memoized on
-     * $this->moderatorCheckCache so a page of members in the same group runs
-     * the correlated subquery once (was once per row × 2 gates).
+     * Kicking twice is a no-op, not an error.
      */
-    protected function isInGroupModerator(User $actor, int $groupId): bool
+    private function kick(SocialGroupMember $member): SocialGroupMember
     {
-        if (! $actor->exists || $groupId <= 0) {
-            return false;
+        if ($member->banned_at === null) {
+            $member->banned_at = Carbon::now();
+            $member->save();
+            $member->group?->decrement('member_count');
         }
 
-        $key = ((int) $actor->id).':'.$groupId;
-        if (isset($this->moderatorCheckCache[$key])) {
-            return $this->moderatorCheckCache[$key];
-        }
-
-        $result = SocialGroup::query()
-            ->where('id', $groupId)
-            ->whereExists(function ($sub) use ($actor) {
-                $sub->from('social_group_members')
-                    ->whereColumn('social_group_members.group_id', 'social_groups.id')
-                    ->where('user_id', $actor->id)
-                    ->whereNull('banned_at')
-                    ->whereIn('role', ['creator', 'moderator']);
-            })
-            ->exists();
-
-        return $this->moderatorCheckCache[$key] = $result;
+        return $member;
     }
 
-    protected function doSetRole(Context $context, string $role): SocialGroupMember
+    private function assertActive(SocialGroupMember $member): void
     {
-        /** @var SocialGroupMember $target */
-        $target = $context->model;
-        if ($target->banned_at !== null) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.not_active_member'));
+        if ($member->banned_at !== null) {
+            throw new BadRequestException($this->error('not_active_member'));
         }
-        if ($target->role === 'creator') {
-            throw new BadRequestException(
-                $role === 'moderator'
-                    ? $this->translator->trans('ernestdefoe-social-groups.lib.errors.cannot_promote_creator')
-                    : $this->translator->trans('ernestdefoe-social-groups.lib.errors.cannot_demote_creator')
-            );
-        }
-        $target->role = $role;
-        $target->save();
-
-        return $target;
     }
 
-    protected function doSetMuted(Context $context, bool $muted): SocialGroupMember
+    private function error(string $key): string
     {
-        /** @var SocialGroupMember $target */
-        $target = $context->model;
-        if ($target->banned_at !== null) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.not_active_member'));
-        }
-        $target->muted_at = $muted ? \Carbon\Carbon::now() : null;
-        $target->save();
-
-        return $target;
-    }
-
-    /**
-     * Soft-kick: set `banned_at` instead of a physical DELETE,
-     * mirroring the legacy KickGroupMemberController. Decrements the
-     * group's denormalised `member_count`.
-     */
-    protected function doKick(Context $context): SocialGroupMember
-    {
-        /** @var SocialGroupMember $target */
-        $target = $context->model;
-
-        // Idempotent: already banned, no-op (but returns 200, not 404).
-        if ($target->banned_at !== null) {
-            return $target;
-        }
-        $target->banned_at = \Carbon\Carbon::now();
-        $target->save();
-
-        if ($target->group) {
-            $target->group->decrement('member_count');
-        }
-
-        return $target;
+        return $this->translator->trans('ernestdefoe-social-groups.lib.errors.'.$key);
     }
 }

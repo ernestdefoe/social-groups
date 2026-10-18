@@ -120,14 +120,7 @@ return [
     (new Extend\ApiResource(\Flarum\Api\Resource\UserResource::class))
         ->fields(UserResourceFields::class),
 
-    // The directory teaser fields (recentDiscussions) read a hasMany relation
-    // that is eager-loaded on Index, collapsing a per-group LIMIT query into a
-    // single batched load for the whole page.
-    (new Extend\ApiResource(SocialGroupResource::class))
-        ->endpoint(
-            Endpoint\Index::class,
-            fn ($endpoint) => $endpoint->eagerLoad(['recentDiscussions'])
-        ),
+    new Extend\ApiResource(SocialGroupResource::class),
     new Extend\ApiResource(SocialGroupPostResource::class),
     new Extend\ApiResource(SocialGroupDiscussionResource::class),
     new Extend\ApiResource(SocialGroupMemberResource::class),

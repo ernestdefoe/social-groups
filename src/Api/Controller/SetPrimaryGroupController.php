@@ -2,6 +2,7 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
 use Flarum\Http\RequestUtil;
@@ -13,7 +14,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 
 class SetPrimaryGroupController implements RequestHandlerInterface
 {
-    public function __construct(private TranslatorInterface $translator)
+    public function __construct(private GroupAccess $access, private TranslatorInterface $translator)
     {
     }
 
@@ -39,7 +40,7 @@ class SetPrimaryGroupController implements RequestHandlerInterface
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.group_not_found')], 404);
         }
 
-        $isMember = $group->activeMembership($actor->id)->exists();
+        $isMember = $this->access->isMember($actor, $group);
 
         if (! $isMember) {
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.not_member')], 403);

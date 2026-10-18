@@ -2,11 +2,13 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Controller;
 
+use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Flarum\Formatter\Formatter;
 use Flarum\Foundation\Config;
 use Flarum\Settings\SettingsRepositoryInterface;
+use Flarum\User\Guest;
 use Laminas\Diactoros\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -17,6 +19,7 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 class GroupRssFeedController implements RequestHandlerInterface
 {
     public function __construct(
+        private GroupAccess $access,
         private Formatter $formatter,
         private LoggerInterface $log,
         private Config $config,
@@ -35,7 +38,7 @@ class GroupRssFeedController implements RequestHandlerInterface
             }
             $group = SocialGroup::where('slug', $slug)->firstOrFail();
 
-            if ($group->is_private) {
+            if (! $this->access->canSee(new Guest(), $group)) {
                 return $this->xmlError($this->translator->trans('ernestdefoe-social-groups.lib.errors.group_private'), 403);
             }
 
