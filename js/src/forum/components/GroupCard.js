@@ -68,7 +68,7 @@ export default class GroupCard extends Component {
           m('div.GroupCard-name', name),
           m('div.GroupCard-meta', [
             m('i.fa-solid.fa-users'),
-            m('span', ' ' + app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.memberCount })),
+            m('span', [' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.memberCount })]),
             group.isPrivate()
               ? m('span.GroupCard-private', [m('i.fa-solid.fa-lock'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.private')])
               : null,

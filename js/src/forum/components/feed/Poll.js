@@ -36,7 +36,7 @@ export default function Poll({ discussion }) {
     ),
     m('.SGFeed-poll-footer', [
       m('span', t('poll_votes', { count: poll.totalVotes })),
-      ended ? m('span.SGFeed-poll-ended', ' · ' + t('poll_ended')) : null,
+      ended ? m('span.SGFeed-poll-ended', [' · ', t('poll_ended')]) : null,
     ]),
   ]);
 }
