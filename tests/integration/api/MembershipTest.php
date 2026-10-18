@@ -321,7 +321,7 @@ class MembershipTest extends TestCase
     }
 
     #[Test]
-    public function the_user_list_loads_every_badge_in_two_queries()
+    public function the_user_list_loads_every_badge_in_one_query()
     {
         $this->app();
         foreach ([2 => 1, 3 => 3, 5 => 2, 6 => 1] as $user => $group) {
@@ -337,6 +337,29 @@ class MembershipTest extends TestCase
             fn (string $sql) => preg_match('/^select [^(]*? from [`"]\w*social_group/', $sql) === 1
         );
 
-        $this->assertCount(2, $ours, implode("\n", $ours));
+        $this->assertCount(1, $ours, implode("\n", $ours));
+    }
+
+    #[Test]
+    public function the_forum_payload_leaves_the_signed_in_users_badges_out()
+    {
+        $this->app();
+        $this->database()->table('social_group_user_primary')->insert(['user_id' => 2, 'group_id' => 1]);
+
+        $this->database()->enableQueryLog();
+        [, $body] = $this->json('GET', '/api', 2);
+        $ours = array_filter(
+            array_column($this->database()->getQueryLog(), 'query'),
+            fn (string $sql) => preg_match('/^select [^(]*? from [`"]\w*social_group/', $sql) === 1
+        );
+
+        $me = collect($body['included'] ?? [])->first(fn (array $r) => $r['type'] === 'users' && $r['id'] === '2');
+        $this->assertNotNull($me);
+        $this->assertArrayNotHasKey('sgGroups', $me['attributes']);
+        $this->assertArrayNotHasKey('sgPrimaryGroup', $me['attributes']);
+        $this->assertSame([], array_values($ours), 'The forum payload reads none of our tables.');
+
+        [, $user] = $this->json('GET', '/api/users/2', 2);
+        $this->assertSame(1, $user['data']['attributes']['sgPrimaryGroupId']);
     }
 }

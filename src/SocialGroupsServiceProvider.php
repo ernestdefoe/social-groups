@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
+use Ernestdefoe\SocialGroups\Model\SocialGroupUserPrimary;
 use Ernestdefoe\SocialGroups\Support\RelationBatch;
 use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Foundation\AbstractServiceProvider;
@@ -29,14 +30,20 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
     }
 
     /**
-     * A membership written during a request (joining, kicking, muting) must
-     * not be answered from the snapshot taken before it.
+     * A membership or primary choice written during a request (joining,
+     * kicking, muting, picking a chip) must not be answered from the snapshot
+     * taken before it.
      */
     public function boot(): void
     {
-        $flush = fn () => $this->container->make(GroupAccess::class)->flush();
+        $flush = function () {
+            $this->container->make(GroupAccess::class)->flush();
+            $this->container->make(UserGroupBatch::class)->flush();
+        };
 
         SocialGroupMember::saved($flush);
         SocialGroupMember::deleted($flush);
+        SocialGroupUserPrimary::saved($flush);
+        SocialGroupUserPrimary::deleted($flush);
     }
 }

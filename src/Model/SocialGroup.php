@@ -22,6 +22,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property \Carbon\Carbon|null $updated_at
  * @property-read int|null $actor_is_pending
  * @property-read int|null $pending_req_count
+ * @property-read int|string|null $sg_user_id  set by UserGroupBatch
+ * @property-read string|null $sg_role  set by UserGroupBatch
+ * @property-read int|string|null $sg_primary_of  set by UserGroupBatch
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupJoinRequest> $joinRequests
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupMember> $members
  * @property-read \Illuminate\Database\Eloquent\Collection<int, SocialGroupDiscussion> $recentDiscussions
