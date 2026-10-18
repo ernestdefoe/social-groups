@@ -213,4 +213,39 @@ class ContentTest extends TestCase
         $this->assertSame(204, $this->json('DELETE', '/api/social-group-discussions/1', 5)[0], 'A group moderator');
         $this->assertSame(0, $this->database()->table('social_group_discussions')->where('id', 1)->count());
     }
+
+    #[Test]
+    public function deleting_a_post_takes_its_replies_off_the_count_too()
+    {
+        $this->app();
+        $this->database()->table('social_group_posts')->insert([
+            'id' => 7, 'discussion_id' => 1, 'group_id' => 1, 'parent_post_id' => 2, 'user_id' => 6, 'content' => 'A reply to a reply',
+            'created_at' => Carbon::now(), 'updated_at' => Carbon::now(),
+        ]);
+        $this->database()->table('social_group_discussions')->where('id', 1)->update(['comment_count' => 3]);
+
+        $this->assertSame(204, $this->json('DELETE', '/api/social-group-posts/2', 5)[0]);
+
+        $this->assertSame(0, $this->database()->table('social_group_posts')->whereIn('id', [2, 7])->count(), 'Its reply goes with it');
+        $this->assertSame(1, (int) $this->database()->table('social_group_discussions')->where('id', 1)->value('comment_count'));
+    }
+
+    #[Test]
+    public function deleting_a_thread_leaves_nothing_behind()
+    {
+        $this->app();
+        $this->database()->table('social_group_post_reactions')->insert(['post_id' => 2, 'user_id' => 2, 'reaction' => 'like']);
+        $this->database()->table('sg_polls')->insert(['id' => 1, 'discussion_id' => 1, 'question' => 'When?', 'is_multi_select' => false, 'created_at' => Carbon::now()]);
+        $this->database()->table('sg_poll_options')->insert(['id' => 1, 'poll_id' => 1, 'text' => 'Today', 'sort_order' => 0]);
+        $this->database()->table('sg_poll_votes')->insert(['poll_id' => 1, 'option_id' => 1, 'user_id' => 5]);
+
+        $this->assertSame(204, $this->json('DELETE', '/api/social-group-discussions/1', 2)[0]);
+
+        foreach (['social_group_posts' => 'discussion_id', 'sg_polls' => 'discussion_id'] as $table => $column) {
+            $this->assertSame(0, $this->database()->table($table)->where($column, 1)->count(), $table);
+        }
+        foreach (['social_group_post_reactions', 'sg_poll_options', 'sg_poll_votes'] as $table) {
+            $this->assertSame(0, $this->database()->table($table)->count(), $table);
+        }
+    }
 }

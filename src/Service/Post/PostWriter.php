@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Model\SocialGroupPostReaction;
 use Ernestdefoe\SocialGroups\Service\Discussion\DiscussionCreator;
 use Ernestdefoe\SocialGroups\Support\LinkPreviewSanitizer;
 use Flarum\Formatter\Formatter;
@@ -86,12 +87,46 @@ class PostWriter
         $post->content_parsed = $this->formatter->parse($post->content);
     }
 
-    public function deleted(int $discussionId): void
+    /**
+     * A post's replies go with it, and their reactions. Deleted here rather
+     * than left to foreign keys, which SQLite does not enforce by default.
+     *
+     * @return int how many replies went
+     */
+    public function deleteReplies(SocialGroupPost $post): int
+    {
+        $ids = SocialGroupPost::query()->where('parent_post_id', $post->id)->pluck('id')->all();
+        $this->purge([$post->id, ...$ids], keep: $post->id);
+
+        return count($ids);
+    }
+
+    /**
+     * Everything a deleted thread held: its posts and their reactions.
+     */
+    public function deleteThreadPosts(int $discussionId): void
+    {
+        $this->purge(SocialGroupPost::query()->where('discussion_id', $discussionId)->pluck('id')->all());
+    }
+
+    /**
+     * @param list<int|string> $postIds
+     */
+    private function purge(array $postIds, int|string|null $keep = null): void
+    {
+        if ($postIds === []) {
+            return;
+        }
+
+        SocialGroupPostReaction::query()->whereIn('post_id', $postIds)->delete();
+        SocialGroupPost::query()->whereIn('id', array_values(array_diff($postIds, [$keep])))->delete();
+    }
+
+    public function deleted(int $discussionId, int $count): void
     {
         SocialGroupDiscussion::query()
             ->whereKey($discussionId)
-            ->where('comment_count', '>', 0)
-            ->decrement('comment_count');
+            ->update(['comment_count' => SocialGroupDiscussion::query()->getQuery()->raw('CASE WHEN comment_count > '.$count.' THEN comment_count - '.$count.' ELSE 0 END')]);
     }
 
     private function content(mixed $raw, string $emptyError): string

@@ -9,6 +9,7 @@ use Ernestdefoe\SocialGroups\Service\Discussion\DiscussionCreator;
 use Ernestdefoe\SocialGroups\Service\Discussion\FeedQuery;
 use Ernestdefoe\SocialGroups\Service\Discussion\ShareDiscussionService;
 use Ernestdefoe\SocialGroups\Service\Poll\Polls;
+use Ernestdefoe\SocialGroups\Service\Post\PostWriter;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -240,6 +241,16 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         $this->container->make(DiscussionCreator::class)->complete($model);
 
         return null;
+    }
+
+    /**
+     * A thread's posts, reactions and poll go with it. Deleted here rather
+     * than left to foreign keys, which SQLite does not enforce by default.
+     */
+    public function deleting(object $model, BaseContext $context): void
+    {
+        $this->container->make(Polls::class)->delete((int) $model->id);
+        $this->container->make(PostWriter::class)->deleteThreadPosts((int) $model->id);
     }
 
     /**

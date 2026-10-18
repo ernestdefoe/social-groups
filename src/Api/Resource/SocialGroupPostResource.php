@@ -240,13 +240,13 @@ class SocialGroupPostResource extends AbstractDatabaseResource
     public function deleting(object $model, BaseContext $context): void
     {
         /** @var SocialGroupPost $model */
-        $model->_sgDeletedDiscussionId = (int) $model->discussion_id;
+        $model->_sgDeletedCount = $this->container->make(PostWriter::class)->deleteReplies($model) + 1;
     }
 
     public function deleted(object $model, BaseContext $context): void
     {
         /** @var SocialGroupPost $model */
-        $this->container->make(PostWriter::class)->deleted((int) $model->_sgDeletedDiscussionId);
+        $this->container->make(PostWriter::class)->deleted((int) $model->discussion_id, $model->_sgDeletedCount);
     }
 
     /**

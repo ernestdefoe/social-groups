@@ -35,7 +35,7 @@ class SocialGroupPost extends AbstractModel
      */
     public ?SocialGroupDiscussion $_sgDiscussionRef = null;
 
-    public ?int $_sgDeletedDiscussionId = null;
+    public int $_sgDeletedCount = 1;
 
     /** Defence in depth: a raw request body can never set is_pinned or group_id. */
     protected $fillable = [

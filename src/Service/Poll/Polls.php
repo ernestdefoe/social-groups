@@ -128,6 +128,18 @@ class Polls
         $discussion->load($this->eagerLoads($actor));
     }
 
+    public function delete(int $discussionId): void
+    {
+        $pollIds = SgPoll::query()->where('discussion_id', $discussionId)->pluck('id')->all();
+        if ($pollIds === []) {
+            return;
+        }
+
+        SgPollVote::query()->whereIn('poll_id', $pollIds)->delete();
+        SgPollOption::query()->whereIn('poll_id', $pollIds)->delete();
+        SgPoll::query()->whereIn('id', $pollIds)->delete();
+    }
+
     /**
      * @param array{question: string, options: list<string>, is_multi_select: bool} $data
      */
