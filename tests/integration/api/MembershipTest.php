@@ -328,7 +328,7 @@ class MembershipTest extends TestCase
         // them in a subquery and run with or without the badges.
         $ours = array_filter(
             array_column($this->database()->getQueryLog(), 'query'),
-            fn (string $sql) => preg_match('/^select [^(]*? from "\w*social_group/', $sql) === 1
+            fn (string $sql) => preg_match('/^select [^(]*? from [`"]\w*social_group/', $sql) === 1
         );
 
         $this->assertCount(2, $ours, implode("\n", $ours));
