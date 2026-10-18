@@ -5,6 +5,7 @@ namespace Ernestdefoe\SocialGroups;
 use Ernestdefoe\SocialGroups\Access\GroupAccess;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Model\SocialGroupMember;
+use Ernestdefoe\SocialGroups\Support\RelationBatch;
 use Ernestdefoe\SocialGroups\Support\UserGroupBatch;
 use Flarum\Foundation\AbstractServiceProvider;
 use GuzzleHttp\Client;
@@ -16,6 +17,7 @@ class SocialGroupsServiceProvider extends AbstractServiceProvider
     {
         $this->container->singleton(GroupAccess::class);
         $this->container->singleton(UserGroupBatch::class);
+        $this->container->singleton(RelationBatch::class);
 
         /**
          * The link-preview fetch gets its own short timeouts, scoped to that

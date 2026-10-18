@@ -62,4 +62,23 @@ class NotificationTest extends TestCase
         $request = json_decode($this->notified(3, 'socialGroupJoinRequest')[0], true);
         $this->assertSame(['groupId' => 3], $request);
     }
+
+    #[Test]
+    public function a_page_of_notifications_loads_its_posts_reactions_and_groups_once()
+    {
+        $this->app();
+        for ($i = 10; $i < 30; $i++) {
+            $this->database()->table('social_group_posts')->insert(['id' => $i, 'discussion_id' => 1, 'group_id' => 1, 'user_id' => 5, 'content' => "P$i", 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()]);
+            $this->database()->table('social_group_post_reactions')->insert(['post_id' => $i, 'user_id' => 6, 'reaction' => 'like']);
+            $this->database()->table('notifications')->insert(['user_id' => 2, 'from_user_id' => 5, 'type' => 'socialGroupNewPost', 'subject_id' => $i, 'data' => '{}', 'created_at' => Carbon::now(), 'is_deleted' => 0]);
+        }
+
+        [$status, $body] = $this->json('GET', '/api/notifications', 2);
+
+        $this->assertSame(200, $status, 'The test case fails the request itself if a query runs once per post');
+        $this->assertCount(20, $body['data']);
+
+        $post = collect($body['included'])->firstWhere('type', 'social-group-posts');
+        $this->assertSame(['Hello public', 'public-open'], [$post['attributes']['threadTitle'], $post['attributes']['threadGroupSlug']], 'What the notification shows and links to');
+    }
 }

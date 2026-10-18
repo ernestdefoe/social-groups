@@ -10,6 +10,7 @@ use Ernestdefoe\SocialGroups\Service\Discussion\FeedQuery;
 use Ernestdefoe\SocialGroups\Service\Discussion\ShareDiscussionService;
 use Ernestdefoe\SocialGroups\Service\Poll\Polls;
 use Ernestdefoe\SocialGroups\Service\Post\PostWriter;
+use Ernestdefoe\SocialGroups\Support\RelationBatch;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -34,6 +35,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 {
     public function __construct(
         protected GroupAccess $access,
+        protected RelationBatch $batch,
         protected Container $container,
     ) {
     }
@@ -163,12 +165,14 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             Schema\Arr::make('poll')
                 ->writableOnCreate()
                 ->set(fn () => null)
-                ->get(fn (SocialGroupDiscussion $d, Context $context) => $this->container->make(Polls::class)->present($d, $context->getActor())),
+                ->get(fn (SocialGroupDiscussion $d, Context $context) => $this->deferred($d, $context, fn () => $this->container->make(Polls::class)->present($d, $context->getActor()))),
 
-            /** Read only when the group is already loaded: a link target, never a query. */
+            /** A link target for notifications; guests never load the group for it. */
             Schema\Str::make('groupSlug')
                 ->nullable()
-                ->get(fn (SocialGroupDiscussion $d) => $d->relationLoaded('group') ? $d->group?->slug : null),
+                ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
+                    ? $this->deferred($d, $context, fn () => $d->group?->slug)
+                    : null),
 
             Schema\Integer::make('commentCount')
                 ->property('comment_count'),
@@ -187,28 +191,32 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
 
             Schema\Boolean::make('canDelete')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
-                    && $d->group !== null
-                    && $this->access->canDeleteContent($context->getActor(), $d->group, (int) $d->user_id)),
+                    ? $this->deferred($d, $context, fn () => $d->group !== null
+                    && $this->access->canDeleteContent($context->getActor(), $d->group, (int) $d->user_id))
+                    : false),
 
             /** A private group's threads stay in that group. */
             Schema\Boolean::make('canShare')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
-                    && $d->group !== null
-                    && ! $d->group->is_private),
+                    ? $this->deferred($d, $context, fn () => $d->group !== null
+                    && ! $d->group->is_private)
+                    : false),
 
             Schema\Boolean::make('canReply')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
-                    && $d->group !== null
+                    ? $this->deferred($d, $context, fn () => $d->group !== null
                     && ! $d->is_locked
-                    && $this->access->canPost($context->getActor(), $d->group)),
+                    && $this->access->canPost($context->getActor(), $d->group))
+                    : false),
 
             Schema\Boolean::make('canPin')
                 ->get(fn (SocialGroupDiscussion $d, Context $context) => $context->getActor()->exists
-                    && $d->group !== null
-                    && $this->access->isManager($context->getActor(), $d->group)),
+                    ? $this->deferred($d, $context, fn () => $d->group !== null
+                    && $this->access->isManager($context->getActor(), $d->group))
+                    : false),
 
             Schema\Arr::make('sharedFrom')
-                ->get(fn (SocialGroupDiscussion $d, Context $context) => $this->sharedFrom($d, $context->getActor())),
+                ->get(fn (SocialGroupDiscussion $d, Context $context) => $this->deferred($d, $context, fn () => $this->sharedFrom($d, $context->getActor()))),
 
             Schema\Relationship\ToOne::make('user')
                 ->type('users')
@@ -241,6 +249,21 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
         $this->container->make(DiscussionCreator::class)->complete($model);
 
         return null;
+    }
+
+    /**
+     * Defers a field until every thread on the response is queued, then loads
+     * what the fields read for all of them at once.
+     */
+    private function deferred(SocialGroupDiscussion $d, Context $context, callable $build): \Closure
+    {
+        return $this->batch->defer($context->request, $d, [
+            'group',
+            'sharedFromDiscussion.group',
+            'sharedFromDiscussion.user',
+            'sharedFromDiscussion.firstPost',
+            ...$this->container->make(Polls::class)->eagerLoads($context->getActor()),
+        ], $build);
     }
 
     /**
