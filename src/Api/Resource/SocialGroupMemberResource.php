@@ -18,8 +18,9 @@ use Tobyz\JsonApiServer\Context as BaseContext;
 use Tobyz\JsonApiServer\Exception\BadRequestException;
 
 /**
- * A group's members (`?groupId=`), and the moderation actions on one of them.
- * Kicked members keep their row with `banned_at` set and are not listed.
+ * A group's members (`?groupId=`, narrowed with `?usernameStartsWith=`),
+ * 50 to a page in the order they joined, and the moderation actions on one of
+ * them. Kicked members keep their row with `banned_at` set and are not listed.
  *
  * @extends AbstractDatabaseResource<SocialGroupMember>
  */
@@ -62,14 +63,24 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
             throw new PermissionDeniedException();
         }
 
-        $query->where('social_group_members.group_id', $group->id)->whereNull('social_group_members.banned_at');
+        $query->where('social_group_members.group_id', $group->id)
+            ->whereNull('social_group_members.banned_at')
+            ->orderBy('social_group_members.joined_at')
+            ->orderBy('social_group_members.id');
+
+        $term = trim((string) ($context->request->getQueryParams()['usernameStartsWith'] ?? ''));
+        if ($term !== '') {
+            $op = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+            $query->whereHas('user', fn (Builder $u) => $u->where('username', $op, addcslashes($term, '%_\\').'%'));
+        }
     }
 
     public function endpoints(): array
     {
         return [
             Endpoint\Index::make()
-                ->defaultInclude(['user']),
+                ->defaultInclude(['user'])
+                ->paginate(50, 100),
 
             /** Kick: a soft delete, so a kicked member cannot simply rejoin. */
             Endpoint\Endpoint::make('social-group-members.kick')
@@ -131,9 +142,12 @@ class SocialGroupMemberResource extends AbstractDatabaseResource
                 ->property('joined_at')
                 ->nullable(),
 
+            /** Who is muted is the managers' business, and the member's own. */
             Schema\DateTime::make('mutedAt')
                 ->property('muted_at')
-                ->nullable(),
+                ->nullable()
+                ->visible(fn (SocialGroupMember $m, Context $context) => (int) $context->getActor()->id === (int) $m->user_id
+                    || ($m->group !== null && $this->access()->isManager($context->getActor(), $m->group))),
 
             Schema\Boolean::make('canMute')
                 ->get(fn (SocialGroupMember $m, Context $context) => $this->canManage($m, $context)),

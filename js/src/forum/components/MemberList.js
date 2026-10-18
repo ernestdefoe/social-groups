@@ -36,11 +36,35 @@ export default class MemberList extends Component {
   load() {
     this.countFor = this.attrs.group.memberCount();
 
-    app.store
-      .find('social-group-members', { groupId: this.attrs.group.id(), include: 'user' })
-      .then((members) => (this.members = members))
+    this.page()
+      .then(({ rows, hasMore }) => {
+        this.members = rows;
+        this.hasMore = hasMore;
+      })
       .catch(() => (this.members = false))
       .finally(() => m.redraw());
+  }
+
+  /** Members come 50 at a time; a big group's list grows on request. */
+  loadMore() {
+    this.loadingMore = true;
+
+    this.page(this.members.length)
+      .then(({ rows, hasMore }) => {
+        this.members = [...this.members, ...rows.filter((row) => !this.members.includes(row))];
+        this.hasMore = hasMore;
+      })
+      .catch((err) => app.alerts.show({ type: 'error' }, errorText(err, t('members_load_error'))))
+      .finally(() => {
+        this.loadingMore = false;
+        m.redraw();
+      });
+  }
+
+  page(offset = 0) {
+    return app.store
+      .find('social-group-members', { groupId: this.attrs.group.id(), include: 'user', page: { offset } })
+      .then((rows) => ({ rows, hasMore: !!rows.payload?.links?.next }));
   }
 
   run(member, action, request) {
@@ -102,7 +126,17 @@ export default class MemberList extends Component {
         'div.MemberList-list',
         this.members.map((member) => this.row(member))
       ),
-      m('div.MemberList-count', app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.members.length })),
+      this.hasMore
+        ? m(
+            Button,
+            { className: 'Button MemberList-loadMore', loading: this.loadingMore, onclick: () => this.loadMore() },
+            app.translator.trans('ernestdefoe-social-groups.forum.discussions.load_more_short')
+          )
+        : null,
+      m(
+        'div.MemberList-count',
+        app.translator.trans('ernestdefoe-social-groups.forum.groups.members_count', { count: this.attrs.group.memberCount() })
+      ),
     ];
   }
 

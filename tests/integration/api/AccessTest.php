@@ -154,4 +154,78 @@ class AccessTest extends TestCase
         [, $body] = $this->json('GET', '/api/users/5', 3);
         $this->assertNotContains('Secret Club', array_column($body['data']['attributes']['sgGroups'], 'name'), 'An outsider');
     }
+
+    #[Test]
+    public function the_gallery_thread_belongs_to_the_group_not_its_first_uploader()
+    {
+        $this->app();
+        $media = $this->json('POST', '/api/sg-media-post/1', 5, ['content' => 'https://example.com/a.png']);
+        $this->assertSame(201, $media[0], json_encode($media[1]));
+
+        $gallery = $this->database()->table('social_group_discussions')->where('is_gallery', true)->first();
+        $this->assertSame(2, (int) $gallery->user_id, 'Stamped with the creator');
+
+        $this->database()->table('social_group_discussions')->where('id', $gallery->id)->update(['user_id' => 6]);
+        $this->database()->table('social_group_members')->where('user_id', 6)->update(['muted_at' => null]);
+        $this->assertSame(403, $this->json('DELETE', "/api/social-group-discussions/$gallery->id", 6)[0], 'An older gallery stamped with a member');
+        $this->assertSame(204, $this->json('DELETE', "/api/social-group-discussions/$gallery->id", 5)[0], 'A moderator');
+    }
+
+    #[Test]
+    public function a_kicked_author_cannot_delete_and_a_muted_one_cannot_edit()
+    {
+        $this->app();
+        $this->database()->table('social_group_posts')->insert([
+            ['id' => 10, 'discussion_id' => 1, 'group_id' => 1, 'user_id' => 4, 'content' => 'Before the kick', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+            ['id' => 11, 'discussion_id' => 1, 'group_id' => 1, 'user_id' => 6, 'content' => 'Before the mute', 'created_at' => Carbon::now(), 'updated_at' => Carbon::now()],
+        ]);
+        $edit = fn (int $post, int $actor) => $this->json('PATCH', "/api/social-group-posts/$post", $actor, ['data' => ['type' => 'social-group-posts', 'id' => (string) $post, 'attributes' => ['content' => 'Changed']]])[0];
+
+        $this->assertSame(403, $this->json('DELETE', '/api/social-group-posts/10', 4)[0], 'Kicked');
+        $this->assertSame(403, $edit(11, 6), 'Muted');
+        $this->assertSame(200, $edit(2, 5), 'An active author');
+    }
+
+    #[Test]
+    public function group_writes_are_throttled_like_core_posts()
+    {
+        $this->app();
+        $reply = fn (int $actor) => $this->json('POST', '/api/social-group-posts', $actor, ['data' => ['type' => 'social-group-posts', 'attributes' => ['discussionId' => 1, 'content' => 'Quick one']]])[0];
+
+        $this->assertSame(403, $reply(6), 'A refused write');
+        $this->database()->table('social_group_members')->where('user_id', 6)->update(['muted_at' => null]);
+        $this->assertSame(201, $reply(6), 'does not start the wait');
+        $this->assertSame(429, $reply(6), 'The next one inside ten seconds');
+        $this->assertSame(201, $reply(5), 'Another member is unaffected');
+    }
+
+    #[Test]
+    public function the_member_list_pages_searches_and_keeps_mutes_to_managers()
+    {
+        $this->app();
+        $list = fn (?int $actor, array $query = []) => $this->json('GET', '/api/social-group-members', $actor, [], $query + ['groupId' => 1])[1];
+        $muted = fn (?int $actor) => collect($list($actor)['data'])->firstWhere('attributes.userId', 6)['attributes'];
+
+        $found = $list(null, ['usernameStartsWith' => 'GROUP']);
+        $this->assertSame(['groupmod'], array_column(array_column($found['data'] ?? [], 'attributes'), 'slug'), json_encode($found));
+        $this->assertSame([], $list(null, ['usernameStartsWith' => '%'])['data'], 'A wildcard is a literal');
+        $this->assertNotEmpty($list(null, ['page' => ['limit' => 1]])['links']['next'] ?? null);
+
+        $this->assertArrayNotHasKey('mutedAt', $muted(null), 'A guest');
+        $this->assertArrayNotHasKey('mutedAt', $muted(3), 'An outsider');
+        $this->assertNotNull($muted(5)['mutedAt'], 'A moderator');
+        $this->assertNotNull($muted(6)['mutedAt'], 'The member themselves');
+    }
+
+    #[Test]
+    public function only_those_who_appoint_moderators_can_remove_one()
+    {
+        $this->app();
+        $this->database()->table('social_group_members')->insert(['id' => 20, 'group_id' => 1, 'user_id' => 3, 'role' => 'moderator', 'joined_at' => Carbon::now()]);
+
+        $this->assertSame(403, $this->json('DELETE', '/api/social-group-members/20', 5)[0], 'A fellow moderator');
+        $this->assertSame(403, $this->json('POST', '/api/social-group-members/20/mute', 5)[0], 'A fellow moderator muting');
+        $this->assertNotSame(403, $this->json('DELETE', '/api/social-group-members/3', 5)[0], 'A moderator still manages members');
+        $this->assertLessThan(300, $this->json('DELETE', '/api/social-group-members/20', 2)[0], 'The creator');
+    }
 }

@@ -4,13 +4,15 @@ import { MentionDropdown } from '../components/feed/MentionDropdown';
 /**
  * @-mention autocomplete for a group's composers. Each composer passes itself
  * as the owner: the dropdown shows under the one being typed in, and the
- * chosen member is spliced back through its `setText`. The group's members
- * load once, on the first @.
+ * chosen member is spliced back through its `setText`. Matches are asked of
+ * the server as the name is typed, so a big group never ships its whole
+ * member list, and each answer is kept for the composer's life.
  */
 export default class MentionTracker {
   constructor(groupId) {
     this.groupId = groupId;
     this.members = null;
+    this.found = new Map();
     this.loading = false;
     this.owner = null;
     this.query = null;
@@ -22,6 +24,7 @@ export default class MentionTracker {
   }
 
   destroy() {
+    clearTimeout(this.timer);
     document.removeEventListener('click', this.onDocumentClick);
   }
 
@@ -32,7 +35,7 @@ export default class MentionTracker {
       this.owner = owner;
       this.query = match[1];
       this.textarea = e.target;
-      this.load();
+      this.search(match[1].toLowerCase());
     } else if (this.owner === owner) {
       this.close();
     }
@@ -52,26 +55,38 @@ export default class MentionTracker {
     return true;
   }
 
-  load() {
-    if (this.members !== null || this.loading) return;
-    this.loading = true;
+  search(query) {
+    clearTimeout(this.timer);
 
-    app.store
-      .find('social-group-members', { groupId: this.groupId, include: 'user' })
-      .then((rows) => {
-        this.members = rows.map((r) => ({
-          userId: r.attribute('userId'),
-          displayName: r.attribute('displayName') || '',
-          avatarUrl: r.attribute('avatarUrl'),
-          slug: r.attribute('slug') || '',
-          role: r.attribute('role'),
-        }));
-      })
-      .catch(() => (this.members = []))
-      .finally(() => {
-        this.loading = false;
-        m.redraw();
-      });
+    if (this.found.has(query)) {
+      this.members = this.found.get(query);
+      this.loading = false;
+      return;
+    }
+
+    this.loading = true;
+    this.timer = setTimeout(() => {
+      app.store
+        .find('social-group-members', { groupId: this.groupId, usernameStartsWith: query, include: 'user', page: { limit: 7 } })
+        .then((rows) =>
+          rows.map((r) => ({
+            userId: r.attribute('userId'),
+            displayName: r.attribute('displayName') || '',
+            avatarUrl: r.attribute('avatarUrl'),
+            slug: r.attribute('slug') || '',
+            role: r.attribute('role'),
+          }))
+        )
+        .catch(() => [])
+        .then((members) => {
+          this.found.set(query, members);
+          if (this.query?.toLowerCase() === query) {
+            this.members = members;
+            this.loading = false;
+            m.redraw();
+          }
+        });
+    }, 150);
   }
 
   /**
