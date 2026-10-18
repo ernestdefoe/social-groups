@@ -31,7 +31,8 @@ use Flarum\User\User;
  *
  * Every serialized user's memberships come from UserGroupBatch: each getter
  * queues its user and returns a deferred value, and the first one resolved
- * loads every queued user at once. Three queries per request however many
+ * loads every queued user at once. Two queries per request (one when nobody
+ * on the page is in a group) however many
  * authors the page has, and through however many include paths they arrive.
  * Private groups stay gated to their own members and admins, and a stale
  * primary row (set, then the member left or was kicked) shows no chip.

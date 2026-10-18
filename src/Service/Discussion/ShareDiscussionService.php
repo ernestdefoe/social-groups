@@ -6,7 +6,6 @@ use Carbon\Carbon;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
-use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
 use Flarum\Api\Context;
 use Flarum\Formatter\Formatter;
 use Flarum\User\Exception\PermissionDeniedException;
@@ -16,7 +15,6 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
 class ShareDiscussionService
 {
     public function __construct(
-        protected SchemaCapabilities $capabilities,
         protected Formatter $formatter,
         protected TranslatorInterface $translator,
     ) {
@@ -46,9 +44,6 @@ class ShareDiscussionService
 
         if ($targetGroupId <= 0) {
             throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.target_group_required'));
-        }
-        if (! $this->capabilities->sharedFrom) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.sharing_unavailable'));
         }
 
         /*

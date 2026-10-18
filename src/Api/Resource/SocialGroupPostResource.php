@@ -10,7 +10,6 @@ use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPostReaction;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewPostBlueprint;
 use Ernestdefoe\SocialGroups\Notification\SocialGroupNewReplyBlueprint;
-use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -72,7 +71,6 @@ class SocialGroupPostResource extends AbstractDatabaseResource
 
     public function __construct(
         protected Formatter $formatter,
-        protected SchemaCapabilities $capabilities,
         protected NotificationSyncer $notifications,
         protected Dispatcher $events,
         protected LoggerInterface $log,
@@ -135,15 +133,11 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             // Pinned at the top, then chronological — mirrors the legacy
             // controller and matches the compound index
             // (discussion_id, is_pinned).
-            if ($this->capabilities->isPinned) {
-                $query->orderByDesc('social_group_posts.is_pinned');
-            }
+            $query->orderByDesc('social_group_posts.is_pinned');
             $query->orderBy('social_group_posts.created_at');
 
             $query->with('user');
-            if ($this->capabilities->reactions) {
-                $query->with('reactions');
-            }
+            $query->with('reactions');
 
             return;
         }
@@ -222,9 +216,6 @@ class SocialGroupPostResource extends AbstractDatabaseResource
      */
     protected function doPin(Context $context): SocialGroupPost
     {
-        if (! $this->capabilities->isPinned) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.pinning_unavailable'));
-        }
         /** @var SocialGroupPost $p */
         $p = $context->model;
         $p->is_pinned = ! $p->is_pinned;
@@ -492,32 +483,18 @@ class SocialGroupPostResource extends AbstractDatabaseResource
             Schema\Arr::make('linkPreview')
                 ->writableOnCreate()
                 ->set(fn () => null)
-                ->visible(fn () => $this->capabilities->linkPreview)
                 ->get(function (SocialGroupPost $post) {
-                    if (! $this->capabilities->linkPreview) {
-                        return null;
-                    }
-
                     return $post->link_preview;
                 }),
 
             Schema\Arr::make('reactions')
-                ->visible(fn () => $this->capabilities->reactions)
                 ->get(function (SocialGroupPost $post) {
-                    if (! $this->capabilities->reactions) {
-                        return (object) [];
-                    }
-
                     return $this->aggregateReactions($post);
                 }),
 
             Schema\Str::make('actorReaction')
                 ->nullable()
-                ->visible(fn () => $this->capabilities->reactions)
                 ->get(function (SocialGroupPost $post, Context $context) {
-                    if (! $this->capabilities->reactions) {
-                        return null;
-                    }
                     $actor = $context->getActor();
                     if (! $actor->exists) {
                         return null;
@@ -573,9 +550,6 @@ class SocialGroupPostResource extends AbstractDatabaseResource
 
             Schema\Boolean::make('canPin')
                 ->get(function (SocialGroupPost $post, Context $context) {
-                    if (! $this->capabilities->isPinned) {
-                        return false;
-                    }
                     $actor = $context->getActor();
                     if (! $actor->exists) {
                         return false;

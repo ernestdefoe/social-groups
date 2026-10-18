@@ -301,4 +301,36 @@ class MembershipTest extends TestCase
         $this->assertSame('Public Open', $primary['normal']['name']);
         $this->assertSame('Approval Needed', $primary['outsider']['name']);
     }
+
+    #[Test]
+    public function a_primary_group_the_user_was_kicked_from_shows_no_chip()
+    {
+        $this->app();
+        $this->database()->table('social_group_user_primary')->insert(['user_id' => 4, 'group_id' => 1]);
+
+        [, $body] = $this->json('GET', '/api/users/4', 1);
+
+        $this->assertNull($body['data']['attributes']['sgPrimaryGroup']);
+        $this->assertSame([], $body['data']['attributes']['sgGroups']);
+    }
+
+    #[Test]
+    public function the_user_list_loads_every_badge_in_two_queries()
+    {
+        $this->app();
+        foreach ([2 => 1, 3 => 3, 5 => 2, 6 => 1] as $user => $group) {
+            $this->database()->table('social_group_user_primary')->insert(['user_id' => $user, 'group_id' => $group]);
+        }
+
+        $this->database()->enableQueryLog();
+        $this->json('GET', '/api/users', 1);
+        // Reads of our own tables; core's notification counts only mention
+        // them in a subquery and run with or without the badges.
+        $ours = array_filter(
+            array_column($this->database()->getQueryLog(), 'query'),
+            fn (string $sql) => preg_match('/^select [^(]*? from "\w*social_group/', $sql) === 1
+        );
+
+        $this->assertCount(2, $ours, implode("\n", $ours));
+    }
 }

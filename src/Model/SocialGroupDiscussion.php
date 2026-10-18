@@ -100,9 +100,7 @@ class SocialGroupDiscussion extends AbstractModel
     }
 
     /**
-     * Poll associated with the discussion (1:1). Present when
-     * `sg_polls` is installed; SchemaCapabilities filters the call
-     * sites.
+     * Poll associated with the discussion (1:1).
      *
      * @return HasOne<SgPoll, $this>
      */

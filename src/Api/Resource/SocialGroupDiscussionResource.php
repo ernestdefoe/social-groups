@@ -10,7 +10,6 @@ use Ernestdefoe\SocialGroups\Model\SgPollOption;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
-use Ernestdefoe\SocialGroups\Schema\SchemaCapabilities;
 use Ernestdefoe\SocialGroups\Service\Discussion\ShareDiscussionService;
 use Ernestdefoe\SocialGroups\Support\PendingDiscussionPayload;
 use Flarum\Api\Context;
@@ -36,10 +35,7 @@ use Tobyz\JsonApiServer\Exception\BadRequestException;
  * Index requires `?filter[group]=<id>` (without it responds empty). The
  * group privacy check runs in scope(); the policy gate on `view` covers
  * individual Show fetches. Search via `?filter[q]` performs an escaped
- * LIKE against title and first-post content. is_pinned and sorting by
- * is_pinned only kick in when `SchemaCapabilities` reports the column
- * exists — installs that pre-date the migration creating it keep
- * working without a crash.
+ * LIKE against title and first-post content.
  *
  * @extends AbstractDatabaseResource<SocialGroupDiscussion>
  */
@@ -76,7 +72,6 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
     protected array $memberCheckCache = [];
 
     public function __construct(
-        protected SchemaCapabilities $capabilities,
         protected Formatter $formatter,
         protected ShareDiscussionService $shareService,
         protected TranslatorInterface $translator,
@@ -151,12 +146,10 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             throw new PermissionDeniedException();
         }
 
-        if ($this->capabilities->isGallery) {
-            $query->where(function ($q) {
-                $q->whereNull('social_group_discussions.is_gallery')
-                  ->orWhere('social_group_discussions.is_gallery', false);
-            });
-        }
+        $query->where(function ($q) {
+            $q->whereNull('social_group_discussions.is_gallery')
+              ->orWhere('social_group_discussions.is_gallery', false);
+        });
 
         // `searchTerm`, not `q`: JSON:API reserves all-lowercase parameter
         // names and Flarum answers them with a 400, so a search never ran.
@@ -176,9 +169,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             });
         }
 
-        if ($this->capabilities->isPinned) {
-            $query->orderByDesc('social_group_discussions.is_pinned');
-        }
+        $query->orderByDesc('social_group_discussions.is_pinned');
 
         $this->applySort($query, isset($params['sortBy']) ? (string) $params['sortBy'] : 'latest');
 
@@ -267,41 +258,35 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             'group',
         ]);
 
-        if ($this->capabilities->reactions) {
-            $query->with('firstPost.reactions');
-        }
+        $query->with('firstPost.reactions');
 
-        if ($this->capabilities->sharedFrom) {
-            $query->with([
-                'sharedFromDiscussion.group',
-                'sharedFromDiscussion.user',
-                'sharedFromDiscussion.firstPost.user',
-            ]);
-        }
+        $query->with([
+            'sharedFromDiscussion.group',
+            'sharedFromDiscussion.user',
+            'sharedFromDiscussion.firstPost.user',
+        ]);
 
-        if ($this->capabilities->polls) {
-            /*
-             * `withCount('votes')` on each option materialises a
-             * `votes_count` attribute via a single GROUP BY query for
-             * the entire page — replaces the per-row
-             * `SgPollVote::whereIn(...)` that buildPoll() used to run
-             * for every discussion with a poll. The actor's own votes
-             * are eager-loaded into `poll.votes` constrained by
-             * `user_id = $actor->id`, which is one more query for the
-             * whole page (and skipped entirely for guests).
-             *
-             * Net: 20 discussions × 15 polls used to be 30 queries
-             * (vote-count + actor-vote per poll). Now it's 2 — one
-             * `withCount`, one constrained `with`.
-             */
+        /*
+         * `withCount('votes')` on each option materialises a
+         * `votes_count` attribute via a single GROUP BY query for
+         * the entire page — replaces the per-row
+         * `SgPollVote::whereIn(...)` that buildPoll() used to run
+         * for every discussion with a poll. The actor's own votes
+         * are eager-loaded into `poll.votes` constrained by
+         * `user_id = $actor->id`, which is one more query for the
+         * whole page (and skipped entirely for guests).
+         *
+         * Net: 20 discussions × 15 polls used to be 30 queries
+         * (vote-count + actor-vote per poll). Now it's 2 — one
+         * `withCount`, one constrained `with`.
+         */
+        $query->with([
+            'poll.options' => fn ($q) => $q->withCount('votes'),
+        ]);
+        if ($actor !== null && $actor->exists) {
             $query->with([
-                'poll.options' => fn ($q) => $q->withCount('votes'),
+                'poll.votes' => fn ($q) => $q->where('user_id', $actor->id),
             ]);
-            if ($actor !== null && $actor->exists) {
-                $query->with([
-                    'poll.votes' => fn ($q) => $q->where('user_id', $actor->id),
-                ]);
-            }
         }
     }
 
@@ -361,9 +346,6 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
     {
         /** @var SocialGroupDiscussion $d */
         $d = $context->model;
-        if (! $this->capabilities->isPinned) {
-            throw new BadRequestException($this->translator->trans('ernestdefoe-social-groups.lib.errors.pinning_unavailable'));
-        }
         $d->is_pinned = ! $d->is_pinned;
         $d->save();
 
@@ -399,8 +381,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 ->property('is_locked'),
 
             Schema\Boolean::make('isPinned')
-                ->visible(fn () => $this->capabilities->isPinned)
-                ->get(fn ($d) => $this->capabilities->isPinned ? (bool) $d->is_pinned : false),
+                ->get(fn ($d) => (bool) $d->is_pinned),
 
             Schema\DateTime::make('lastPostedAt')
                 ->property('last_posted_at'),
@@ -464,9 +445,6 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             // once for every discussion on the page.
             Schema\Boolean::make('canPin')
                 ->get(function ($d, Context $context) {
-                    if (! $this->capabilities->isPinned) {
-                        return false;
-                    }
                     $actor = $context->getActor();
                     if (! $actor->exists) {
                         return false;
@@ -488,24 +466,14 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
                 }),
 
             Schema\Arr::make('sharedFrom')
-                ->visible(fn () => $this->capabilities->sharedFrom)
                 ->get(function (SocialGroupDiscussion $d, Context $context) {
-                    if (! $this->capabilities->sharedFrom) {
-                        return null;
-                    }
-
                     return $this->buildSharedFrom($d, $context->getActor());
                 }),
 
             Schema\Arr::make('poll')
-                ->visible(fn () => $this->capabilities->polls)
                 ->writableOnCreate()
                 ->set(fn () => null)
                 ->get(function (SocialGroupDiscussion $d, Context $context) {
-                    if (! $this->capabilities->polls) {
-                        return null;
-                    }
-
                     return $this->buildPoll($d, $context);
                 }),
 
@@ -740,7 +708,7 @@ class SocialGroupDiscussionResource extends AbstractDatabaseResource
             'link_preview' => $linkPreview,
         ]);
 
-        if ($pollData !== null && $this->capabilities->polls) {
+        if ($pollData !== null) {
             $poll = SgPoll::create([
                 'discussion_id' => $model->id,
                 'question' => $pollData['question'],
