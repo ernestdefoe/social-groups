@@ -15,7 +15,6 @@ import SocialGroupNewPostNotification from './forum/components/SocialGroupNewPos
 import SocialGroupNewReplyNotification from './forum/components/SocialGroupNewReplyNotification';
 import SocialGroupJoinRequestNotification from './forum/components/SocialGroupJoinRequestNotification';
 import UserGroupBadges from './forum/components/UserGroupBadges';
-import PrimaryGroupSelector from './forum/components/PrimaryGroupSelector';
 
 app.initializers.add(
   'ernestdefoe-social-groups',
@@ -56,6 +55,21 @@ app.initializers.add(
         label: app.translator.trans('ernestdefoe-social-groups.forum.settings.notify_social_group_join_request_label'),
       });
     });
+
+    // The primary-group picker only shows on the member's own card and in
+    // their settings, so it is fetched the first time one of those renders.
+    let Picker = null;
+    const PrimaryGroupSelector = {
+      oninit() {
+        if (!Picker) {
+          import('./forum/components/PrimaryGroupSelector').then((mod) => {
+            Picker = mod.default;
+            m.redraw();
+          });
+        }
+      },
+      view: () => (Picker ? m(Picker) : null),
+    };
 
     // Routes. Each page is its own chunk, fetched when the route is visited,
     // together with the shared page-styles chunk, so a visitor who never opens
