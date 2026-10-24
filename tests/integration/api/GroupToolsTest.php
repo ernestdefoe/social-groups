@@ -86,6 +86,46 @@ class GroupToolsTest extends TestCase
     }
 
     #[Test]
+    public function a_gallery_image_is_deleted_by_its_uploader_the_groups_managers_and_forum_moderators()
+    {
+        $this->app();
+        $now = Carbon::now();
+        $this->database()->table('social_group_posts')->where('id', 2)->update(['content' => '![feed](https://img.test/feed.png)']);
+        $this->database()->table('social_group_discussions')->insert(['id' => 3, 'group_id' => 1, 'user_id' => 2, 'title' => '__gallery__', 'is_gallery' => true, 'comment_count' => 3, 'last_posted_at' => $now, 'created_at' => $now, 'updated_at' => $now]);
+        $this->database()->table('social_group_posts')->insert([
+            ['id' => 4, 'discussion_id' => 3, 'group_id' => 1, 'user_id' => 6, 'content' => "https://img.test/a.png\nhttps://img.test/b.png", 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 5, 'discussion_id' => 3, 'group_id' => 1, 'user_id' => 2, 'content' => 'https://img.test/c.png', 'created_at' => $now, 'updated_at' => $now],
+            ['id' => 6, 'discussion_id' => 3, 'group_id' => 1, 'user_id' => 4, 'content' => 'https://img.test/d.png', 'created_at' => $now, 'updated_at' => $now],
+        ]);
+        $delete = fn (?int $actor, int $post, string $url) => $this->json('DELETE', "/api/sg-media-post/$post", $actor, ['url' => $url])[0];
+
+        [, $body] = $this->json('GET', '/api/sg-media/1', 6);
+        $flags = array_column($body['data'], 'canDelete', 'url');
+        $this->assertTrue($flags['https://img.test/a.png'], 'The uploader, muted but still a member');
+        $this->assertFalse($flags['https://img.test/c.png'], 'Someone else\'s upload');
+        $this->assertFalse($flags['https://img.test/feed.png'], 'A feed image goes with its post');
+
+        $this->assertSame(401, $delete(null, 4, 'https://img.test/a.png'));
+        $this->assertSame(403, $delete(3, 4, 'https://img.test/a.png'), 'An outsider');
+        $this->assertSame(403, $delete(6, 5, 'https://img.test/c.png'), 'A member, someone else\'s upload');
+        $this->assertSame(403, $delete(4, 6, 'https://img.test/d.png'), 'Its uploader, since kicked');
+        $this->assertSame(404, $delete(1, 4, 'https://img.test/nope.png'), 'An image the post does not hold');
+        $this->assertSame(404, $delete(1, 2, 'https://img.test/feed.png'), 'A feed post is not gallery media');
+
+        $this->assertSame(204, $delete(6, 4, 'https://img.test/a.png'), 'The uploader');
+        $this->assertSame('https://img.test/b.png', $this->database()->table('social_group_posts')->where('id', 4)->value('content'), 'The batch\'s other image stays');
+
+        $this->assertSame(204, $delete(5, 4, 'https://img.test/b.png'), 'A group moderator');
+        $this->assertFalse($this->database()->table('social_group_posts')->where('id', 4)->exists(), 'An emptied post goes');
+
+        $this->assertSame(204, $delete(7, 6, 'https://img.test/d.png'), 'A forum social-groups moderator, in no group');
+        $this->assertSame(1, (int) $this->database()->table('social_group_discussions')->where('id', 3)->value('comment_count'));
+
+        [, $body] = $this->json('GET', '/api/sg-media/1', 2);
+        $this->assertEqualsCanonicalizing(['https://img.test/c.png', 'https://img.test/feed.png'], array_column($body['data'], 'url'));
+    }
+
+    #[Test]
     public function a_public_groups_feed_is_rss_and_a_private_ones_is_refused()
     {
         $response = $this->send($this->request('GET', '/groups/public-open/feed.rss'));

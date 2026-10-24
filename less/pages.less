@@ -2563,6 +2563,19 @@
     &:hover { color: #fff; text-decoration: underline; }
   }
 
+  &-lightboxDelete {
+    margin-left: 8px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: rgba(255, 255, 255, 0.65);
+    font: inherit;
+    cursor: pointer;
+
+    &:hover, &:focus-visible { color: #f87171; }
+    &[disabled] { opacity: 0.5; cursor: default; }
+  }
+
   &-lightboxCounter {
     margin-top: 6px;
     font-size: 0.8em;

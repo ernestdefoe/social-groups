@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiUpload } from '../utils/http';
+import { apiGet, apiPost, apiUpload, resolveUrl } from '../utils/http';
 import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
@@ -110,6 +110,24 @@ export default class GroupMediaGallery extends Component {
           err.message ||
           extractText(app.translator.trans('ernestdefoe-social-groups.forum.upload.failed'));
         m.redraw();
+      });
+  }
+
+  // ── Delete ──────────────────────────────────────────────────────────────────
+
+  deleteItem(item) {
+    if (this.deleting || !confirm(extractText(app.translator.trans('ernestdefoe-social-groups.forum.media.delete_confirm')))) return;
+    this.deleting = true;
+
+    app
+      .request({ method: 'DELETE', url: resolveUrl(`/sg-media-post/${item.postId}`), body: { url: item.url } })
+      .catch(() => {})
+      .then(() => {
+        this.deleting = false;
+        this.lightboxIndex = null;
+        this._brokenIndexes = new Set();
+        // The last image on a page that empties it sends us back one page.
+        this.load(this.items.length === 1 && this.page > 1 ? this.page - 1 : this.page);
       });
   }
 
@@ -328,6 +346,13 @@ export default class GroupMediaGallery extends Component {
                       },
                       [m('i.fa-solid.fa-arrow-up-right-from-square'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.media.view_post')]
                     )
+                  : null,
+                item.canDelete
+                  ? m('button.SGMedia-lightboxDelete', { onclick: () => this.deleteItem(item), disabled: this.deleting }, [
+                      m('i.fa-solid.fa-trash'),
+                      ' ',
+                      app.translator.trans('ernestdefoe-social-groups.forum.media.delete'),
+                    ])
                   : null,
               ])
             : null,

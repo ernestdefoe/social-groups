@@ -7,6 +7,7 @@ use Ernestdefoe\SocialGroups\Api\Concern\ReadsRouteParam;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupDiscussion;
 use Ernestdefoe\SocialGroups\Model\SocialGroupPost;
+use Ernestdefoe\SocialGroups\Service\Media\GalleryPostService;
 use Flarum\Formatter\Formatter;
 use Flarum\Http\RequestUtil;
 use Flarum\User\Exception\NotAuthenticatedException;
@@ -89,18 +90,24 @@ class ListGroupMediaController implements RequestHandlerInterface
                         $rendered = $this->formatter->render($post->content_parsed);
                         $urls = $this->extractImageUrls($rendered);
                     } else {
-                        $urls = $this->extractRawUrls($post->content ?? '');
+                        $urls = GalleryPostService::urls($post->content ?? '');
                     }
                 } catch (\Throwable) {
-                    $urls = $this->extractRawUrls($post->content ?? '');
+                    $urls = GalleryPostService::urls($post->content ?? '');
                 }
+
+                $isGallery = isset($gallerySet[$post->discussion_id]);
+                // Only a gallery image is deleted on its own: one in a feed
+                // post goes with that post, from the post's own menu.
+                $canDelete = $isGallery && $this->access->canDeleteContent($actor, $group, (int) $post->user_id);
 
                 foreach ($urls as $url) {
                     $items[] = [
                         'url' => $url,
                         'postId' => $post->id,
                         'discussionId' => $post->discussion_id,
-                        'isGallery' => isset($gallerySet[$post->discussion_id]),
+                        'isGallery' => $isGallery,
+                        'canDelete' => $canDelete,
                         'createdAt' => $post->created_at?->toIso8601String(),
                         'user' => $post->user ? [
                             'id' => $post->user->id,
@@ -126,18 +133,6 @@ class ListGroupMediaController implements RequestHandlerInterface
 
             return new JsonResponse(['error' => $this->translator->trans('ernestdefoe-social-groups.lib.errors.unexpected')], 500);
         }
-    }
-
-    /**
-     * URLs in raw content, stopping at brackets and quotes so a BBCode
-     * wrapper never bleeds onto the match.
-     */
-    private function extractRawUrls(string $content): array
-    {
-        preg_match_all('#https?://[^\s\[\]<>"\']+#i', $content, $matches);
-        $urls = array_map(fn ($u) => rtrim($u, '.,;:!?)}"\''), $matches[0]);
-
-        return array_values(array_unique(array_filter($urls)));
     }
 
     /**

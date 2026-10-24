@@ -5,6 +5,7 @@ use Ernestdefoe\SocialGroups\Access\SocialGroupJoinRequestPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupMemberPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupPolicy;
 use Ernestdefoe\SocialGroups\Access\SocialGroupPostPolicy;
+use Ernestdefoe\SocialGroups\Api\Controller\DeleteGroupMediaController;
 use Ernestdefoe\SocialGroups\Api\Controller\FetchLinkPreviewController;
 use Ernestdefoe\SocialGroups\Api\Controller\GroupAnalyticsController;
 use Ernestdefoe\SocialGroups\Api\Controller\GroupRssFeedController;
@@ -68,6 +69,7 @@ return [
         ->get('/sg-link-preview', 'sg-link-preview', FetchLinkPreviewController::class)
         ->get('/sg-media/{groupId}', 'sg-media.list', ListGroupMediaController::class)
         ->post('/sg-media-post/{groupId}', 'sg-media-post.store', StoreGroupMediaPostController::class)
+        ->delete('/sg-media-post/{postId}', 'sg-media-post.delete', DeleteGroupMediaController::class)
         ->post('/sg-typing', 'sg.typing', TypingStatusController::class),
 
     (new Extend\ThrottleApi())
