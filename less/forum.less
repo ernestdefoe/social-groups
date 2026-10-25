@@ -226,17 +226,17 @@
     transition: background 0.15s;
   }
 
-  // 🚨 The pill is a link inside the user card, and core's `.UserCard a`
-  // (0,1,1) paints every link there in the card's light content colour: white
-  // text on a light pill. Two classes outrank it, so the pill always carries
-  // the theme's own control background with the text colour made for it.
+  // 🚨 The pill is a link on the user card, and links there are painted in
+  // the card's light content colour by core (`.UserCard a`) and by themes
+  // (Bespoke: `.Hero a { color: inherit }`): white text on a light pill. The
+  // name is a span, so it takes its colour here and no link rule reaches it;
+  // the pill carries the theme's control background with the page's text
+  // colour, which reads in light and dark mode alike.
   & &-badge {
     background: var(--control-bg, #f3f4f6);
-    color: var(--control-color, var(--text-color, #374151));
 
     &:hover {
       background: var(--secondary-bg, #e5e7eb);
-      color: var(--control-color, var(--text-color, #374151));
       text-decoration: none;
     }
   }
@@ -261,6 +261,7 @@
   }
 
   &-name {
+    color: var(--text-color, #374151);
     font-weight: 500;
     max-width: 120px;
     overflow: hidden;
