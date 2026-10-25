@@ -113,7 +113,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
     font-size: 1.5rem;
 
     &--none {
@@ -175,7 +174,6 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
     font-size: 10px;
     font-weight: 700;
   }
@@ -223,13 +221,24 @@
     gap: 5px;
     padding: 3px 8px 3px 4px;
     border-radius: 20px;
-    background: var(--control-bg, #f3f4f6);
     text-decoration: none;
-    color: var(--text-color, #374151);
     font-size: 0.8em;
     transition: background 0.15s;
+  }
 
-    &:hover { background: var(--secondary-bg, #e5e7eb); text-decoration: none; }
+  // 🚨 The pill is a link inside the user card, and core's `.UserCard a`
+  // (0,1,1) paints every link there in the card's light content colour: white
+  // text on a light pill. Two classes outrank it, so the pill always carries
+  // the theme's own control background with the text colour made for it.
+  & &-badge {
+    background: var(--control-bg, #f3f4f6);
+    color: var(--control-color, var(--text-color, #374151));
+
+    &:hover {
+      background: var(--secondary-bg, #e5e7eb);
+      color: var(--control-color, var(--text-color, #374151));
+      text-decoration: none;
+    }
   }
 
   &-img {
@@ -246,7 +255,6 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    color: #fff;
     font-size: 0.65em;
     font-weight: 700;
     flex-shrink: 0;

@@ -2,6 +2,7 @@ import { loadUserGroups } from '../utils/userGroups';
 import app from 'flarum/forum/app';
 import Component from 'flarum/common/Component';
 import Link from 'flarum/common/components/Link';
+import textContrastClass from 'flarum/common/helpers/textContrastClass';
 
 export default class UserGroupBadges extends Component {
   oninit(vnode) {
@@ -50,7 +51,11 @@ export default class UserGroupBadges extends Component {
             [
               group.imageUrl
                 ? m('img.UserGroupBadges-img', { src: group.imageUrl, alt: '' })
-                : m('span.UserGroupBadges-initial', { style: `background:${group.color || '#4A90E2'}` }, (group.name || '?')[0].toUpperCase()),
+                : m(
+                    'span.UserGroupBadges-initial',
+                    { class: textContrastClass(group.color || '#4A90E2'), style: `background:${group.color || '#4A90E2'}` },
+                    (group.name || '?')[0].toUpperCase()
+                  ),
               m('span.UserGroupBadges-name', group.name),
             ]
           )

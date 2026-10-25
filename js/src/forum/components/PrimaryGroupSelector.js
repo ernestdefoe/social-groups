@@ -4,6 +4,7 @@ import app from 'flarum/forum/app';
 import extractText from 'flarum/common/utils/extractText';
 import Component from 'flarum/common/Component';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
+import textContrastClass from 'flarum/common/helpers/textContrastClass';
 
 /**
  * Shown in the user account settings page so members can choose
@@ -113,6 +114,7 @@ export default class PrimaryGroupSelector extends Component {
                     : m(
                         'span.SG-PrimaryGroupSelector-tileBadge',
                         {
+                          class: textContrastClass(group.color || '#4A90E2'),
                           style: `background:${group.color || '#4A90E2'}`,
                         },
                         m('i.fa-solid.fa-users')

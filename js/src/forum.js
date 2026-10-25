@@ -6,6 +6,7 @@ import CommentPost from 'flarum/forum/components/CommentPost';
 import UserPage from 'flarum/forum/components/UserPage';
 import Link from 'flarum/common/components/Link';
 import LinkButton from 'flarum/common/components/LinkButton';
+import textContrastClass from 'flarum/common/helpers/textContrastClass';
 import SocialGroup from './forum/models/SocialGroup';
 import SocialGroupDiscussion from './forum/models/SocialGroupDiscussion';
 import SocialGroupPost from './forum/models/SocialGroupPost';
@@ -166,7 +167,11 @@ app.initializers.add(
             [
               g.imageUrl
                 ? m('img.SG-PostGroupChip-img', { src: g.imageUrl, alt: '' })
-                : m('span.SG-PostGroupChip-disc', { style: `background:${g.color || '#4A90E2'}` }, (g.name || '?')[0].toUpperCase()),
+                : m(
+                    'span.SG-PostGroupChip-disc',
+                    { class: textContrastClass(g.color || '#4A90E2'), style: `background:${g.color || '#4A90E2'}` },
+                    (g.name || '?')[0].toUpperCase()
+                  ),
               m('span.SG-PostGroupChip-name', g.name),
             ]
           ),
