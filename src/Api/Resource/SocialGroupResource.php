@@ -116,7 +116,11 @@ class SocialGroupResource extends AbstractDatabaseResource
             Endpoint\Endpoint::make('social-groups.join')
                 ->route('POST', '/{id}/join')
                 ->authenticated()
-                ->action(fn (Context $context) => $this->membership($context, fn (Memberships $m) => $m->join($context->model, $context->getActor()))),
+                ->action(fn (Context $context) => $this->membership($context, fn (Memberships $m) => $m->join(
+                    $context->model,
+                    $context->getActor(),
+                    (bool) ($context->request->getParsedBody()['switch'] ?? false)
+                ))),
 
             Endpoint\Endpoint::make('social-groups.leave')
                 ->route('POST', '/{id}/leave')
@@ -195,6 +199,27 @@ class SocialGroupResource extends AbstractDatabaseResource
             Schema\Boolean::make('isFeatured')
                 ->property('is_featured')
                 ->writable(fn ($group, Context $context) => $context->getActor()->isAdmin()),
+
+            /**
+             * Groups with the same set ("Houses") allow one membership between
+             * them. Set by forum admins; blank clears it.
+             */
+            Schema\Str::make('exclusiveSet')
+                ->property('exclusive_set')
+                ->nullable()
+                ->writable(fn ($group, Context $context) => $context->getActor()->isAdmin())
+                ->maxLength(50)
+                ->set(function (SocialGroup $group, ?string $value) {
+                    $value = trim((string) $value);
+                    $group->exclusive_set = $value === '' ? null : $value;
+                }),
+
+            /** The actor's group in the same set, which joining this one would leave. */
+            Schema\Arr::make('exclusiveWith')
+                ->nullable()
+                ->get(fn (SocialGroup $group, Context $context) => $this->access()->isMember($context->getActor(), $group)
+                    ? null
+                    : $this->access()->exclusiveConflict($context->getActor(), $group)),
 
             Schema\Boolean::make('isCreator')
                 ->get(fn (SocialGroup $group, Context $context) => $this->access()->isOwner($context->getActor(), $group)),

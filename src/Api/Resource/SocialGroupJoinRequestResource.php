@@ -2,10 +2,10 @@
 
 namespace Ernestdefoe\SocialGroups\Api\Resource;
 
-use Carbon\Carbon;
 use Ernestdefoe\SocialGroups\Api\Resource\Concerns\ResolvesServices;
 use Ernestdefoe\SocialGroups\Model\SocialGroup;
 use Ernestdefoe\SocialGroups\Model\SocialGroupJoinRequest;
+use Ernestdefoe\SocialGroups\Service\Group\Memberships;
 use Flarum\Api\Context;
 use Flarum\Api\Endpoint;
 use Flarum\Api\Resource\AbstractDatabaseResource;
@@ -124,7 +124,9 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
 
     /**
      * Approving twice is refused; approving someone who is already a member
-     * only closes the request.
+     * only closes the request. The member is admitted before the request is
+     * marked approved, so one that can't be (they created another group of the
+     * same exclusive set) stays pending.
      */
     private function approve(SocialGroupJoinRequest $request): SocialGroupJoinRequest
     {
@@ -132,14 +134,13 @@ class SocialGroupJoinRequestResource extends AbstractDatabaseResource
             throw new BadRequestException($this->translator()->trans('ernestdefoe-social-groups.lib.errors.request_not_pending'));
         }
 
+        $group = $request->group;
+        if ($group !== null) {
+            $this->container->make(Memberships::class)->admitRequested($group, (int) $request->user_id);
+        }
+
         $request->status = 'approved';
         $request->save();
-
-        $group = $request->group;
-        if ($group !== null && ! $group->members()->where('user_id', $request->user_id)->exists()) {
-            $group->members()->create(['user_id' => $request->user_id, 'role' => 'member', 'joined_at' => Carbon::now()]);
-            $group->increment('member_count');
-        }
 
         return $request;
     }

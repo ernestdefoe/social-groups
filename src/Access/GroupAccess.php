@@ -19,7 +19,7 @@ class GroupAccess
 {
     public const MANAGER_ROLES = ['creator', 'moderator'];
 
-    /** @var WeakMap<User, array<int, array{role: string, muted: bool}>> */
+    /** @var WeakMap<User, array<int, array{role: string, muted: bool, set: ?string, name: string}>> */
     private WeakMap $memberships;
 
     public function __construct()
@@ -202,18 +202,50 @@ class GroupAccess
         });
     }
 
-    /** @return array<int, array{role: string, muted: bool}> */
+    /**
+     * The actor's membership of another group in the same exclusive set, if
+     * they have one: what stands between them and joining this one. Comes
+     * from the memberships already loaded for the request, so it costs no
+     * query per group card.
+     *
+     * @return array{id: int, name: string, role: string}|null
+     */
+    public function exclusiveConflict(User $actor, SocialGroup $group): ?array
+    {
+        $set = $group->exclusive_set;
+        if ($set === null || $set === '' || ! $actor->exists) {
+            return null;
+        }
+
+        $this->memberships[$actor] ??= $this->loadMemberships($actor);
+
+        foreach ($this->memberships[$actor] as $groupId => $membership) {
+            if ($groupId !== (int) $group->id && $membership['set'] !== null && strcasecmp($membership['set'], $set) === 0) {
+                return ['id' => $groupId, 'name' => $membership['name'], 'role' => $membership['role']];
+            }
+        }
+
+        return null;
+    }
+
+    /** @return array<int, array{role: string, muted: bool, set: ?string, name: string}> */
     private function loadMemberships(User $actor): array
     {
         $rows = SocialGroupMember::query()
-            ->where('user_id', $actor->id)
-            ->whereNull('banned_at')
+            ->join('social_groups', 'social_groups.id', '=', 'social_group_members.group_id')
+            ->where('social_group_members.user_id', $actor->id)
+            ->whereNull('social_group_members.banned_at')
             ->toBase()
-            ->get(['group_id', 'role', 'muted_at']);
+            ->get(['social_group_members.group_id', 'social_group_members.role', 'social_group_members.muted_at', 'social_groups.exclusive_set', 'social_groups.name']);
 
         $memberships = [];
         foreach ($rows as $row) {
-            $memberships[(int) $row->group_id] = ['role' => (string) $row->role, 'muted' => $row->muted_at !== null];
+            $memberships[(int) $row->group_id] = [
+                'role' => (string) $row->role,
+                'muted' => $row->muted_at !== null,
+                'set' => $row->exclusive_set !== null ? (string) $row->exclusive_set : null,
+                'name' => (string) $row->name,
+            ];
         }
 
         return $memberships;

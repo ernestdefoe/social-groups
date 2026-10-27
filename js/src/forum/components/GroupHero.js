@@ -1,4 +1,4 @@
-import { changeMembership } from '../utils/membership';
+import { changeMembership, joinLabelKey } from '../utils/membership';
 import { hueShift } from '../utils/colors';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -51,6 +51,13 @@ export default class GroupHero extends Component {
                 : m('span', [m('i.fa-solid.fa-globe'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.public')]),
               isApproval
                 ? m('span', [m('i.fa-solid.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
+                : null,
+              group.exclusiveSet()
+                ? m('span', [
+                    m('i.fa-solid.fa-right-left'),
+                    ' ',
+                    app.translator.trans('ernestdefoe-social-groups.forum.groups.in_set', { set: group.exclusiveSet() }),
+                  ])
                 : null,
               !group.isPrivate()
                 ? m(
@@ -121,7 +128,11 @@ export default class GroupHero extends Component {
           loading: this.joining,
           onclick: () => this.runMembership(group, 'join'),
         },
-        [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]
+        [
+          m(group.exclusiveWith() ? 'i.fa-solid.fa-right-left' : 'i.fa-solid.fa-user-plus'),
+          ' ',
+          app.translator.trans('ernestdefoe-social-groups.forum.groups.' + joinLabelKey(group)),
+        ]
       );
     }
 
@@ -132,7 +143,11 @@ export default class GroupHero extends Component {
         loading: this.joining,
         onclick: () => this.runMembership(group, 'join'),
       },
-      [m('i.fa-solid.fa-arrow-right-to-bracket'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.join')]
+      [
+        m(group.exclusiveWith() ? 'i.fa-solid.fa-right-left' : 'i.fa-solid.fa-arrow-right-to-bracket'),
+        ' ',
+        app.translator.trans('ernestdefoe-social-groups.forum.groups.' + joinLabelKey(group)),
+      ]
     );
   }
 

@@ -31,8 +31,13 @@ class Memberships
     /**
      * Open groups admit at once; approval groups file a request and tell the
      * managers; invite-only and private groups refuse.
+     *
+     * A group in an exclusive set refuses someone already in another group of
+     * that set, unless they ask to $switch: an open group then moves them at
+     * once, an approval group files the request and moves them when it is
+     * approved.
      */
-    public function join(SocialGroup $group, User $actor): void
+    public function join(SocialGroup $group, User $actor, bool $switch = false): void
     {
         $actor->assertRegistered();
 
@@ -53,13 +58,100 @@ class Memberships
             throw new PermissionDeniedException($this->trans('invite_only'));
         }
 
+        $conflict = $this->access->exclusiveConflict($actor, $group);
+        if ($conflict !== null) {
+            $this->assertCanSwitch($conflict, $group, $switch);
+        }
+
         if ($group->membership_type === 'approval') {
             $this->requestToJoin($group, $actor);
 
             return;
         }
 
+        if ($conflict !== null) {
+            $this->remove($conflict['id'], (int) $actor->id);
+        }
+
         $this->admit($group, (int) $actor->id);
+        $this->access->flush();
+    }
+
+    /**
+     * Approving a request from someone who has since joined another group of
+     * the set moves them: one group of the set at a time is the rule they
+     * asked under. A group's creator can't be moved out of the group they made.
+     */
+    public function admitRequested(SocialGroup $group, int $userId): void
+    {
+        if ($group->members()->where('user_id', $userId)->exists()) {
+            return;
+        }
+
+        $conflict = $this->conflictFor($group, $userId);
+        if ($conflict !== null) {
+            if ($conflict['role'] === 'creator') {
+                throw new ValidationException(['exclusiveSet' => $this->trans('exclusive_member_is_creator', ['group' => $conflict['name']])]);
+            }
+            $this->remove($conflict['id'], $userId);
+        }
+
+        $this->admit($group, $userId);
+    }
+
+    /**
+     * @param array{id: int, name: string, role: string} $conflict
+     */
+    private function assertCanSwitch(array $conflict, SocialGroup $group, bool $switch): void
+    {
+        $params = ['group' => $conflict['name'], 'set' => (string) $group->exclusive_set];
+
+        if ($conflict['role'] === 'creator') {
+            throw new ValidationException(['exclusiveSet' => $this->trans('exclusive_creator', $params)]);
+        }
+
+        if (! $switch) {
+            throw new ValidationException(['exclusiveSet' => $this->trans('exclusive_conflict', $params)]);
+        }
+    }
+
+    /**
+     * Someone else's membership of another group in this group's set (a
+     * manager adding them, a request being approved): one query.
+     *
+     * @return array{id: int, name: string, role: string}|null
+     */
+    private function conflictFor(SocialGroup $group, int $userId): ?array
+    {
+        if ($group->exclusive_set === null || $group->exclusive_set === '') {
+            return null;
+        }
+
+        $row = SocialGroupMember::query()
+            ->join('social_groups', 'social_groups.id', '=', 'social_group_members.group_id')
+            ->where('social_group_members.user_id', $userId)
+            ->whereNull('social_group_members.banned_at')
+            ->where('social_groups.exclusive_set', $group->exclusive_set)
+            ->where('social_groups.id', '!=', $group->id)
+            ->toBase()
+            ->first(['social_groups.id', 'social_groups.name', 'social_group_members.role']);
+
+        return $row ? ['id' => (int) $row->id, 'name' => (string) $row->name, 'role' => (string) $row->role] : null;
+    }
+
+    /** Takes a member out of a group, as leaving does. */
+    private function remove(int $groupId, int $userId): void
+    {
+        $removed = SocialGroupMember::query()
+            ->where('group_id', $groupId)
+            ->where('user_id', $userId)
+            ->where('role', '!=', 'creator')
+            ->whereNull('banned_at')
+            ->delete();
+
+        if ($removed) {
+            SocialGroup::query()->whereKey($groupId)->where('member_count', '>', 0)->decrement('member_count');
+        }
     }
 
     /**
@@ -87,7 +179,8 @@ class Memberships
 
     /**
      * Adding someone by username. Re-admitting a kicked member undoes a ban,
-     * which only the group's owner may do.
+     * which only the group's owner may do. Someone in another group of the
+     * same exclusive set is refused: switching is theirs to choose.
      */
     public function invite(SocialGroup $group, User $actor, string $username): void
     {
@@ -99,6 +192,11 @@ class Memberships
         $existing = $group->members()->where('user_id', $user->id)->first();
         if ($existing !== null && $existing->banned_at === null) {
             throw new ValidationException(['username' => $this->trans('already_member')]);
+        }
+
+        $conflict = $this->conflictFor($group, (int) $user->id);
+        if ($conflict !== null) {
+            throw new ValidationException(['username' => $this->trans('exclusive_invite', ['username' => $user->display_name, 'group' => $conflict['name']])]);
         }
 
         if ($existing === null) {
@@ -166,8 +264,9 @@ class Memberships
         }
     }
 
-    private function trans(string $error): string
+    /** @param array<string, string> $params */
+    private function trans(string $error, array $params = []): string
     {
-        return $this->translator->trans('ernestdefoe-social-groups.lib.errors.'.$error);
+        return $this->translator->trans('ernestdefoe-social-groups.lib.errors.'.$error, $params);
     }
 }

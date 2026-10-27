@@ -33,6 +33,16 @@ export default class SocialGroup extends Model {
     return this.attribute('memberCount');
   }
 
+  /** The set name ("Houses") this group shares with others: one membership between them. */
+  exclusiveSet() {
+    return this.attribute('exclusiveSet');
+  }
+
+  /** {id, name} of the actor's group in the same set, which joining this one would leave. */
+  exclusiveWith() {
+    return this.attribute('exclusiveWith');
+  }
+
   createdAt() {
     return Model.attribute('createdAt', Model.transformDate).call(this);
   }

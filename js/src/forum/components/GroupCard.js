@@ -1,4 +1,4 @@
-import { changeMembership } from '../utils/membership';
+import { changeMembership, joinLabelKey } from '../utils/membership';
 import { shade } from '../utils/colors';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -271,9 +271,10 @@ export default class GroupCard extends Component {
           this.toggleMembership(group);
         },
       },
-      isApproval
-        ? [m('i.fa-solid.fa-user-plus'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.request_to_join')]
-        : app.translator.trans('ernestdefoe-social-groups.forum.groups.join')
+      [
+        group.exclusiveWith() ? [m('i.fa-solid.fa-right-left'), ' '] : isApproval ? [m('i.fa-solid.fa-user-plus'), ' '] : null,
+        app.translator.trans('ernestdefoe-social-groups.forum.groups.' + joinLabelKey(group)),
+      ]
     );
   }
 

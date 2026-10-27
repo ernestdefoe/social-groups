@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $member_count
  * @property string $membership_type  open | approval | invite
  * @property bool $is_featured
+ * @property string|null $exclusive_set  groups sharing one allow one membership between them
  * @property \Carbon\Carbon|null $created_at
  * @property \Carbon\Carbon|null $updated_at
  * @property-read int|null $actor_is_pending

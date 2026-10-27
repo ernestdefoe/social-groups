@@ -16,6 +16,7 @@ export default class EditGroupModal extends Modal {
     this.color = Stream(group.color() || PRESET_COLORS[0]);
     this.isPrivate = Stream(group.isPrivate() || false);
     this.membershipType = Stream(group.membershipType() || 'open');
+    this.exclusiveSet = Stream(group.exclusiveSet() || '');
     this.submitting = false;
     this.errors = {};
     this.deleting = false;
@@ -118,6 +119,21 @@ export default class EditGroupModal extends Modal {
         ]),
       ]),
 
+      // Exclusive set: forum admins only, the same people who feature groups.
+      group.canFeature()
+        ? m('div.Form-group', [
+            m('label', app.translator.trans('ernestdefoe-social-groups.forum.edit_modal.exclusive_set_label')),
+            m('input.FormControl', {
+              type: 'text',
+              placeholder: app.translator.trans('ernestdefoe-social-groups.forum.edit_modal.exclusive_set_placeholder'),
+              value: this.exclusiveSet(),
+              oninput: (e) => this.exclusiveSet(e.target.value),
+              maxlength: 50,
+            }),
+            m('p.helpText', app.translator.trans('ernestdefoe-social-groups.forum.edit_modal.exclusive_set_help')),
+          ])
+        : null,
+
       // Image uploads
       m('div.Form-group', [
         m('label', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.image_label')),
@@ -195,6 +211,7 @@ export default class EditGroupModal extends Modal {
         color: this.color(),
         isPrivate: this.isPrivate(),
         membershipType: this.membershipType(),
+        ...(group.canFeature() ? { exclusiveSet: this.exclusiveSet().trim() || null } : {}),
       })
       .then(() => this.hide())
       .catch((err) => {
