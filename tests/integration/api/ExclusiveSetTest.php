@@ -157,6 +157,16 @@ class ExclusiveSetTest extends TestCase
     }
 
     #[Test]
+    public function a_set_name_matches_whatever_its_case()
+    {
+        $this->database()->table('social_groups')->where('id', 12)->update(['exclusive_set' => 'houses']);
+        $this->json('POST', '/api/social-groups/11/join', 6);
+
+        $this->assertSame(422, $this->json('POST', '/api/social-groups/12/join', 6)[0]);
+        $this->assertSame(422, $this->json('POST', '/api/social-groups/12/invite', 1, ['username' => 'muted'])[0]);
+    }
+
+    #[Test]
     public function groups_outside_any_set_are_unaffected()
     {
         $this->json('POST', '/api/social-groups/11/join', 6);

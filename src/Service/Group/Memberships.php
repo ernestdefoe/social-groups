@@ -131,12 +131,18 @@ class Memberships
             ->join('social_groups', 'social_groups.id', '=', 'social_group_members.group_id')
             ->where('social_group_members.user_id', $userId)
             ->whereNull('social_group_members.banned_at')
-            ->where('social_groups.exclusive_set', $group->exclusive_set)
+            ->whereRaw('lower('.$this->wrap('social_groups.exclusive_set').') = ?', [mb_strtolower($group->exclusive_set)])
             ->where('social_groups.id', '!=', $group->id)
             ->toBase()
             ->first(['social_groups.id', 'social_groups.name', 'social_group_members.role']);
 
         return $row ? ['id' => (int) $row->id, 'name' => (string) $row->name, 'role' => (string) $row->role] : null;
+    }
+
+    /** A column name quoted (and prefixed) for this database. */
+    private function wrap(string $column): string
+    {
+        return SocialGroupMember::query()->getQuery()->getGrammar()->wrap($column);
     }
 
     /** Takes a member out of a group, as leaving does. */

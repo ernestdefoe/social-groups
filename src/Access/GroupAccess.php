@@ -220,7 +220,7 @@ class GroupAccess
         $this->memberships[$actor] ??= $this->loadMemberships($actor);
 
         foreach ($this->memberships[$actor] as $groupId => $membership) {
-            if ($groupId !== (int) $group->id && $membership['set'] !== null && strcasecmp($membership['set'], $set) === 0) {
+            if ($groupId !== (int) $group->id && $membership['set'] !== null && mb_strtolower($membership['set']) === mb_strtolower($set)) {
                 return ['id' => $groupId, 'name' => $membership['name'], 'role' => $membership['role']];
             }
         }
