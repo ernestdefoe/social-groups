@@ -31,7 +31,8 @@ class ZzQueryCountProbeTest extends TestCase
      */
     protected function allowedRepeatedQueries(): array
     {
-        return ['group_user" on'];
+        // Both quote styles: "…" on SQLite and PostgreSQL, `…` on MySQL and MariaDB.
+        return ['group_user" on', 'group_user` on'];
     }
 
     #[Test]
@@ -54,7 +55,8 @@ class ZzQueryCountProbeTest extends TestCase
             $db->table('social_group_posts')->insert(['id' => 100 + $i, 'discussion_id' => 1, 'group_id' => 1, 'user_id' => $author, 'content' => "R$i", 'parent_post_id' => $i % 2 ? 2 : null, 'created_at' => $now, 'updated_at' => $now]);
             $db->table('social_group_post_reactions')->insert(['post_id' => $i, 'user_id' => 5, 'reaction' => 'like']);
             $db->table('sg_polls')->insert(['id' => $i, 'discussion_id' => $i, 'question' => 'Q', 'is_multi_select' => false, 'created_at' => $now]);
-            $db->table('sg_poll_options')->insert(['poll_id' => $i, 'text' => 'X', 'sort_order' => 0]);
+            // An explicit id: PostgreSQL's sequence doesn't move past the ids inserted above.
+            $db->table('sg_poll_options')->insert(['id' => 100 + $i, 'poll_id' => $i, 'text' => 'X', 'sort_order' => 0]);
         }
         for ($i = 10; $i < 30; $i++) {
             $db->table('notifications')->insert(['user_id' => 5, 'from_user_id' => 20 + $i - 10, 'type' => 'socialGroupNewPost', 'subject_id' => $i, 'data' => json_encode(['postId' => $i, 'discussionId' => $i, 'groupId' => 1]), 'created_at' => $now, 'is_deleted' => 0]);
