@@ -247,7 +247,7 @@ export default class GroupCard extends Component {
     }
 
     // Bought, not joined: the card sends them to the group's page and its offer.
-    if (group.membershipType() === 'paid') {
+    if (group.membershipType() === 'paid' && !group.ownedThroughKiosk()) {
       return m(
         Button,
         {

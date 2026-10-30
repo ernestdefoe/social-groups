@@ -45,9 +45,9 @@ export function uploadGroupImage(groupId, slot, file) {
   });
 }
 
-/** Joined by buying it through Kiosk, not with the Join button. */
+/** Joined by buying it through Kiosk — unless this person already did, and left. */
 export function isPaid(group) {
-  return group.membershipType() === 'paid';
+  return group.membershipType() === 'paid' && !group.ownedThroughKiosk();
 }
 
 /**

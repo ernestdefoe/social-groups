@@ -191,6 +191,15 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->nullable()
                 ->in(['open', 'approval', 'invite', 'paid']),
 
+            // A paid group this person bought (through Kiosk): they join with
+            // the ordinary Join button. Kiosk answers from memory, no query.
+            Schema\Boolean::make('ownedThroughKiosk')
+                ->get(fn (SocialGroup $group, Context $context) => $group->membership_type === 'paid'
+                    && ! $context->getActor()->isGuest()
+                    && class_exists(\Ernestdefoe\Kiosk\Service\Access::class)
+                    && resolve(\Flarum\Extension\ExtensionManager::class)->isEnabled('ernestdefoe-kiosk')
+                    && resolve(\Ernestdefoe\Kiosk\Service\Access::class)->has($context->getActor(), 'social-group', (int) $group->id)),
+
             Schema\Integer::make('memberCount')
                 ->property('member_count'),
 

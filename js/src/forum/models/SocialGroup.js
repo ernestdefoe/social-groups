@@ -67,6 +67,10 @@ export default class SocialGroup extends Model {
     return this.attribute('membershipType') || 'open';
   }
 
+  ownedThroughKiosk() {
+    return this.attribute('ownedThroughKiosk') || false;
+  }
+
   isFeatured() {
     return this.attribute('isFeatured') || false;
   }

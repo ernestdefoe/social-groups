@@ -58,9 +58,18 @@ class Memberships
             throw new PermissionDeniedException($this->trans('invite_only'));
         }
 
-        // Joined by buying it (Kiosk adds the member); never by the Join button.
+        // Joined by buying it (Kiosk adds the member). Someone who bought it
+        // and left may come back with the Join button; nobody else may.
         if ($group->membership_type === 'paid') {
-            throw new PermissionDeniedException($this->trans('paid_only'));
+            if (! $this->bought($actor, $group)) {
+                throw new PermissionDeniedException($this->trans('paid_only'));
+            }
+
+            $group->members()->create(['user_id' => $actor->id, 'role' => 'member', 'joined_at' => Carbon::now(), 'added_by_kiosk' => true]);
+            $group->increment('member_count');
+            $this->access->flush();
+
+            return;
         }
 
         $conflict = $this->access->exclusiveConflict($actor, $group);
@@ -118,6 +127,16 @@ class Memberships
         if (! $switch) {
             throw new ValidationException(['exclusiveSet' => $this->trans('exclusive_conflict', $params)]);
         }
+    }
+
+    /** Whether Kiosk says this member holds the group now. Fails closed without Kiosk. */
+    private function bought(User $actor, SocialGroup $group): bool
+    {
+        if (! class_exists(\Ernestdefoe\Kiosk\Service\Access::class) || ! resolve(\Flarum\Extension\ExtensionManager::class)->isEnabled('ernestdefoe-kiosk')) {
+            return false;
+        }
+
+        return resolve(\Ernestdefoe\Kiosk\Service\Access::class)->has($actor, 'social-group', (int) $group->id);
     }
 
     /**
