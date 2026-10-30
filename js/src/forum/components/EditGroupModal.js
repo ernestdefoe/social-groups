@@ -116,6 +116,18 @@ export default class EditGroupModal extends Modal {
             }),
             m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_approval')),
           ]),
+          app.forum.attribute('socialGroupsKiosk') || this.membershipType() === 'paid'
+            ? m('label.GroupModal-membershipOption', [
+                m('input', {
+                  type: 'radio',
+                  name: 'edit_membership_type',
+                  value: 'paid',
+                  checked: this.membershipType() === 'paid',
+                  onchange: () => this.membershipType('paid'),
+                }),
+                m('span', app.translator.trans('ernestdefoe-social-groups.forum.create_modal.membership_type_paid')),
+              ])
+            : null,
         ]),
       ]),
 

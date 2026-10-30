@@ -1,4 +1,4 @@
-import { changeMembership, joinLabelKey } from '../utils/membership';
+import { changeMembership, isPaid, joinLabelKey } from '../utils/membership';
 import { hueShift } from '../utils/colors';
 import Component from 'flarum/common/Component';
 import Button from 'flarum/common/components/Button';
@@ -52,6 +52,9 @@ export default class GroupHero extends Component {
               isApproval
                 ? m('span', [m('i.fa-solid.fa-user-check'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.approval_required')])
                 : null,
+              isPaid(group)
+                ? m('span', [m('i.fa-solid.fa-cart-shopping'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.for_buyers')])
+                : null,
               group.exclusiveSet()
                 ? m('span', [
                     m('i.fa-solid.fa-right-left'),
@@ -96,6 +99,17 @@ export default class GroupHero extends Component {
   }
 
   renderMembershipButton(group, isMember, isApproval, isPending) {
+    if (!isMember && isPaid(group)) {
+      return m(
+        Button,
+        {
+          class: 'Button Button--primary',
+          onclick: () => document.getElementById('sg-kiosk-offer')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+        },
+        [m('i.fa-solid.fa-cart-shopping'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.buy_to_join')]
+      );
+    }
+
     if (isMember) {
       return m(
         Button,

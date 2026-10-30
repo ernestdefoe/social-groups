@@ -58,6 +58,11 @@ class Memberships
             throw new PermissionDeniedException($this->trans('invite_only'));
         }
 
+        // Joined by buying it (Kiosk adds the member); never by the Join button.
+        if ($group->membership_type === 'paid') {
+            throw new PermissionDeniedException($this->trans('paid_only'));
+        }
+
         $conflict = $this->access->exclusiveConflict($actor, $group);
         if ($conflict !== null) {
             $this->assertCanSwitch($conflict, $group, $switch);

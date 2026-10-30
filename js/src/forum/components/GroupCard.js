@@ -246,6 +246,21 @@ export default class GroupCard extends Component {
       );
     }
 
+    // Bought, not joined: the card sends them to the group's page and its offer.
+    if (group.membershipType() === 'paid') {
+      return m(
+        Button,
+        {
+          class: 'GroupCard-joinBtn Button Button--primary',
+          onclick: (e) => {
+            e.stopPropagation();
+            m.route.set(app.route('ernestdefoe-social-groups.show', { slug: group.slug() }));
+          },
+        },
+        [m('i.fa-solid.fa-cart-shopping'), ' ', app.translator.trans('ernestdefoe-social-groups.forum.groups.buy_to_join')]
+      );
+    }
+
     if (isApproval && this.isPending) {
       return m(
         Button,

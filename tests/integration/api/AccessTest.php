@@ -100,6 +100,18 @@ class AccessTest extends TestCase
     }
 
     #[Test]
+    public function a_paid_group_is_joined_by_buying_not_by_the_join_button()
+    {
+        $this->app();
+        $this->database()->table('social_groups')->where('id', 1)->update(['membership_type' => 'paid']);
+        $before = (int) $this->database()->table('social_groups')->where('id', 1)->value('member_count');
+
+        $this->assertSame(403, $this->json('POST', '/api/social-groups/1/join', 3)[0], 'outsider');
+        $this->assertFalse($this->database()->table('social_group_members')->where('group_id', 1)->where('user_id', 3)->exists());
+        $this->assertSame($before, (int) $this->database()->table('social_groups')->where('id', 1)->value('member_count'));
+    }
+
+    #[Test]
     public function a_global_moderator_runs_the_groups_tools()
     {
         $this->app();

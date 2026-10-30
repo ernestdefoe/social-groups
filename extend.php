@@ -108,4 +108,14 @@ return [
 
     (new Extend\ServiceProvider())
         ->register(SocialGroupsServiceProvider::class),
+
+    // Sell groups through Kiosk; see Kiosk\GroupUnlock.
+    (new Extend\Conditional())
+        ->whenExtensionEnabled('ernestdefoe-kiosk', fn () => [
+            new \Ernestdefoe\Kiosk\Extend\UnlockType('social-group', \Ernestdefoe\SocialGroups\Kiosk\GroupUnlock::class),
+        ]),
+
+    // Offer "people who buy it" in the group editor only when Kiosk can sell it.
+    (new Extend\Settings())
+        ->serializeToForum('socialGroupsKiosk', 'extensions_enabled', fn ($enabled) => in_array('ernestdefoe-kiosk', (array) json_decode((string) $enabled, true), true)),
 ];

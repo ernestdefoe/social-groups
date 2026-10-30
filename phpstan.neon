@@ -12,3 +12,8 @@ parameters:
         - extend.php
         - src
     databaseMigrationsPath: [migrations]
+    # Kiosk is optional and unreleased: its classes load only when it is enabled.
+    excludePaths:
+        - src/Kiosk
+    ignoreErrors:
+        - '#Ernestdefoe\\Kiosk\\#'

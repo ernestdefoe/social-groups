@@ -44,3 +44,26 @@ export function uploadGroupImage(groupId, slot, file) {
     return payload.data.attributes[slot === 'banner' ? 'bannerUrl' : 'imageUrl'];
   });
 }
+
+/** Joined by buying it through Kiosk, not with the Join button. */
+export function isPaid(group) {
+  return group.membershipType() === 'paid';
+}
+
+/**
+ * Kiosk's offer for this group, drawn by Kiosk's own component so every Buy
+ * button on the forum is the same. Null without Kiosk.
+ */
+export function kioskOffer(group) {
+  let LockedNotice = null;
+  try {
+    const mod = window.flarum && flarum.reg && flarum.reg.get('ernestdefoe-kiosk', 'forum/components/LockedNotice');
+    LockedNotice = mod && (mod.default || mod);
+  } catch (e) {
+    LockedNotice = null;
+  }
+
+  return LockedNotice
+    ? m('#sg-kiosk-offer.GroupPage-kioskOffer', m(LockedNotice, { type: 'social-group', id: Number(group.id()), name: group.name() }))
+    : null;
+}

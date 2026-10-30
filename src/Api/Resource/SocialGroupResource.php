@@ -189,7 +189,7 @@ class SocialGroupResource extends AbstractDatabaseResource
                 ->get(fn (SocialGroup $group) => $group->membership_type ?? 'open')
                 ->writable()
                 ->nullable()
-                ->in(['open', 'approval', 'invite']),
+                ->in(['open', 'approval', 'invite', 'paid']),
 
             Schema\Integer::make('memberCount')
                 ->property('member_count'),

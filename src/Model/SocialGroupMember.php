@@ -29,6 +29,7 @@ class SocialGroupMember extends AbstractModel
         'joined_at' => 'datetime',
         'banned_at' => 'datetime',
         'muted_at' => 'datetime',
+        'added_by_kiosk' => 'bool',
     ];
 
     /** @return BelongsTo<SocialGroup, $this> */

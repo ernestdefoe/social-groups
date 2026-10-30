@@ -1,6 +1,7 @@
 import app from 'flarum/forum/app';
 import Page from 'flarum/common/components/Page';
 import GroupHero from './GroupHero';
+import { isPaid, kioskOffer } from '../utils/membership';
 import GroupFeed from './GroupFeed';
 import GroupMediaGallery from './GroupMediaGallery';
 import GroupAnalyticsPanel from './GroupAnalyticsPanel';
@@ -56,6 +57,7 @@ export default class GroupPage extends Page {
       m(GroupHero, { group, onEdit: () => app.modal.show(EditGroupModal, { group }) }),
       m('.GroupPage-body', [
         m('.GroupPage-main', [
+          isPaid(group) && !group.isMember() && app.session.user ? kioskOffer(group) : null,
           m('.GroupPage-tabs', [
             this.tabButton('posts', 'fa-bars-staggered', 'group.tab_posts'),
             this.tabButton('media', 'fa-photo-film', 'group.tab_media'),
